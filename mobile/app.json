@@ -8,7 +8,8 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.bovecloset.closetai"
     },
     "android": {
       "package": "com.bovecloset.closetai",
@@ -40,6 +41,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "apiUrl": "http://localhost:5173"
     }
   }
 }

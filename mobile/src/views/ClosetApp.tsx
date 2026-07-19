@@ -2,18 +2,19 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { useClosetApp } from '@/controllers/use-closet-app';
 import { closetTheme } from '@/views/components/closet-theme';
+import { AccountScreen } from '@/views/screens/AccountScreen';
 import { AddItemScreen } from '@/views/screens/AddItemScreen';
 import { CalendarScreen } from '@/views/screens/CalendarScreen';
 import { DashboardScreen } from '@/views/screens/DashboardScreen';
 import { DiscoverScreen } from '@/views/screens/DiscoverScreen';
 import { HomeScreen } from '@/views/screens/HomeScreen';
 import { SplashScreen } from '@/views/screens/SplashScreen';
+import { TryOnScreen } from '@/views/screens/TryOnScreen';
 import { WardrobeScreen } from '@/views/screens/WardrobeScreen';
 
 export function ClosetApp() {
   const {
     activeCategory,
-    bodyProportions,
     goTo,
     measurements,
     screen,
@@ -27,10 +28,7 @@ export function ClosetApp() {
       {screen === 'home' && (
         <HomeScreen
           activeCategory={activeCategory}
-          bodyProportions={bodyProportions}
-          measurements={measurements}
           onCategoryChange={setActiveCategory}
-          onMeasurementChange={updateMeasurement}
           onNavigate={goTo}
         />
       )}
@@ -44,6 +42,14 @@ export function ClosetApp() {
       {screen === 'closet' && <WardrobeScreen mode="closet" onNavigate={goTo} />}
       {screen === 'wishlist' && <WardrobeScreen mode="wishlist" onNavigate={goTo} />}
       {screen === 'add' && <AddItemScreen onNavigate={goTo} />}
+      {screen === 'try-on' && <TryOnScreen onNavigate={goTo} />}
+      {screen === 'account' && (
+        <AccountScreen
+          measurements={measurements}
+          onMeasurementChange={updateMeasurement}
+          onNavigate={goTo}
+        />
+      )}
       {screen === 'discover' && <DiscoverScreen onNavigate={goTo} />}
       {screen === 'calendar' && <CalendarScreen onNavigate={goTo} />}
     </>

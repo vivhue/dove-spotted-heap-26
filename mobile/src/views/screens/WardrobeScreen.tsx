@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { categoryFilters, closetItems, ScreenId, wishlistItems } from '@/models/closet';
+import { categoryFilters, ScreenId } from '@/models/closet';
+import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
@@ -15,6 +16,7 @@ export function WardrobeScreen({
   onNavigate: (screen: ScreenId) => void;
 }) {
   const [activeFilter, setActiveFilter] = useState('All');
+  const { closetItems, selectedOutfit, toggleWornItem, wishlistItems } = useClosetStore();
   const items = mode === 'closet' ? closetItems : wishlistItems;
   const filteredItems = useMemo(() => {
     if (activeFilter === 'All' || activeFilter === '...') {
@@ -47,6 +49,13 @@ export function WardrobeScreen({
         </Pressable>
       </View>
 
+      {mode === 'closet' && (
+        <Pressable style={styles.tryOnButton} onPress={() => onNavigate('try-on')}>
+          <LineIcon name="✦" color={closetTheme.camelDeep} />
+          <Text style={styles.tryOnText}>Try it on</Text>
+        </Pressable>
+      )}
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {categoryFilters.map((filter) => (
           <Pressable
@@ -61,7 +70,12 @@ export function WardrobeScreen({
       <ScrollView contentContainerStyle={styles.grid}>
         {filteredItems.map((item) => (
           <View key={item.id} style={styles.cardWrap}>
-            <WardrobeCard item={item} showHeart={mode === 'closet'} />
+            <WardrobeCard
+              isWorn={mode === 'closet' && selectedOutfit[item.category] === item.id}
+              item={item}
+              onPress={mode === 'closet' ? () => toggleWornItem(item) : undefined}
+              showHeart={mode === 'closet'}
+            />
           </View>
         ))}
         {filteredItems.length === 0 && <Text style={styles.emptyText}>No items here yet.</Text>}
@@ -82,6 +96,25 @@ const styles = StyleSheet.create({
     marginHorizontal: 22,
     marginTop: 16,
     padding: 4,
+  },
+  tryOnButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 22,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  tryOnText: {
+    color: closetTheme.ink,
+    fontSize: 12,
+    fontWeight: '900',
   },
   toggleButton: {
     alignItems: 'center',

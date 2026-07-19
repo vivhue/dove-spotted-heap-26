@@ -1,6 +1,10 @@
 import { ClosetApp } from '@/views/ClosetApp';
+import { ClosetStoreProvider } from '@/stores/closet-store';
 
 export default function Home() {
-  return <ClosetApp />;
+  return (
+    <ClosetStoreProvider>
+      <ClosetApp />
+    </ClosetStoreProvider>
+  );
 }
-

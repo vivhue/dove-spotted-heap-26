@@ -1,23 +1,40 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { WardrobeItem } from '@/models/closet';
 import { closetTheme } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
-export function WardrobeCard({ item, showHeart = false }: { item: WardrobeItem; showHeart?: boolean }) {
+export function WardrobeCard({
+  isWorn = false,
+  item,
+  onPress,
+  showHeart = false,
+}: {
+  isWorn?: boolean;
+  item: WardrobeItem;
+  onPress?: () => void;
+  showHeart?: boolean;
+}) {
   const detail = item.price && item.source ? `${item.price} · ${item.source}` : labelFromCategory(item.category);
   const color = item.color ?? '#C2B49E';
   const accent = item.accent ?? closetTheme.camel;
 
   return (
-    <View style={styles.card}>
+    <Pressable
+      disabled={!onPress}
+      style={({ pressed }) => [styles.card, isWorn && styles.cardWorn, pressed && styles.cardPressed]}
+      onPress={onPress}>
       <View style={styles.thumb}>
         <View style={[styles.backdrop, { backgroundColor: `${accent}22` }]} />
-        <ClosetIcon category={item.category} color={color} accent={accent} size={54} />
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={styles.itemImage} resizeMode="contain" />
+        ) : (
+          <ClosetIcon category={item.category} color={color} accent={accent} size={54} />
+        )}
         {item.texture && <View style={[styles.textureBadge, textureStyle(item.texture)]} />}
         {showHeart && (
-          <View style={styles.heart}>
-            <LineIcon name="♡" color={closetTheme.camelDeep} />
+          <View style={[styles.heart, isWorn && styles.heartWorn]}>
+            <LineIcon name={isWorn ? "✓" : "♡"} color={isWorn ? closetTheme.cream : closetTheme.camelDeep} />
           </View>
         )}
       </View>
@@ -27,7 +44,7 @@ export function WardrobeCard({ item, showHeart = false }: { item: WardrobeItem; 
         </Text>
         <Text style={styles.price}>{detail}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -69,6 +86,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 14,
   },
+  cardPressed: {
+    opacity: 0.76,
+    transform: [{ scale: 0.98 }],
+  },
+  cardWorn: {
+    borderColor: closetTheme.camel,
+    borderWidth: 2,
+  },
   thumb: {
     alignItems: 'center',
     backgroundColor: closetTheme.creamDeep,
@@ -81,6 +106,10 @@ const styles = StyleSheet.create({
     height: 72,
     position: 'absolute',
     width: 72,
+  },
+  itemImage: {
+    height: 108,
+    width: '82%',
   },
   textureBadge: {
     borderColor: closetTheme.white,
@@ -102,6 +131,9 @@ const styles = StyleSheet.create({
     right: 8,
     top: 8,
     width: 28,
+  },
+  heartWorn: {
+    backgroundColor: closetTheme.camelDeep,
   },
   meta: {
     paddingHorizontal: 11,

@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { browseCategories, CategoryId, closetItems, ScreenId } from '@/models/closet';
+import { browseCategories, CategoryId, ScreenId } from '@/models/closet';
+import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export function DashboardScreen({ activeCategory, onCategoryChange, onNavigate }: Props) {
+  const { closetItems } = useClosetStore();
   const categoryItems = closetItems.filter((item) => item.category === activeCategory);
 
   return (
@@ -42,9 +44,9 @@ export function DashboardScreen({ activeCategory, onCategoryChange, onNavigate }
 
       <ScrollView contentContainerStyle={styles.grid}>
         {categoryItems.map((item) => (
-          <Pressable key={item.id} style={styles.cardWrap}>
+          <View key={item.id} style={styles.cardWrap}>
             <WardrobeCard item={item} />
-          </Pressable>
+          </View>
         ))}
       </ScrollView>
     </AppScreen>
