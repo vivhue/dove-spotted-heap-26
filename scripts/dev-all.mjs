@@ -19,6 +19,7 @@ const processes = [
     args: ["--prefix", "mobile", "run", "start"],
     cwd: process.cwd(),
     inheritStdio: true,
+    shell: process.platform === "win32",
   },
 ];
 
@@ -59,7 +60,7 @@ for (const config of processes) {
   const child = spawn(config.command, config.args, {
     cwd: config.cwd,
     env: process.env,
-    shell: process.platform === "win32",
+    shell: Boolean(config.shell),
     stdio: config.inheritStdio ? "inherit" : ["inherit", "pipe", "pipe"],
     windowsHide: false,
   });
