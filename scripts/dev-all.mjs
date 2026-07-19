@@ -59,7 +59,9 @@ for (const config of processes) {
   const child = spawn(config.command, config.args, {
     cwd: config.cwd,
     env: process.env,
+    shell: process.platform === "win32",
     stdio: config.inheritStdio ? "inherit" : ["inherit", "pipe", "pipe"],
+    windowsHide: false,
   });
 
   children.push(child);
