@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { categoryFilters, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
@@ -16,7 +16,7 @@ export function WardrobeScreen({
   onNavigate: (screen: ScreenId) => void;
 }) {
   const [activeFilter, setActiveFilter] = useState('All');
-  const { closetItems, selectedOutfit, toggleWornItem, wishlistItems } = useClosetStore();
+  const { closetItems, isLoadingItems, itemsError, selectedOutfit, toggleWornItem, wishlistItems } = useClosetStore();
   const items = mode === 'closet' ? closetItems : wishlistItems;
   const filteredItems = useMemo(() => {
     if (activeFilter === 'All' || activeFilter === '...') {
@@ -68,6 +68,13 @@ export function WardrobeScreen({
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.grid}>
+        {isLoadingItems && (
+          <View style={styles.emptyState}>
+            <ActivityIndicator color={closetTheme.camelDeep} />
+            <Text style={styles.emptyText}>Loading your saved items...</Text>
+          </View>
+        )}
+        {!isLoadingItems && itemsError && filteredItems.length === 0 && <Text style={styles.emptyText}>{itemsError}</Text>}
         {filteredItems.map((item) => (
           <View key={item.id} style={styles.cardWrap}>
             <WardrobeCard
@@ -78,7 +85,7 @@ export function WardrobeScreen({
             />
           </View>
         ))}
-        {filteredItems.length === 0 && <Text style={styles.emptyText}>No items here yet.</Text>}
+        {!isLoadingItems && !itemsError && filteredItems.length === 0 && <Text style={styles.emptyText}>No real items here yet. Tap + to upload one.</Text>}
       </ScrollView>
 
       <Pressable style={styles.fab} onPress={() => onNavigate('add')}>
@@ -174,6 +181,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     paddingTop: 28,
     textAlign: 'center',
+    width: '100%',
+  },
+  emptyState: {
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 28,
     width: '100%',
   },
   fab: {

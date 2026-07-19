@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { BodyMeasurements, ScreenId } from '@/models/closet';
+import { BodyMeasurements, currentUserDisplayName, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
@@ -46,7 +46,7 @@ export function AccountScreen({ measurements, onMeasurementChange, onNavigate }:
           </View>
 
           <View style={styles.profileMeta}>
-            <Text style={styles.name}>Aishani</Text>
+            <Text style={styles.name}>{currentUserDisplayName === 'there' ? 'Your profile' : currentUserDisplayName}</Text>
             <View style={styles.stats}>
               <Stat value="0" label="looks" />
               <Stat value="0" label="avatars" />

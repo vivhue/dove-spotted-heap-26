@@ -12,6 +12,7 @@ export type ScreenId =
 
 export type CategoryId = 'tops' | 'bottoms' | 'outerwear' | 'shoes' | 'accessories' | 'bags';
 export type WardrobeDestination = 'closet' | 'wishlist';
+export const currentUserDisplayName = 'there';
 
 export type WardrobeItem = {
   id: string;

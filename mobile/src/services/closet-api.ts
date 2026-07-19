@@ -23,17 +23,17 @@ type TryOnPayload = {
   garmentImageUrls?: string[];
   poseId?: string;
   productType?: string;
+  provider?: 'gemini' | 'photta';
   userId?: string;
 };
 
 type MannequinPayload = {
   image: ImageAsset;
+  provider?: 'gemini' | 'photta';
   userId?: string;
 };
 
-const apiBaseUrl =
-  (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
-  'http://localhost:5173';
+const apiBaseUrl = resolveApiBaseUrl();
 
 export async function createClosetItem({
   destination,
@@ -53,6 +53,14 @@ export async function createClosetItem({
   });
 
   return readJsonResponse<WardrobeItem>(response);
+}
+
+export async function getClosetItems(userId = 'demo-user') {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/closet-items?userId=${encodeURIComponent(userId)}`, {
+    method: 'GET',
+  });
+
+  return readJsonResponse<WardrobeItem[]>(response);
 }
 
 async function appendImageFile(formData: FormData, image: ImageAsset) {
@@ -98,6 +106,7 @@ export async function createTryOn({
   garmentImageUrls,
   poseId,
   productType,
+  provider,
   userId = 'demo-user',
 }: TryOnPayload) {
   const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/try-on`, {
@@ -108,6 +117,7 @@ export async function createTryOn({
       garmentImageUrls,
       poseId,
       productType,
+      provider,
       userId,
     }),
     headers: {
@@ -116,7 +126,7 @@ export async function createTryOn({
     method: 'POST',
   });
 
-  return readJsonResponse<{ generationId: string }>(response);
+  return readJsonResponse<{ generationId: string; outputUrl?: string; status?: string }>(response);
 }
 
 export async function getProfile(userId = 'demo-user') {
@@ -127,9 +137,12 @@ export async function getProfile(userId = 'demo-user') {
   return readJsonResponse<{ mannequinId: string | null; selfieImageUrl: string | null }>(response);
 }
 
-export async function setupMannequin({ image, userId = 'demo-user' }: MannequinPayload) {
+export async function setupMannequin({ image, provider, userId = 'demo-user' }: MannequinPayload) {
   const formData = new FormData();
   formData.append('userId', userId);
+  if (provider) {
+    formData.append('provider', provider);
+  }
   await appendImageFile(formData, image);
 
   const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/profile/mannequin`, {
@@ -151,8 +164,86 @@ export async function getTryOnStatus(generationId: string) {
 async function fetchWithBackendMessage(url: string, init: RequestInit) {
   try {
     return await fetch(url, init);
-  } catch (error) {
-    throw new Error(`Cannot reach the backend at ${apiBaseUrl}. Start it from the project root with npm run dev.`);
+  } catch {
+    throw new Error(`Cannot reach the backend at ${apiBaseUrl}. Start it from the project root with npm run dev, and keep your phone on the same Wi-Fi as this computer.`);
+  }
+}
+
+function resolveApiBaseUrl() {
+  const configuredUrl =
+    (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
+    'http://localhost:5173';
+
+  if (Platform.OS === 'web' || !isLocalhostUrl(configuredUrl)) {
+    return configuredUrl;
+  }
+
+  const expoHost = getExpoDevHost();
+
+  if (expoHost) {
+    return replaceUrlHost(configuredUrl, expoHost);
+  }
+
+  if (Platform.OS === 'android') {
+    return replaceUrlHost(configuredUrl, '10.0.2.2');
+  }
+
+  return configuredUrl;
+}
+
+function getExpoDevHost() {
+  const constants = Constants as typeof Constants & {
+    expoConfig?: { hostUri?: string | null };
+    linkingUri?: string | null;
+    manifest?: {
+      debuggerHost?: string | null;
+      hostUri?: string | null;
+    };
+    manifest2?: {
+      extra?: {
+        expoGo?: {
+          debuggerHost?: string | null;
+          hostUri?: string | null;
+        };
+      };
+    };
+  };
+  const hostUri =
+    constants.expoConfig?.hostUri ??
+    constants.manifest?.hostUri ??
+    constants.manifest?.debuggerHost ??
+    constants.manifest2?.extra?.expoGo?.hostUri ??
+    constants.manifest2?.extra?.expoGo?.debuggerHost ??
+    constants.linkingUri;
+
+  return extractHost(hostUri);
+}
+
+function isLocalhostUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return ['localhost', '127.0.0.1', '0.0.0.0'].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function replaceUrlHost(value: string, host: string) {
+  const url = new URL(value);
+  url.hostname = host;
+
+  return url.toString().replace(/\/$/, '');
+}
+
+function extractHost(value?: string | null) {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return value.replace(/^[a-z]+:\/\//i, '').split(':')[0];
   }
 }
 

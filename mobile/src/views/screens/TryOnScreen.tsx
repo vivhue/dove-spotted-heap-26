@@ -11,6 +11,8 @@ import { LineIcon } from '@/views/components/closet-icons';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
 const tryOnOrder: CategoryId[] = ['tops', 'bottoms', 'outerwear', 'shoes', 'accessories', 'bags'];
+const tryOnProvider = 'gemini';
+
 type TryOnJob = {
   garmentImageUrls: string[];
   label: string;
@@ -20,7 +22,6 @@ type TryOnJob = {
 
 export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
   const { closetItems, selectedOutfit, toggleWornItem } = useClosetStore();
-  const [mannequinId, setMannequinId] = useState('');
   const [basePhotoUrl, setBasePhotoUrl] = useState('');
   const [displayPhotoUrl, setDisplayPhotoUrl] = useState('');
   const [status, setStatus] = useState('Checking your model...');
@@ -51,10 +52,9 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
           return;
         }
 
-        setMannequinId(profile.mannequinId ?? '');
         setBasePhotoUrl(profile.selfieImageUrl ?? '');
         setDisplayPhotoUrl(profile.selfieImageUrl ?? '');
-        setStatus(profile.mannequinId ? 'Choose items, then tap Try it on.' : 'Take a full-body photo to see clothes on yourself.');
+        setStatus(profile.selfieImageUrl ? 'Choose items, then tap Try it on.' : 'Take a full-body photo to see clothes on yourself.');
       } catch (error) {
         if (isMounted) {
           setStatus(error instanceof Error ? error.message : 'Could not load your model.');
@@ -93,11 +93,10 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
 
     try {
       setIsSettingUp(true);
-      setStatus('Uploading your model to Photta...');
+      setStatus('Saving your model photo...');
       setDisplayPhotoUrl(result.assets[0].uri);
-      const model = await setupMannequin({ image: result.assets[0] });
+      const model = await setupMannequin({ image: result.assets[0], provider: tryOnProvider });
 
-      setMannequinId(model.mannequinId);
       setBasePhotoUrl(model.selfieImageUrl);
       setDisplayPhotoUrl(model.selfieImageUrl);
       setStatus('Model ready. Choose clothes, then tap Try it on.');
@@ -109,7 +108,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
   }
 
   async function tryOnSelectedOutfit() {
-    if (!mannequinId) {
+    if (!basePhotoUrl) {
       setStatus('Take a full-body photo to see clothes on yourself.');
       return;
     }
@@ -121,22 +120,23 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
 
     try {
       setIsGenerating(true);
-      setStatus('Dressing your photo...');
-      let currentBase = '';
+      setStatus('Creating Taobao-style try-on...');
+      let currentBase = basePhotoUrl;
       const jobs = buildTryOnJobs(selectedItems);
 
       for (let index = 0; index < jobs.length; index += 1) {
         const job = jobs[index];
 
-        setStatus(`Dressing your photo... ${index + 1}/${jobs.length}`);
-        const { generationId } = await createTryOn({
-          baseImageUrl: currentBase || undefined,
+        setStatus(`Creating Taobao-style try-on... ${index + 1}/${jobs.length}`);
+        const result = await createTryOn({
+          baseImageUrl: currentBase,
           category: job.primaryCategory,
           garmentImageUrl: job.garmentImageUrls[0],
           garmentImageUrls: job.garmentImageUrls,
           productType: job.productType,
+          provider: tryOnProvider,
         });
-        const outputUrl = await pollTryOn(generationId);
+        const outputUrl = result.outputUrl ?? await pollTryOn(result.generationId);
 
         currentBase = outputUrl;
         setDisplayPhotoUrl(outputUrl);
@@ -196,7 +196,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
             style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, isSettingUp && styles.disabled]}
             onPress={setupModel}>
             {isSettingUp ? <ActivityIndicator color={closetTheme.camelDeep} /> : <LineIcon name="▧" color={closetTheme.camelDeep} />}
-            <Text style={styles.secondaryText}>{mannequinId ? 'Retake photo' : 'Upload photo'}</Text>
+            <Text style={styles.secondaryText}>{basePhotoUrl ? 'Retake photo' : 'Upload photo'}</Text>
           </Pressable>
 
           <Pressable
@@ -204,7 +204,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
             style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, isGenerating && styles.disabled]}
             onPress={tryOnSelectedOutfit}>
             {isGenerating ? <ActivityIndicator color={closetTheme.cream} /> : <LineIcon name="✦" color={closetTheme.cream} />}
-            <Text style={styles.primaryText}>{isGenerating ? 'Dressing' : 'Try it on'}</Text>
+            <Text style={styles.primaryText}>{isGenerating ? 'Creating' : 'Try it on'}</Text>
           </Pressable>
         </View>
 

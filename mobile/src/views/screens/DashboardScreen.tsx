@@ -13,7 +13,7 @@ type Props = {
 };
 
 export function DashboardScreen({ activeCategory, onCategoryChange, onNavigate }: Props) {
-  const { closetItems } = useClosetStore();
+  const { closetItems, isLoadingItems, itemsError } = useClosetStore();
   const categoryItems = closetItems.filter((item) => item.category === activeCategory);
 
   return (
@@ -43,11 +43,16 @@ export function DashboardScreen({ activeCategory, onCategoryChange, onNavigate }
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.grid}>
+        {isLoadingItems && <Text style={styles.emptyText}>Loading your saved items...</Text>}
+        {!isLoadingItems && itemsError && <Text style={styles.emptyText}>{itemsError}</Text>}
         {categoryItems.map((item) => (
           <View key={item.id} style={styles.cardWrap}>
             <WardrobeCard item={item} />
           </View>
         ))}
+        {!isLoadingItems && !itemsError && categoryItems.length === 0 && (
+          <Text style={styles.emptyText}>No real items in this category yet.</Text>
+        )}
       </ScrollView>
     </AppScreen>
   );
@@ -90,5 +95,13 @@ const styles = StyleSheet.create({
   },
   cardWrap: {
     width: '47.8%',
+  },
+  emptyText: {
+    color: closetTheme.muted,
+    fontSize: 13,
+    fontWeight: '800',
+    paddingTop: 28,
+    textAlign: 'center',
+    width: '100%',
   },
 });
