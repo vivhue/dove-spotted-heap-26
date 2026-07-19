@@ -4,8 +4,10 @@
   "private": true,
   "description": "Local 3D avatar customizer prototype for BoveCloset.",
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js",
-    "check": "node --check server.js && node --check src/app.js"
+    "dev": "node scripts/dev-all.mjs",
+    "dev:server": "node --env-file=.env --experimental-strip-types server.ts",
+    "dev:mobile": "npm --prefix mobile run start",
+    "start": "node --env-file=.env --experimental-strip-types server.ts",
+    "check": "node --env-file=.env --experimental-strip-types -e \"require('./server.ts')\" && node --check src/app.js"
   }
 }

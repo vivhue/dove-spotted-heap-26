@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bove 3D Avatar Viewer</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        background: #202125;
+        color: #f7f4ef;
+      }
+
+      #viewer {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      .hud {
+        position: fixed;
+        left: 18px;
+        top: 18px;
+        display: grid;
+        gap: 8px;
+        max-width: min(360px, calc(100vw - 36px));
+        padding: 14px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 8px;
+        background: rgba(24, 25, 28, 0.78);
+        backdrop-filter: blur(16px);
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+      }
+
+      .title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .meta {
+        margin: 0;
+        color: rgba(247, 244, 239, 0.72);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .status {
+        color: #d9b08c;
+        font-size: 12px;
+        font-weight: 700;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/mobile/node_modules/three/build/three.module.js",
+          "three/addons/": "/mobile/node_modules/three/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas id="viewer" aria-label="Interactive 3D avatar preview"></canvas>
+    <div class="hud">
+      <p class="title">Hybrid avatar, cloth simulation pass</p>
+      <p class="meta">Drag to rotate. Scroll or pinch to zoom.</p>
+      <div class="status" id="status">Loading GLB...</div>
+    </div>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+      const canvas = document.getElementById('viewer');
+      const status = document.getElementById('status');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x202125);
+
+      const camera = new THREE.PerspectiveCamera(34, 1, 0.01, 100);
+      camera.position.set(0, 1.15, 4.2);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.enablePan = false;
+      controls.minDistance = 1.8;
+      controls.maxDistance = 6;
+      controls.target.set(0, 0.9, 0);
+
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x34343a, 1.7));
+
+      const key = new THREE.DirectionalLight(0xffffff, 2.8);
+      key.position.set(2.4, 4.2, 2.8);
+      scene.add(key);
+
+      const fill = new THREE.DirectionalLight(0xb9c7ff, 0.9);
+      fill.position.set(-3, 2, -2);
+      scene.add(fill);
+
+      const floor = new THREE.Mesh(
+        new THREE.CircleGeometry(1.4, 96),
+        new THREE.MeshBasicMaterial({ color: 0x15161a, transparent: true, opacity: 0.32 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -0.02;
+      scene.add(floor);
+
+      const loader = new GLTFLoader();
+      const params = new URLSearchParams(window.location.search);
+      const modelPath = params.get('model') || '/local-human-avatar-prototype/outputs/hybrid-ariana-cloth-sim.glb';
+
+      loader.load(
+        modelPath,
+        (gltf) => {
+          const model = gltf.scene;
+          scene.add(model);
+          frameObject(model);
+          status.textContent = 'Loaded. You can rotate it now.';
+        },
+        undefined,
+        (error) => {
+          console.error(error);
+          status.textContent = 'Could not load GLB. Check the server console.';
+        }
+      );
+
+      function frameObject(object) {
+        const box = new THREE.Box3().setFromObject(object);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+
+        object.position.x -= center.x;
+        object.position.y -= box.min.y;
+        object.position.z -= center.z;
+
+        const maxDimension = Math.max(size.x, size.y, size.z);
+        const distance = maxDimension / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+        camera.position.set(0, size.y * 0.56, distance * 1.5);
+        controls.target.set(0, size.y * 0.48, 0);
+        controls.update();
+      }
+
+      function resize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        renderer.setSize(width, height, false);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      }
+
+      function animate() {
+        resize();
+        controls.update();
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+      window.addEventListener('resize', resize);
+    </script>
+  </body>
+</html>
