@@ -6,6 +6,7 @@ export type ScreenId =
   | 'wishlist'
   | 'add'
   | 'try-on'
+  | 'trip-planner'
   | 'account'
   | 'discover'
   | 'calendar';
@@ -13,6 +14,13 @@ export type ScreenId =
 export type CategoryId = 'tops' | 'bottoms' | 'outerwear' | 'shoes' | 'accessories' | 'bags';
 export type WardrobeDestination = 'closet' | 'wishlist';
 export const currentUserDisplayName = 'there';
+
+export type ClosetAccount = {
+  id: string;
+  username: string;
+  password: string;
+  createdAt: string;
+};
 
 export type WardrobeItem = {
   id: string;
@@ -108,6 +116,7 @@ export const screenOrder: ScreenId[] = [
   'wishlist',
   'add',
   'try-on',
+  'trip-planner',
   'account',
   'discover',
   'calendar',

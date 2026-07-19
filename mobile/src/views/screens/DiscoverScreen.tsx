@@ -1,56 +1,72 @@
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { chatMessages, ScreenId } from '@/models/closet';
+import { ScreenId } from '@/models/closet';
+import { getClosetChatReply } from '@/services/closet-chatbot';
+import type { SelectedOutfit } from '@/stores/closet-store';
+import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 
 type ChatMessage = {
   id: string;
+  outfit?: Partial<SelectedOutfit>;
   role: 'bot' | 'user';
   text: string;
 };
 
 export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([...chatMessages]);
+  const { applyOutfit, closetItems, currentUser, wishlistItems } = useClosetStore();
+  const messageId = useRef(0);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'bot-intro',
+      role: 'bot',
+      text: 'Ask me what to wear, what colors you own most, or what style to try next.',
+    },
+  ]);
   const [draft, setDraft] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  function botReply(text: string) {
-    const lower = text.toLowerCase();
-
-    if (lower.includes('save')) {
-      return 'Saved this as a polished interview look. You can find it from saved looks in the calendar.';
-    }
-
-    if (lower.includes('shop')) {
-      return 'I found the closest wishlist match: the Wool Coat and Checkered Collar Shirt pairing.';
-    }
-
-    if (lower.includes('another') || lower.includes('try')) {
-      return 'Try the checkered shirt, wide bottoms, and black ankle boots. It keeps the look neat but softer.';
-    }
-
-    return 'I would start with your beige trench coat, white polo, and black ankle boots. Want me to save it or try another?';
+  function nextMessageId(prefix: string) {
+    messageId.current += 1;
+    return `${prefix}-${messageId.current}`;
   }
 
-  function sendMessage(text = draft) {
+  async function sendMessage(text = draft) {
     const trimmed = text.trim();
 
     if (!trimmed) {
       return;
     }
 
-    const nextMessages = [
-      ...messages,
-      { id: `user-${Date.now()}`, role: 'user' as const, text: trimmed },
-      { id: `bot-${Date.now()}`, role: 'bot' as const, text: botReply(trimmed) },
-    ];
+    const userMessage: ChatMessage = { id: nextMessageId('user'), role: 'user', text: trimmed };
 
-    setMessages(nextMessages);
+    setMessages((currentMessages) => [...currentMessages, userMessage]);
     setDraft('');
+    setIsThinking(true);
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+
+    const reply = await getClosetChatReply({
+      closetItems,
+      currentUser,
+      message: trimmed,
+      wishlistItems,
+    });
+
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      { id: nextMessageId('bot'), outfit: reply.outfit, role: 'bot', text: reply.text },
+    ]);
+    setIsThinking(false);
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  }
+
+  function useOutfit(outfit: Partial<SelectedOutfit>) {
+    applyOutfit(outfit);
+    onNavigate('try-on');
   }
 
   return (
@@ -58,17 +74,28 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.chatLog}>
         {messages.map((message) => {
           const isUser = message.role === 'user';
+          const hasOutfit = message.role === 'bot' && message.outfit && Object.keys(message.outfit).length > 0;
 
           return (
             <View key={message.id} style={[styles.bubble, isUser ? styles.userBubble : styles.botBubble]}>
               <Text style={[styles.bubbleText, isUser && styles.userText]}>{message.text}</Text>
+              {hasOutfit && (
+                <Pressable style={styles.useOutfitButton} onPress={() => useOutfit(message.outfit ?? {})}>
+                  <Text style={styles.useOutfitText}>Try this outfit</Text>
+                </Pressable>
+              )}
             </View>
           );
         })}
+        {isThinking && (
+          <View style={[styles.bubble, styles.botBubble]}>
+            <Text style={styles.bubbleText}>Checking your closet...</Text>
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.suggestions}>
-        {['Save outfit', 'Try another', 'Shop similar'].map((suggestion) => (
+        {['What should I wear today?', 'What colors do I own most?', 'What style should I try?'].map((suggestion) => (
           <Pressable key={suggestion} style={styles.suggestionChip} onPress={() => sendMessage(suggestion)}>
             <Text style={styles.suggestionText}>{suggestion}</Text>
           </Pressable>
@@ -77,7 +104,8 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
 
       <View style={styles.chatbar}>
         <TextInput
-          placeholder="Ask what to wear..."
+          editable={!isThinking}
+          placeholder={currentUser ? 'Ask what to wear...' : 'Create an account first...'}
           placeholderTextColor={closetTheme.muted}
           style={styles.input}
           value={draft}
@@ -85,7 +113,10 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
           onSubmitEditing={() => sendMessage()}
           returnKeyType="send"
         />
-        <Pressable style={({ pressed }) => [styles.send, pressed && styles.sendPressed]} onPress={() => sendMessage()}>
+        <Pressable
+          disabled={isThinking}
+          style={({ pressed }) => [styles.send, pressed && styles.sendPressed, isThinking && styles.sendDisabled]}
+          onPress={() => sendMessage()}>
           <LineIcon name="➤" color={closetTheme.camel} />
         </Pressable>
       </View>
@@ -123,6 +154,19 @@ const styles = StyleSheet.create({
   },
   userText: {
     color: closetTheme.cream,
+  },
+  useOutfitButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: closetTheme.ink,
+    borderRadius: 14,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  useOutfitText: {
+    color: closetTheme.cream,
+    fontSize: 11,
+    fontWeight: '900',
   },
   suggestions: {
     flexDirection: 'row',
@@ -171,5 +215,8 @@ const styles = StyleSheet.create({
   sendPressed: {
     opacity: 0.72,
     transform: [{ scale: 0.94 }],
+  },
+  sendDisabled: {
+    opacity: 0.5,
   },
 });

@@ -11,6 +11,7 @@ type ScreenProps = {
   title?: string;
   onNavigate: (screen: ScreenId) => void;
   activeTab?: ScreenId;
+  showBottomNav?: boolean;
   showStatus?: boolean;
 };
 
@@ -18,6 +19,7 @@ export function AppScreen({
   activeTab = 'home',
   children,
   onNavigate,
+  showBottomNav = true,
   showStatus = true,
   title,
 }: ScreenProps) {
@@ -31,7 +33,7 @@ export function AppScreen({
         </View>
       )}
       <View style={styles.body}>{children}</View>
-      <BottomNav activeTab={activeTab} onNavigate={onNavigate} />
+      {showBottomNav && <BottomNav activeTab={activeTab} onNavigate={onNavigate} />}
     </SafeAreaView>
   );
 }

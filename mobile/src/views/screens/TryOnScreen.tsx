@@ -21,7 +21,7 @@ type TryOnJob = {
 };
 
 export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const { closetItems, selectedOutfit, toggleWornItem } = useClosetStore();
+  const { closetItems, currentUser, selectedOutfit, toggleWornItem } = useClosetStore();
   const [basePhotoUrl, setBasePhotoUrl] = useState('');
   const [displayPhotoUrl, setDisplayPhotoUrl] = useState('');
   const [status, setStatus] = useState('Checking your model...');
@@ -45,8 +45,14 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
     let isMounted = true;
 
     async function loadProfile() {
+      if (!currentUser) {
+        setStatus('Create an account before setting up your model.');
+        setIsCheckingProfile(false);
+        return;
+      }
+
       try {
-        const profile = await getProfile();
+        const profile = await getProfile(currentUser.id);
 
         if (!isMounted) {
           return;
@@ -71,9 +77,14 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentUser]);
 
   async function setupModel() {
+    if (!currentUser) {
+      setStatus('Create an account before setting up your model.');
+      return;
+    }
+
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
@@ -95,7 +106,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
       setIsSettingUp(true);
       setStatus('Saving your model photo...');
       setDisplayPhotoUrl(result.assets[0].uri);
-      const model = await setupMannequin({ image: result.assets[0], provider: tryOnProvider });
+      const model = await setupMannequin({ image: result.assets[0], provider: tryOnProvider, userId: currentUser.id });
 
       setBasePhotoUrl(model.selfieImageUrl);
       setDisplayPhotoUrl(model.selfieImageUrl);
@@ -110,6 +121,11 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
   async function tryOnSelectedOutfit() {
     if (!basePhotoUrl) {
       setStatus('Take a full-body photo to see clothes on yourself.');
+      return;
+    }
+
+    if (!currentUser) {
+      setStatus('Create an account before trying on clothes.');
       return;
     }
 
@@ -135,6 +151,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
           garmentImageUrls: job.garmentImageUrls,
           productType: job.productType,
           provider: tryOnProvider,
+          userId: currentUser.id,
         });
         const outputUrl = result.outputUrl ?? await pollTryOn(result.generationId);
 

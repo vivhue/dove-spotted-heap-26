@@ -15,7 +15,7 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
   const [status, setStatus] = useState('Choose how to add your item.');
   const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const { addItem } = useClosetStore();
+  const { addItem, currentUser } = useClosetStore();
 
   async function pickImage(source: 'camera' | 'library') {
     const permission =
@@ -55,6 +55,11 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
       return;
     }
 
+    if (!currentUser) {
+      setStatus('Create an account before saving clothes.');
+      return;
+    }
+
     try {
       setIsSaving(true);
       setStatus('Cleaning, classifying, and saving...');
@@ -62,6 +67,7 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
         destination: destination === 'Closet' ? 'closet' : 'wishlist',
         image: selectedImage,
         tag: selectedTag === '+ Add' ? 'Custom' : selectedTag,
+        userId: currentUser.id,
       });
 
       addItem(item);
