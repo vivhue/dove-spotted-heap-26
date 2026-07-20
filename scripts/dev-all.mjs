@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import net from "node:net";
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const isWindows = process.platform === "win32";
+const npmCommand = "npm";
 const backendPort = Number(process.env.PORT || 5173);
 
 const processes = [
@@ -19,7 +20,6 @@ const processes = [
     args: ["--prefix", "mobile", "run", "start"],
     cwd: process.cwd(),
     inheritStdio: true,
-    shell: process.platform === "win32",
   },
 ];
 
@@ -57,16 +57,35 @@ function shutdown(signal) {
 await ensurePortAvailable(backendPort);
 
 for (const config of processes) {
-  const child = spawn(config.command, config.args, {
-    cwd: config.cwd,
-    env: process.env,
-    shell: Boolean(config.shell),
-    stdio: config.inheritStdio ? "inherit" : ["inherit", "pipe", "pipe"],
-    windowsHide: false,
-  });
+  const command = normalizeCommand(config.command, config.args);
+  let child;
+
+  try {
+    child = spawn(command.command, command.args, {
+      cwd: config.cwd,
+      env: process.env,
+      stdio: config.inheritStdio ? "inherit" : ["inherit", "pipe", "pipe"],
+      windowsHide: false,
+    });
+  } catch (error) {
+    process.stderr.write(`${config.color}[${config.name}]${reset} failed to start: ${error.message}\n`);
+    shutdown("SIGTERM");
+    process.exitCode = 1;
+    break;
+  }
 
   children.push(child);
   prefixOutput(config, process.stdout, `started: ${config.command} ${config.args.join(" ")}`);
+
+  child.on("error", (error) => {
+    if (shuttingDown) {
+      return;
+    }
+
+    process.stderr.write(`${config.color}[${config.name}]${reset} failed to start: ${error.message}\n`);
+    shutdown("SIGTERM");
+    process.exitCode = 1;
+  });
 
   if (child.stdout) {
     child.stdout.on("data", (data) => prefixOutput(config, process.stdout, data));
@@ -90,6 +109,31 @@ for (const config of processes) {
 
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+function normalizeCommand(command, args) {
+  if (!isWindows) {
+    return { command, args };
+  }
+
+  return {
+    command: "cmd.exe",
+    args: ["/d", "/s", "/c", quoteCommand(command, args)],
+  };
+}
+
+function quoteCommand(command, args) {
+  return [command, ...args].map(quoteShellArg).join(" ");
+}
+
+function quoteShellArg(value) {
+  const text = String(value);
+
+  if (!/[\s"&<>|^]/.test(text)) {
+    return text;
+  }
+
+  return `"${text.replace(/"/g, '\\"')}"`;
+}
 
 function ensurePortAvailable(port) {
   return new Promise((resolve) => {
