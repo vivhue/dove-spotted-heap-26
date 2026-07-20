@@ -1,0 +1,83 @@
+{
+  "_meta": {
+    "source_image": "local-human-avatar-prototype/pifuhd/sample_bove/ariana.png",
+    "image_width": 512,
+    "image_height": 768,
+    "method": "rembg_foreground_mask + silhouette_boxes + kmeans_dominant_color"
+  },
+  "hair": {
+    "rgb": [
+      24,
+      29,
+      41
+    ],
+    "hex": "#181d29",
+    "box": [
+      201,
+      52,
+      295,
+      158
+    ],
+    "pixels_used": 5154
+  },
+  "skin": {
+    "rgb": [
+      223,
+      169,
+      130
+    ],
+    "hex": "#dfa982",
+    "box": [
+      211,
+      105,
+      285,
+      224
+    ],
+    "pixels_used": 3502
+  },
+  "top": {
+    "rgb": [
+      244,
+      244,
+      243
+    ],
+    "hex": "#f4f4f3",
+    "box": [
+      164,
+      211,
+      332,
+      396
+    ],
+    "pixels_used": 20701
+  },
+  "bottom": {
+    "rgb": [
+      245,
+      246,
+      245
+    ],
+    "hex": "#f5f6f5",
+    "box": [
+      164,
+      383,
+      332,
+      569
+    ],
+    "pixels_used": 6969
+  },
+  "shoes": {
+    "rgb": [
+      4,
+      11,
+      29
+    ],
+    "hex": "#040b1d",
+    "box": [
+      144,
+      569,
+      352,
+      715
+    ],
+    "pixels_used": 1502
+  }
+}

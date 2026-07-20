@@ -1,22 +1,23 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { categoryFilters, ScreenId, WardrobeItem } from '@/models/closet';
+import { categoryFilters, ScreenId } from '@/models/closet';
+import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
 export function WardrobeScreen({
-  items,
   mode,
   onNavigate,
 }: {
-  items: WardrobeItem[];
   mode: 'closet' | 'wishlist';
   onNavigate: (screen: ScreenId) => void;
 }) {
   const [activeFilter, setActiveFilter] = useState('All');
+  const { closetItems, isLoadingItems, itemsError, selectedOutfit, toggleWornItem, wishlistItems } = useClosetStore();
+  const items = mode === 'closet' ? closetItems : wishlistItems;
   const filteredItems = useMemo(() => {
     if (activeFilter === 'All' || activeFilter === '...') {
       return items;
@@ -29,7 +30,6 @@ export function WardrobeScreen({
       if (category === 'outerwear') return item.category === 'outerwear';
       if (category === 'shoes') return item.category === 'shoes';
       if (category === 'accessories') return item.category === 'accessories';
-      if (category === 'bags') return item.category === 'bags';
       return true;
     });
   }, [activeFilter, items]);
@@ -49,6 +49,13 @@ export function WardrobeScreen({
         </Pressable>
       </View>
 
+      {mode === 'closet' && (
+        <Pressable style={styles.tryOnButton} onPress={() => onNavigate('try-on')}>
+          <LineIcon name="✦" color={closetTheme.camelDeep} />
+          <Text style={styles.tryOnText}>Try it on</Text>
+        </Pressable>
+      )}
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {categoryFilters.map((filter) => (
           <Pressable
@@ -61,12 +68,24 @@ export function WardrobeScreen({
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.grid}>
+        {isLoadingItems && (
+          <View style={styles.emptyState}>
+            <ActivityIndicator color={closetTheme.camelDeep} />
+            <Text style={styles.emptyText}>Loading your saved items...</Text>
+          </View>
+        )}
+        {!isLoadingItems && itemsError && filteredItems.length === 0 && <Text style={styles.emptyText}>{itemsError}</Text>}
         {filteredItems.map((item) => (
           <View key={item.id} style={styles.cardWrap}>
-            <WardrobeCard item={item} showHeart={mode === 'closet'} />
+            <WardrobeCard
+              isWorn={mode === 'closet' && selectedOutfit[item.category] === item.id}
+              item={item}
+              onPress={mode === 'closet' ? () => toggleWornItem(item) : undefined}
+              showHeart={mode === 'closet'}
+            />
           </View>
         ))}
-        {filteredItems.length === 0 && <Text style={styles.emptyText}>No items here yet.</Text>}
+        {!isLoadingItems && !itemsError && filteredItems.length === 0 && <Text style={styles.emptyText}>No real items here yet. Tap + to upload one.</Text>}
       </ScrollView>
 
       <Pressable style={styles.fab} onPress={() => onNavigate('add')}>
@@ -84,6 +103,25 @@ const styles = StyleSheet.create({
     marginHorizontal: 22,
     marginTop: 16,
     padding: 4,
+  },
+  tryOnButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 22,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  tryOnText: {
+    color: closetTheme.ink,
+    fontSize: 12,
+    fontWeight: '900',
   },
   toggleButton: {
     alignItems: 'center',
@@ -143,6 +181,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     paddingTop: 28,
     textAlign: 'center',
+    width: '100%',
+  },
+  emptyState: {
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 28,
     width: '100%',
   },
   fab: {

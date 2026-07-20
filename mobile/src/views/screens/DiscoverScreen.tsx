@@ -1,47 +1,72 @@
 import { useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { chatMessages, InventoryState, ScreenId, WardrobeItem } from '@/models/closet';
+import { ScreenId } from '@/models/closet';
+import { getClosetChatReply } from '@/services/closet-chatbot';
+import type { SelectedOutfit } from '@/stores/closet-store';
+import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
-import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
-import { buildReply, buildStyleRecommendation, StyleRecommendation } from '@/services/stylist';
+import { LineIcon } from '@/views/components/closet-icons';
 
 type ChatMessage = {
   id: string;
+  outfit?: Partial<SelectedOutfit>;
   role: 'bot' | 'user';
   text: string;
-  recommendation?: StyleRecommendation;
 };
 
-export function DiscoverScreen({
-  inventory,
-  onNavigate,
-}: {
-  inventory: InventoryState;
-  onNavigate: (screen: ScreenId) => void;
-}) {
-  const [messages, setMessages] = useState<ChatMessage[]>([...chatMessages]);
+export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
+  const { applyOutfit, closetItems, currentUser, wishlistItems } = useClosetStore();
+  const messageId = useRef(0);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'bot-intro',
+      role: 'bot',
+      text: 'Ask me what to wear, what colors you own most, or what style to try next.',
+    },
+  ]);
   const [draft, setDraft] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  function sendMessage(text = draft) {
+  function nextMessageId(prefix: string) {
+    messageId.current += 1;
+    return `${prefix}-${messageId.current}`;
+  }
+
+  async function sendMessage(text = draft) {
     const trimmed = text.trim();
 
     if (!trimmed) {
       return;
     }
 
-    const recommendation = buildStyleRecommendation(trimmed, inventory);
-    const nextMessages = [
-      ...messages,
-      { id: `user-${Date.now()}`, role: 'user' as const, text: trimmed },
-      { id: `bot-${Date.now()}`, role: 'bot' as const, text: buildReply(trimmed, recommendation), recommendation },
-    ];
+    const userMessage: ChatMessage = { id: nextMessageId('user'), role: 'user', text: trimmed };
 
-    setMessages(nextMessages);
+    setMessages((currentMessages) => [...currentMessages, userMessage]);
     setDraft('');
+    setIsThinking(true);
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+
+    const reply = await getClosetChatReply({
+      closetItems,
+      currentUser,
+      message: trimmed,
+      wishlistItems,
+    });
+
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      { id: nextMessageId('bot'), outfit: reply.outfit, role: 'bot', text: reply.text },
+    ]);
+    setIsThinking(false);
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  }
+
+  function useOutfit(outfit: Partial<SelectedOutfit>) {
+    applyOutfit(outfit);
+    onNavigate('try-on');
   }
 
   return (
@@ -49,25 +74,28 @@ export function DiscoverScreen({
       <ScrollView ref={scrollRef} contentContainerStyle={styles.chatLog}>
         {messages.map((message) => {
           const isUser = message.role === 'user';
+          const hasOutfit = message.role === 'bot' && message.outfit && Object.keys(message.outfit).length > 0;
 
           return (
             <View key={message.id} style={[styles.bubble, isUser ? styles.userBubble : styles.botBubble]}>
               <Text style={[styles.bubbleText, isUser && styles.userText]}>{message.text}</Text>
-              {message.recommendation && message.recommendation.showPanel !== false && (
-                <RecommendationPanel recommendation={message.recommendation} />
+              {hasOutfit && (
+                <Pressable style={styles.useOutfitButton} onPress={() => useOutfit(message.outfit ?? {})}>
+                  <Text style={styles.useOutfitText}>Try this outfit</Text>
+                </Pressable>
               )}
             </View>
           );
         })}
+        {isThinking && (
+          <View style={[styles.bubble, styles.botBubble]}>
+            <Text style={styles.bubbleText}>Checking your closet...</Text>
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.suggestions}>
-        {[
-          'What should I wear for presentations?',
-          'What should I wear for an interview?',
-          'Make it more casual',
-          'Show me something to buy',
-        ].map((suggestion) => (
+        {['What should I wear today?', 'What colors do I own most?', 'What style should I try?'].map((suggestion) => (
           <Pressable key={suggestion} style={styles.suggestionChip} onPress={() => sendMessage(suggestion)}>
             <Text style={styles.suggestionText}>{suggestion}</Text>
           </Pressable>
@@ -76,7 +104,8 @@ export function DiscoverScreen({
 
       <View style={styles.chatbar}>
         <TextInput
-          placeholder="Ask what to wear..."
+          editable={!isThinking}
+          placeholder={currentUser ? 'Ask what to wear...' : 'Create an account first...'}
           placeholderTextColor={closetTheme.muted}
           style={styles.input}
           value={draft}
@@ -84,72 +113,14 @@ export function DiscoverScreen({
           onSubmitEditing={() => sendMessage()}
           returnKeyType="send"
         />
-        <Pressable style={({ pressed }) => [styles.send, pressed && styles.sendPressed]} onPress={() => sendMessage()}>
+        <Pressable
+          disabled={isThinking}
+          style={({ pressed }) => [styles.send, pressed && styles.sendPressed, isThinking && styles.sendDisabled]}
+          onPress={() => sendMessage()}>
           <LineIcon name="➤" color={closetTheme.camel} />
         </Pressable>
       </View>
     </AppScreen>
-  );
-}
-
-function RecommendationPanel({ recommendation }: { recommendation: StyleRecommendation }) {
-  return (
-    <View style={styles.recommendation}>
-      <View style={styles.recoHeader}>
-        <Text style={styles.recoTitle}>{recommendation.title}</Text>
-        <Text style={styles.recoMode}>{recommendation.mode}</Text>
-      </View>
-      <Text style={styles.recoSummary}>{recommendation.summary}</Text>
-        {recommendation.outfit.length > 0 && (
-        <>
-          <Text style={styles.sectionLabel}>Wear from your closet</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.itemRow}>
-            {recommendation.outfit.map((item) => (
-              <CompactItemCard key={item.id} item={item} />
-            ))}
-          </ScrollView>
-        </>
-      )}
-      {recommendation.fallback.length > 0 && (
-        <>
-          <Text style={styles.sectionLabel}>If you need to buy</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.itemRow}>
-            {recommendation.fallback.map((item) => (
-              <CompactItemCard key={item.id} item={item} isWishlist />
-            ))}
-          </ScrollView>
-        </>
-      )}
-      <View style={styles.tipStack}>
-        {recommendation.tips.map((tip, index) => (
-          <View key={`${tip}-${index}`} style={styles.tipPill}>
-            <Text style={styles.tipText}>{tip}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function CompactItemCard({ item, isWishlist = false }: { item: WardrobeItem; isWishlist?: boolean }) {
-  const accent = item.accent ?? closetTheme.camel;
-  const color = item.color ?? closetTheme.ink;
-
-  return (
-    <View style={styles.itemCard}>
-      <View style={styles.itemThumb}>
-        <View style={[styles.itemBackdrop, { backgroundColor: `${accent}22` }]} />
-        {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={styles.itemImage} resizeMode="cover" />
-        ) : (
-          <ClosetIcon category={item.category} color={color} accent={accent} size={28} />
-        )}
-      </View>
-      <Text numberOfLines={2} style={styles.itemName}>
-        {item.name}
-      </Text>
-      {isWishlist && <Text style={styles.itemMeta}>{item.price ?? item.category}</Text>}
-    </View>
   );
 }
 
@@ -184,106 +155,18 @@ const styles = StyleSheet.create({
   userText: {
     color: closetTheme.cream,
   },
-  recommendation: {
-    borderTopColor: 'rgba(255,255,255,0.22)',
-    borderTopWidth: 1,
-    gap: 10,
-    marginTop: 12,
-    paddingTop: 12,
-  },
-  recoHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  recoTitle: {
-    color: closetTheme.ink,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  recoMode: {
-    color: closetTheme.camelDeep,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  recoSummary: {
-    color: closetTheme.muted,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  recoBasis: {
-    color: closetTheme.camelDeep,
-    fontSize: 11,
-    fontWeight: '800',
-    lineHeight: 16,
-  },
-  sectionLabel: {
-    color: closetTheme.camelDeep,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  itemRow: {
-    gap: 10,
-    paddingRight: 4,
-  },
-  itemCard: {
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
+  useOutfitButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: closetTheme.ink,
     borderRadius: 14,
-    borderWidth: 1,
-    padding: 8,
-    width: 96,
-  },
-  itemThumb: {
-    alignItems: 'center',
-    borderRadius: 12,
-    height: 68,
-    justifyContent: 'center',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  itemBackdrop: {
-    borderRadius: 20,
-    height: 48,
-    position: 'absolute',
-    width: 48,
-  },
-  itemImage: {
-    borderRadius: 12,
-    height: 58,
-    width: 58,
-  },
-  itemName: {
-    color: closetTheme.ink,
-    fontSize: 10,
-    fontWeight: '800',
-    marginTop: 6,
-    minHeight: 24,
-  },
-  itemMeta: {
-    color: closetTheme.muted,
-    fontSize: 9,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  tipStack: {
-    gap: 6,
-  },
-  tipPill: {
-    backgroundColor: closetTheme.creamDeep,
-    borderRadius: 12,
-    paddingHorizontal: 10,
+    marginTop: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  tipText: {
-    color: closetTheme.ink,
+  useOutfitText: {
+    color: closetTheme.cream,
     fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 15,
+    fontWeight: '900',
   },
   suggestions: {
     flexDirection: 'row',
@@ -332,5 +215,8 @@ const styles = StyleSheet.create({
   sendPressed: {
     opacity: 0.72,
     transform: [{ scale: 0.94 }],
+  },
+  sendDisabled: {
+    opacity: 0.5,
   },
 });

@@ -11,6 +11,7 @@ type ScreenProps = {
   title?: string;
   onNavigate: (screen: ScreenId) => void;
   activeTab?: ScreenId;
+  showBottomNav?: boolean;
   showStatus?: boolean;
 };
 
@@ -18,6 +19,7 @@ export function AppScreen({
   activeTab = 'home',
   children,
   onNavigate,
+  showBottomNav = true,
   showStatus = true,
   title,
 }: ScreenProps) {
@@ -27,11 +29,11 @@ export function AppScreen({
       {title && (
         <View style={styles.pageHead}>
           <Text style={styles.pageTitle}>{title}</Text>
-          <AvatarButton />
+          <AvatarButton onPress={() => onNavigate('account')} />
         </View>
       )}
       <View style={styles.body}>{children}</View>
-      <BottomNav activeTab={activeTab} onNavigate={onNavigate} />
+      {showBottomNav && <BottomNav activeTab={activeTab} onNavigate={onNavigate} />}
     </SafeAreaView>
   );
 }
@@ -45,11 +47,11 @@ export function StatusRow() {
   );
 }
 
-export function AvatarButton() {
+export function AvatarButton({ onPress }: { onPress?: () => void }) {
   return (
-    <View style={styles.avatar}>
+    <Pressable disabled={!onPress} onPress={onPress} style={styles.avatar}>
       <LineIcon name="u" color={closetTheme.cream} />
-    </View>
+    </Pressable>
   );
 }
 
@@ -65,6 +67,7 @@ export function BottomNav({
     { id: 'discover', icon: <LineIcon name="✦" /> },
     { id: 'add', icon: <LineIcon name="+" /> },
     { id: 'closet', icon: <ClosetIcon size={25} /> },
+    { id: 'account', icon: <LineIcon name="u" /> },
   ];
 
   return (
@@ -183,4 +186,3 @@ const styles = StyleSheet.create({
     color: closetTheme.cream,
   },
 });
-

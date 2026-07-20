@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mock 3D Job</title>
+    <style>
+      body {
+        background: #f6f1e8;
+        color: #2b2118;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 40px;
+      }
+
+      main {
+        background: #fffdf9;
+        border: 1px solid #dfd2bf;
+        border-radius: 8px;
+        max-width: 620px;
+        padding: 28px;
+      }
+
+      h1 {
+        font-family: Georgia, serif;
+        margin-top: 0;
+      }
+
+      pre {
+        background: #2b2118;
+        border-radius: 8px;
+        color: #fff8ea;
+        overflow: auto;
+        padding: 16px;
+      }
+
+      a {
+        color: #8b5f32;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Mock 3D Job Created</h1>
+      <pre>{{ result | tojson(indent=2) }}</pre>
+      {% if result.modelUrl %}
+        <p>
+          <a href="{{ result.modelUrl }}" download>Download GLB file</a>
+        </p>
+      {% endif %}
+      <a href="/">Upload another image</a>
+    </main>
+  </body>
+</html>

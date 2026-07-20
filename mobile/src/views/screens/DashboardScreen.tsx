@@ -1,19 +1,20 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { browseCategories, CategoryId, ScreenId, WardrobeItem } from '@/models/closet';
+import { browseCategories, CategoryId, ScreenId } from '@/models/closet';
+import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
 type Props = {
   activeCategory: CategoryId;
-  items: WardrobeItem[];
   onCategoryChange: (category: CategoryId) => void;
   onNavigate: (screen: ScreenId) => void;
 };
 
-export function DashboardScreen({ activeCategory, items, onCategoryChange, onNavigate }: Props) {
-  const categoryItems = items.filter((item) => item.category === activeCategory);
+export function DashboardScreen({ activeCategory, onCategoryChange, onNavigate }: Props) {
+  const { closetItems, isLoadingItems, itemsError } = useClosetStore();
+  const categoryItems = closetItems.filter((item) => item.category === activeCategory);
 
   return (
     <AppScreen activeTab="home" onNavigate={onNavigate} title="Browse">
@@ -42,11 +43,16 @@ export function DashboardScreen({ activeCategory, items, onCategoryChange, onNav
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.grid}>
+        {isLoadingItems && <Text style={styles.emptyText}>Loading your saved items...</Text>}
+        {!isLoadingItems && itemsError && <Text style={styles.emptyText}>{itemsError}</Text>}
         {categoryItems.map((item) => (
-          <Pressable key={item.id} style={styles.cardWrap}>
+          <View key={item.id} style={styles.cardWrap}>
             <WardrobeCard item={item} />
-          </Pressable>
+          </View>
         ))}
+        {!isLoadingItems && !itemsError && categoryItems.length === 0 && (
+          <Text style={styles.emptyText}>No real items in this category yet.</Text>
+        )}
       </ScrollView>
     </AppScreen>
   );
@@ -89,5 +95,13 @@ const styles = StyleSheet.create({
   },
   cardWrap: {
     width: '47.8%',
+  },
+  emptyText: {
+    color: closetTheme.muted,
+    fontSize: 13,
+    fontWeight: '800',
+    paddingTop: 28,
+    textAlign: 'center',
+    width: '100%',
   },
 });

@@ -70,6 +70,22 @@ export function LineIcon({ name, color = closetTheme.ink }: { name: string; colo
   return <Text style={[styles.lineIcon, { color }]}>{name}</Text>;
 }
 
+export function CalendarIcon({ color = closetTheme.ink, size = 22 }: { color?: string; size?: number }) {
+  const stroke = Math.max(2, Math.round(size * 0.12));
+
+  return (
+    <View style={[styles.calendarIcon, { borderColor: color, borderRadius: size * 0.18, borderWidth: stroke, height: size, width: size }]}>
+      <View style={[styles.calendarBindingRow, { top: -stroke * 1.4, paddingHorizontal: size * 0.22 }]}>
+        {[0, 1].map((binding) => (
+          <View key={binding} style={{ backgroundColor: color, borderRadius: stroke, height: size * 0.26, width: stroke * 1.2 }} />
+        ))}
+      </View>
+      <View style={[styles.calendarDivider, { backgroundColor: color, height: stroke, top: size * 0.28 }]} />
+      <Text style={[styles.calendarDate, { color, fontSize: size * 0.42, lineHeight: size * 0.5, marginTop: size * 0.34 }]}>7</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   iconBox: {
     alignItems: 'center',
@@ -170,5 +186,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     lineHeight: 22,
+  },
+  calendarIcon: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    overflow: 'visible',
+    position: 'relative',
+  },
+  calendarBindingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    zIndex: 2,
+  },
+  calendarDivider: {
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
+  calendarDate: {
+    fontWeight: '900',
+    textAlign: 'center',
   },
 });

@@ -28,6 +28,8 @@ export function SplashScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =>
   const tapOpacity = intro.interpolate({ inputRange: [0.78, 1], outputRange: [0, 1], extrapolate: 'clamp' });
   const wordLift = intro.interpolate({ inputRange: [0.45, 0.7], outputRange: [10, 0], extrapolate: 'clamp' });
   const tapPulse = float.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] });
+  const hangerBodySway = float.interpolate({ inputRange: [0, 1], outputRange: [-4, 4] });
+  const hangerBodyRotate = float.interpolate({ inputRange: [0, 1], outputRange: ['-1.4deg', '1.4deg'] });
 
   return (
     <Pressable style={styles.screen} onPress={() => onNavigate('home')}>
@@ -72,7 +74,7 @@ export function SplashScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =>
               ],
             },
           ]}>
-          <HangerMark />
+          <HangerMark bodyRotate={hangerBodyRotate} bodySway={hangerBodySway} />
         </Animated.View>
         <Animated.Text style={[styles.word, { opacity: wordOpacity, transform: [{ translateY: wordLift }] }]}>
           bove closet
@@ -90,23 +92,138 @@ export function SplashScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =>
   );
 }
 
-function HangerMark() {
+function HangerMark({
+  bodyRotate,
+  bodySway,
+}: {
+  bodyRotate: Animated.AnimatedInterpolation<string>;
+  bodySway: Animated.AnimatedInterpolation<number>;
+}) {
   return (
     <View style={styles.logoTile}>
       <View style={styles.hanger}>
-        <View style={styles.hookArc} />
-        <View style={styles.hookStem} />
-        <View style={styles.neckDot} />
-        <View style={styles.hangerJoint} />
-        <View style={styles.hangerLeftArm} />
-        <View style={styles.hangerRightArm} />
-        <View style={styles.hangerBottomRail} />
-        <View style={styles.hangerPegLeft} />
-        <View style={styles.hangerPegRight} />
+        {hookBlocks.map((block) => (
+          <View
+            key={`hook-${block.x}-${block.y}-${block.w ?? 1}`}
+            style={[
+              styles.pixelBlock,
+              {
+                height: hangerPixelSize,
+                left: block.x * hangerPixelSize,
+                top: block.y * hangerPixelSize,
+                width: (block.w ?? 1) * hangerPixelSize,
+              },
+            ]}
+          />
+        ))}
+        <Animated.View
+          style={[
+            styles.hangerBody,
+            {
+              transform: [{ translateY: -66 }, { translateX: bodySway }, { rotate: bodyRotate }, { translateY: 66 }],
+            },
+          ]}>
+          {bodyBlocks.map((block) => (
+            <View
+              key={`body-${block.x}-${block.y}-${block.w ?? 1}`}
+              style={[
+                styles.pixelBlock,
+                {
+                  height: hangerPixelSize,
+                  left: block.x * hangerPixelSize,
+                  opacity: block.opacity ?? 1,
+                  top: block.y * hangerPixelSize,
+                  width: (block.w ?? 1) * hangerPixelSize,
+                },
+              ]}
+            />
+          ))}
+        </Animated.View>
       </View>
     </View>
   );
 }
+
+const hangerPixelSize = 6;
+
+const hookBlocks: { w?: number; x: number; y: number }[] = [
+  { x: 17, y: 0, w: 5 },
+  { x: 17, y: 1 },
+  { x: 21, y: 1 },
+  { x: 17, y: 2 },
+  { x: 21, y: 2 },
+  { x: 16, y: 3 },
+  { x: 17, y: 3 },
+  { x: 16, y: 4 },
+  { x: 17, y: 4 },
+  { x: 17, y: 5 },
+  { x: 17, y: 6 },
+];
+
+const bodyBlocks: { opacity?: number; w?: number; x: number; y: number }[] = [
+  { x: 15, y: 7, w: 7 },
+  { x: 14, y: 8, w: 9 },
+  { x: 14, y: 9, w: 3 },
+  { x: 20, y: 9, w: 3 },
+  { x: 15, y: 10 },
+  { x: 21, y: 10 },
+  { x: 14, y: 11 },
+  { x: 15, y: 11 },
+  { x: 21, y: 11 },
+  { x: 22, y: 11 },
+  { x: 13, y: 12 },
+  { x: 14, y: 12 },
+  { x: 22, y: 12 },
+  { x: 23, y: 12 },
+  { x: 12, y: 13 },
+  { x: 13, y: 13 },
+  { x: 23, y: 13 },
+  { x: 24, y: 13 },
+  { x: 11, y: 14 },
+  { x: 12, y: 14 },
+  { x: 24, y: 14 },
+  { x: 25, y: 14 },
+  { x: 10, y: 15 },
+  { x: 11, y: 15 },
+  { x: 25, y: 15 },
+  { x: 26, y: 15 },
+  { x: 9, y: 16 },
+  { x: 10, y: 16 },
+  { x: 26, y: 16 },
+  { x: 27, y: 16 },
+  { x: 8, y: 17 },
+  { x: 9, y: 17 },
+  { x: 27, y: 17 },
+  { x: 28, y: 17 },
+  { x: 7, y: 18 },
+  { x: 8, y: 18 },
+  { x: 28, y: 18 },
+  { x: 29, y: 18 },
+  { x: 6, y: 19 },
+  { x: 7, y: 19 },
+  { x: 29, y: 19 },
+  { x: 30, y: 19 },
+  { x: 5, y: 20 },
+  { x: 6, y: 20 },
+  { x: 30, y: 20 },
+  { x: 31, y: 20 },
+  { x: 4, y: 21 },
+  { x: 5, y: 21 },
+  { x: 31, y: 21 },
+  { x: 32, y: 21 },
+  { x: 3, y: 22 },
+  { x: 4, y: 22 },
+  { x: 32, y: 22 },
+  { x: 33, y: 22 },
+  { x: 2, y: 23, w: 34, opacity: 0.88 },
+  { x: 1, y: 24, w: 36, opacity: 0.62 },
+  { x: 0, y: 23, w: 3 },
+  { x: 35, y: 23, w: 3 },
+  { x: 0, y: 24 },
+  { x: 37, y: 24 },
+  { x: 0, y: 25 },
+  { x: 37, y: 25 },
+];
 
 const styles = StyleSheet.create({
   screen: {
@@ -227,107 +344,27 @@ const styles = StyleSheet.create({
   },
   logoTile: {
     alignItems: 'center',
-    backgroundColor: 'rgba(17, 14, 25, 0.32)',
-    height: 124,
+    height: 182,
     justifyContent: 'center',
-    width: 144,
+    width: 252,
   },
   hanger: {
-    height: 116,
+    height: 156,
     position: 'relative',
-    width: 132,
+    width: 228,
   },
-  hookArc: {
-    borderBottomColor: 'transparent',
-    borderBottomWidth: 0,
-    borderColor: closetTheme.camel,
-    borderLeftWidth: 6,
-    borderRadius: 24,
-    borderRightWidth: 6,
-    borderTopWidth: 6,
-    height: 42,
-    left: 51,
+  hangerBody: {
+    height: 156,
+    left: 0,
     position: 'absolute',
     top: 0,
-    transform: [{ rotate: '18deg' }],
-    width: 42,
+    width: 228,
   },
-  hookStem: {
+  pixelBlock: {
     backgroundColor: closetTheme.camel,
-    borderRadius: 4,
-    height: 24,
-    left: 64,
+    borderColor: 'rgba(247, 241, 231, 0.28)',
+    borderWidth: 1,
     position: 'absolute',
-    top: 48,
-    width: 8,
-  },
-  neckDot: {
-    backgroundColor: closetTheme.camel,
-    borderRadius: 8,
-    height: 16,
-    left: 60,
-    position: 'absolute',
-    top: 65,
-    width: 16,
-  },
-  hangerJoint: {
-    backgroundColor: closetTheme.camel,
-    borderRadius: 6,
-    height: 11,
-    left: 58,
-    position: 'absolute',
-    top: 78,
-    transform: [{ rotate: '45deg' }],
-    width: 20,
-  },
-  hangerLeftArm: {
-    backgroundColor: closetTheme.camel,
-    borderRadius: 5,
-    height: 7,
-    left: 4,
-    position: 'absolute',
-    top: 93,
-    transform: [{ rotate: '-28deg' }],
-    width: 65,
-  },
-  hangerRightArm: {
-    backgroundColor: closetTheme.camel,
-    borderRadius: 5,
-    height: 7,
-    left: 63,
-    position: 'absolute',
-    top: 93,
-    transform: [{ rotate: '28deg' }],
-    width: 65,
-  },
-  hangerBottomRail: {
-    backgroundColor: closetTheme.camel,
-    borderRadius: 4,
-    height: 7,
-    left: 7,
-    position: 'absolute',
-    top: 105,
-    width: 118,
-  },
-  hangerPegLeft: {
-    backgroundColor: closetTheme.camel,
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
-    height: 17,
-    left: 8,
-    position: 'absolute',
-    top: 105,
-    width: 7,
-  },
-  hangerPegRight: {
-    backgroundColor: closetTheme.camel,
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
-    height: 17,
-    position: 'absolute',
-    right: 8,
-    top: 105,
-    width: 7,
   },
   word: {
     color: closetTheme.camel,

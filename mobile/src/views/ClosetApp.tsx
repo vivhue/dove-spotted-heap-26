@@ -1,56 +1,72 @@
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { useClosetApp } from '@/controllers/use-closet-app';
+import { useClosetStore } from '@/stores/closet-store';
 import { closetTheme } from '@/views/components/closet-theme';
+import { AccountScreen } from '@/views/screens/AccountScreen';
 import { AddItemScreen } from '@/views/screens/AddItemScreen';
 import { CalendarScreen } from '@/views/screens/CalendarScreen';
 import { DashboardScreen } from '@/views/screens/DashboardScreen';
 import { DiscoverScreen } from '@/views/screens/DiscoverScreen';
 import { HomeScreen } from '@/views/screens/HomeScreen';
 import { SplashScreen } from '@/views/screens/SplashScreen';
+import { TripPlannerScreen } from '@/views/screens/TripPlannerScreen';
+import { TryOnScreen } from '@/views/screens/TryOnScreen';
 import { WardrobeScreen } from '@/views/screens/WardrobeScreen';
 
 export function ClosetApp() {
+  const { currentUser } = useClosetStore();
   const {
     activeCategory,
-    bodyProportions,
-    closetItems,
-    addItem,
     goTo,
     measurements,
     screen,
     setActiveCategory,
-    wishlistItems,
     updateMeasurement,
   } = useClosetApp();
-  const inventory = { closet: closetItems, wishlist: wishlistItems };
+  const needsAccount = !currentUser && screen !== 'splash';
+  const shownScreen = needsAccount ? 'account' : screen;
+
+  function openAfterLanding() {
+    goTo(currentUser ? 'dashboard' : 'account');
+  }
+
+  function openDashboardAfterAuth() {
+    goTo('dashboard');
+  }
 
   const content = (
     <>
-      {screen === 'splash' && <SplashScreen onNavigate={goTo} />}
-      {screen === 'home' && (
+      {shownScreen === 'splash' && <SplashScreen onNavigate={openAfterLanding} />}
+      {shownScreen === 'home' && (
         <HomeScreen
           activeCategory={activeCategory}
-          bodyProportions={bodyProportions}
-          measurements={measurements}
           onCategoryChange={setActiveCategory}
+          onNavigate={goTo}
+        />
+      )}
+      {shownScreen === 'dashboard' && (
+        <DashboardScreen
+          activeCategory={activeCategory}
+          onCategoryChange={setActiveCategory}
+          onNavigate={goTo}
+        />
+      )}
+      {shownScreen === 'closet' && <WardrobeScreen mode="closet" onNavigate={goTo} />}
+      {shownScreen === 'wishlist' && <WardrobeScreen mode="wishlist" onNavigate={goTo} />}
+      {shownScreen === 'add' && <AddItemScreen onNavigate={goTo} />}
+      {shownScreen === 'try-on' && <TryOnScreen onNavigate={goTo} />}
+      {shownScreen === 'trip-planner' && <TripPlannerScreen onNavigate={goTo} />}
+      {shownScreen === 'account' && (
+        <AccountScreen
+          measurements={measurements}
+          onAuthenticated={openDashboardAfterAuth}
           onMeasurementChange={updateMeasurement}
           onNavigate={goTo}
         />
       )}
-      {screen === 'dashboard' && (
-        <DashboardScreen
-          activeCategory={activeCategory}
-          items={closetItems}
-          onCategoryChange={setActiveCategory}
-          onNavigate={goTo}
-        />
-      )}
-      {screen === 'closet' && <WardrobeScreen items={closetItems} mode="closet" onNavigate={goTo} />}
-      {screen === 'wishlist' && <WardrobeScreen items={wishlistItems} mode="wishlist" onNavigate={goTo} />}
-      {screen === 'add' && <AddItemScreen onAddItem={addItem} onNavigate={goTo} />}
-      {screen === 'discover' && <DiscoverScreen inventory={inventory} onNavigate={goTo} />}
-      {screen === 'calendar' && <CalendarScreen onNavigate={goTo} />}
+      {shownScreen === 'discover' && <DiscoverScreen onNavigate={goTo} />}
+      {shownScreen === 'calendar' && <CalendarScreen onNavigate={goTo} />}
     </>
   );
 

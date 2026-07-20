@@ -5,10 +5,22 @@ export type ScreenId =
   | 'closet'
   | 'wishlist'
   | 'add'
+  | 'try-on'
+  | 'trip-planner'
+  | 'account'
   | 'discover'
   | 'calendar';
 
 export type CategoryId = 'tops' | 'bottoms' | 'outerwear' | 'shoes' | 'accessories' | 'bags';
+export type WardrobeDestination = 'closet' | 'wishlist';
+export const currentUserDisplayName = 'there';
+
+export type ClosetAccount = {
+  id: string;
+  username: string;
+  password: string;
+  createdAt: string;
+};
 
 export type WardrobeItem = {
   id: string;
@@ -21,6 +33,14 @@ export type WardrobeItem = {
   source?: string;
   price?: string;
   saved?: boolean;
+  destination?: WardrobeDestination;
+  imageUrl?: string;
+  pattern?: string;
+  primaryColor?: string;
+  subcategory?: string;
+  tags?: string[];
+  userId?: string;
+  createdAt?: string;
 };
 
 export type InventoryState = {
@@ -103,6 +123,9 @@ export const screenOrder: ScreenId[] = [
   'closet',
   'wishlist',
   'add',
+  'try-on',
+  'trip-planner',
+  'account',
   'discover',
   'calendar',
 ];
@@ -121,41 +144,6 @@ export const browseCategories: {
 ];
 
 export const homeSwatches: CategoryId[] = ['tops', 'bottoms', 'outerwear', 'shoes'];
-
-export const closetItems: WardrobeItem[] = [
-  { id: 'white-polo', name: 'Pearl Rib Polo', category: 'tops', color: '#FFFDF9', accent: '#2B2118', texture: 'knit', saved: true },
-  { id: 'checkered-shirt', name: 'Check Collar Shirt', category: 'tops', color: '#D9E2EA', accent: '#8B2F2F', texture: 'classic', saved: true },
-  { id: 'mesh-tank', name: 'Cocoa Mesh Tank', category: 'tops', color: '#7A5A45', accent: '#F0C7A0', texture: 'silk', saved: true },
-  { id: 'wide-leg-denim', name: 'Wide Leg Denim', category: 'bottoms', color: '#3B5F7C', accent: '#C99A6B', texture: 'denim', saved: true },
-  { id: 'tailored-trouser', name: 'Slate Tailored Trouser', category: 'bottoms', color: '#5F6673', accent: '#EFE6D6', texture: 'classic', saved: true },
-  { id: 'midi-skirt', name: 'Ink Bias Skirt', category: 'bottoms', color: '#1F2233', accent: '#E2958A', texture: 'silk', saved: true },
-  { id: 'beige-trench', name: 'Oversized Trench', category: 'outerwear', color: '#C7A77D', accent: '#2B2118', texture: 'classic', saved: true },
-  { id: 'cropped-bomber', name: 'Sage Cropped Bomber', category: 'outerwear', color: '#8C9A7B', accent: '#FFFDF9', texture: 'classic', saved: true },
-  { id: 'moto-jacket', name: 'Black Moto Jacket', category: 'outerwear', color: '#1F1B18', accent: '#B7B7AF', texture: 'leather', saved: true },
-  { id: 'black-boots', name: 'Black Ankle Boots', category: 'shoes', color: '#211A17', accent: '#A97B4E', texture: 'leather', saved: true },
-  { id: 'mary-janes', name: 'Cherry Mary Janes', category: 'shoes', color: '#8B2F2F', accent: '#F7D7D1', texture: 'leather', saved: true },
-  { id: 'silver-sneakers', name: 'Silver Runner Sneakers', category: 'shoes', color: '#C7CDD2', accent: '#5F6673', texture: 'metal', saved: true },
-  { id: 'silk-scarf', name: 'Painted Silk Scarf', category: 'accessories', color: '#E2958A', accent: '#2F6F73', texture: 'silk', saved: true },
-  { id: 'gold-hoops', name: 'Molten Hoop Earrings', category: 'accessories', color: '#C99A6B', accent: '#FFF3D8', texture: 'metal', saved: true },
-  { id: 'oval-sunnies', name: 'Amber Oval Sunnies', category: 'accessories', color: '#6A4732', accent: '#E2B06F', texture: 'classic', saved: true },
-];
-
-export const wishlistItems: WardrobeItem[] = [
-  { id: 'wool-coat', name: 'Graphite Wool Coat', category: 'outerwear', price: '$56', source: 'Zara', color: '#4E535C', accent: '#C99A6B', texture: 'knit' },
-  {
-    id: 'checkered-collar',
-    name: 'Checkered Collar Shirt',
-    category: 'tops',
-    price: '$58',
-    source: 'H&M',
-    color: '#EEE4D8',
-    accent: '#8B2F2F',
-    texture: 'classic',
-  },
-  { id: 'wishlist-boots', name: 'Patent Platform Boots', category: 'shoes', color: '#171412', accent: '#C99A6B', texture: 'leather' },
-  { id: 'wishlist-trench', name: 'Storm Flap Trench', category: 'outerwear', color: '#B8996E', accent: '#2B2118', texture: 'classic' },
-  { id: 'pearl-choker', name: 'Pearl Choker', category: 'accessories', color: '#FFF8EA', accent: '#C99A6B', texture: 'metal' },
-];
 
 export const chatMessages = [
   {

@@ -1,43 +1,84 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
-import { browseCategories, CategoryId, ScreenId, WardrobeItem } from '@/models/closet';
+import { ScreenId } from '@/models/closet';
+import { createClosetItem } from '@/services/closet-api';
+import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 
-export function AddItemScreen({
-  onAddItem,
-  onNavigate,
-}: {
-  onAddItem: (args: { destination: 'closet' | 'wishlist'; item: Omit<WardrobeItem, 'id' | 'saved'> }) => void;
-  onNavigate: (screen: ScreenId) => void;
-}) {
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('tops');
+export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
+  const [selectedTag, setSelectedTag] = useState('Tops');
   const [destination, setDestination] = useState<'Closet' | 'Wishlist'>('Closet');
-  const [itemName, setItemName] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState('Choose how to add your item.');
+  const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const { addItem, currentUser } = useClosetStore();
 
-  function saveItem() {
-    const trimmedName = itemName.trim();
+  async function pickImage(source: 'camera' | 'library') {
+    const permission =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!trimmedName) {
-      setStatus('Add a name first so we can store the item.');
+    if (!permission.granted) {
+      setStatus('Permission is needed to choose an item image.');
       return;
     }
 
-    onAddItem({
-      destination: destination === 'Closet' ? 'closet' : 'wishlist',
-      item: {
-        category: selectedCategory,
-        imageUrl: imageUrl.trim() || undefined,
-        name: trimmedName,
-      },
-    });
-    setStatus(`Saved ${trimmedName} to ${destination.toLowerCase()}.`);
-    setItemName('');
-    setImageUrl('');
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.92,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            allowsEditing: true,
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.92,
+          });
+
+    if (result.canceled || !result.assets[0]) {
+      return;
+    }
+
+    setSelectedImage(result.assets[0]);
+    setStatus(`${result.assets[0].fileName ?? 'Image'} ready for ${destination}.`);
+  }
+
+  async function handleSave() {
+    if (!selectedImage) {
+      setStatus('Choose an image before saving.');
+      return;
+    }
+
+    if (!currentUser) {
+      setStatus('Create an account before saving clothes.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setStatus('Cleaning, classifying, and saving...');
+      const item = await createClosetItem({
+        destination: destination === 'Closet' ? 'closet' : 'wishlist',
+        image: selectedImage,
+        tag: selectedTag === '+ Add' ? 'Custom' : selectedTag,
+        userId: currentUser.id,
+      });
+
+      addItem(item);
+      setSelectedImage(null);
+      setStatus(`${item.name} saved to ${destination}.`);
+      onNavigate(destination === 'Closet' ? 'closet' : 'wishlist');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not save this item.');
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -48,57 +89,30 @@ export function AddItemScreen({
           icon="◉"
           title="Take a photo"
           detail="Snap an item you own"
-          onPress={() => setStatus(`Camera flow ready for ${destination}.`)}
+          onPress={() => pickImage('camera')}
         />
         <OptionCard
           icon="▧"
           title="Upload a picture"
           detail="Import from your gallery"
-          onPress={() => setStatus(`Gallery upload ready for ${destination}.`)}
+          onPress={() => pickImage('library')}
         />
+        {selectedImage && <Image source={{ uri: selectedImage.uri }} style={styles.preview} resizeMode="contain" />}
         <Text style={styles.statusText}>{status}</Text>
 
-        <Text style={styles.sectionLabel}>Item name</Text>
-        <View style={styles.nameBox}>
-          <LineIcon name="tag" color={closetTheme.camelDeep} />
-          <TextInput
-            autoCapitalize="words"
-            autoCorrect={false}
-            placeholder="Pearl Rib Polo"
-            placeholderTextColor={closetTheme.muted}
-            style={styles.nameInput}
-            value={itemName}
-            onChangeText={setItemName}
-          />
-        </View>
-
-        <Text style={styles.sectionLabel}>Item image URL</Text>
-        <View style={styles.nameBox}>
-          <LineIcon name="img" color={closetTheme.camelDeep} />
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="https://..."
-            placeholderTextColor={closetTheme.muted}
-            style={styles.nameInput}
-            value={imageUrl}
-            onChangeText={setImageUrl}
-          />
-        </View>
-        <Text style={styles.helpText}>
-          This is where an R2-hosted file URL will live once we wire the upload endpoint.
-        </Text>
-
-        <Text style={styles.sectionLabel}>Category</Text>
+        <Text style={styles.sectionLabel}>Tags</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {browseCategories.map((category) => (
+          {['Tops', 'Bottoms', 'Shoes', '+ Add'].map((tag) => (
             <Pressable
-              key={category.id}
-              onPress={() => setSelectedCategory(category.id)}
-              style={[styles.chip, selectedCategory === category.id && styles.chipSelected]}>
-              <Text style={[styles.chipText, selectedCategory === category.id && styles.chipTextSelected]}>
-                {category.shortLabel}
-              </Text>
+              key={tag}
+              onPress={() => {
+                setSelectedTag(tag);
+                if (tag === '+ Add') {
+                  setStatus('Custom tag input coming next.');
+                }
+              }}
+              style={[styles.chip, selectedTag === tag && styles.chipSelected]}>
+              <Text style={[styles.chipText, selectedTag === tag && styles.chipTextSelected]}>{tag}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -115,8 +129,12 @@ export function AddItemScreen({
           ))}
         </View>
 
-        <Pressable style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed]} onPress={saveItem}>
-          <Text style={styles.primaryText}>Save item</Text>
+        <Pressable
+          disabled={isSaving}
+          style={({ pressed }) => [styles.saveButton, pressed && styles.saveButtonPressed, isSaving && styles.saveButtonDisabled]}
+          onPress={handleSave}>
+          {isSaving ? <ActivityIndicator color={closetTheme.cream} /> : <LineIcon name="+" color={closetTheme.cream} />}
+          <Text style={styles.saveText}>{isSaving ? 'Saving' : 'Save item'}</Text>
         </Pressable>
       </ScrollView>
     </AppScreen>
@@ -185,34 +203,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 22,
     marginTop: 2,
   },
-  helpText: {
-    color: closetTheme.muted,
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 16,
-    marginHorizontal: 22,
-    marginTop: 8,
-  },
-  nameBox: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.white,
+  preview: {
+    alignSelf: 'center',
+    backgroundColor: closetTheme.creamDeep,
     borderColor: closetTheme.line,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    marginHorizontal: 22,
-    marginTop: 2,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  nameInput: {
-    color: closetTheme.ink,
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '900',
-    minWidth: 0,
-    padding: 0,
+    height: 156,
+    marginBottom: 8,
+    marginTop: 4,
+    width: 156,
   },
   optionIcon: {
     alignItems: 'center',
@@ -285,19 +285,26 @@ const styles = StyleSheet.create({
   addToTextSelected: {
     color: closetTheme.cream,
   },
-  primary: {
+  saveButton: {
     alignItems: 'center',
-    backgroundColor: closetTheme.camelDeep,
+    alignSelf: 'stretch',
+    backgroundColor: closetTheme.ink,
     borderRadius: 18,
+    flexDirection: 'row',
+    gap: 9,
+    justifyContent: 'center',
     marginHorizontal: 22,
-    marginTop: 18,
+    marginTop: 22,
     paddingVertical: 14,
   },
-  primaryPressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.98 }],
+  saveButtonDisabled: {
+    opacity: 0.74,
   },
-  primaryText: {
+  saveButtonPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.99 }],
+  },
+  saveText: {
     color: closetTheme.cream,
     fontSize: 13,
     fontWeight: '900',
