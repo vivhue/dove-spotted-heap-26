@@ -20,6 +20,7 @@ const processes = [
     args: ["--prefix", "mobile", "run", "start"],
     cwd: process.cwd(),
     inheritStdio: true,
+    useWindowsShell: true,
   },
 ];
 
@@ -57,7 +58,7 @@ function shutdown(signal) {
 await ensurePortAvailable(backendPort);
 
 for (const config of processes) {
-  const command = normalizeCommand(config.command, config.args);
+  const command = normalizeCommand(config);
   let child;
 
   try {
@@ -110,29 +111,15 @@ for (const config of processes) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-function normalizeCommand(command, args) {
-  if (!isWindows) {
-    return { command, args };
+function normalizeCommand(config) {
+  if (!isWindows || !config.useWindowsShell) {
+    return { command: config.command, args: config.args };
   }
 
   return {
     command: "cmd.exe",
-    args: ["/d", "/s", "/c", quoteCommand(command, args)],
+    args: ["/d", "/c", config.command, ...config.args],
   };
-}
-
-function quoteCommand(command, args) {
-  return [command, ...args].map(quoteShellArg).join(" ");
-}
-
-function quoteShellArg(value) {
-  const text = String(value);
-
-  if (!/[\s"&<>|^]/.test(text)) {
-    return text;
-  }
-
-  return `"${text.replace(/"/g, '\\"')}"`;
 }
 
 function ensurePortAvailable(port) {
