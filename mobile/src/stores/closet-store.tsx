@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { CategoryId, ClosetAccount, WardrobeItem } from '@/models/closet';
+import { AvatarChoice, CategoryId, ClosetAccount, WardrobeItem } from '@/models/closet';
 import { getClosetItems } from '@/services/closet-api';
 
 export type SelectedOutfit = Record<CategoryId, string | null>;
@@ -23,8 +23,9 @@ type ClosetStoreValue = {
   selectedOutfit: SelectedOutfit;
   selfieImageUrl: string;
   setSelfieImageUrl: (url: string) => void;
-  signUp: (username: string, password: string) => AuthResult;
+  signUp: (username: string, password: string, gender: ClosetAccount['gender']) => AuthResult;
   toggleWornItem: (item: WardrobeItem) => void;
+  updateAccountAvatar: (avatar: AvatarChoice) => void;
   wishlistItems: WardrobeItem[];
 };
 
@@ -236,7 +237,7 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
       selectedOutfit,
       selfieImageUrl,
       setSelfieImageUrl,
-      signUp: (username, password) => {
+      signUp: (username, password, gender) => {
         const cleanedUsername = normalizeUsername(username);
 
         if (cleanedUsername.length < 3) {
@@ -247,12 +248,18 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
           return { ok: false, message: 'Use at least 6 characters for your password.' };
         }
 
+        if (!gender) {
+          return { ok: false, message: 'Choose male or female so recommendations fit better.' };
+        }
+
         if (accounts.some((account) => account.username.toLowerCase() === cleanedUsername.toLowerCase())) {
           return { ok: false, message: 'That username is already taken.' };
         }
 
         const nextAccount: ClosetAccount = {
           createdAt: new Date().toISOString(),
+          avatar: 'shirt',
+          gender,
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           password,
           username: cleanedUsername,
@@ -268,6 +275,17 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
           ...currentOutfit,
           [item.category]: currentOutfit[item.category] === item.id ? null : item.id,
         }));
+      },
+      updateAccountAvatar: (avatar) => {
+        if (!currentUserId) {
+          return;
+        }
+
+        setAccounts((currentAccounts) =>
+          currentAccounts.map((account) =>
+            account.id === currentUserId ? { ...account, avatar } : account
+          )
+        );
       },
       wishlistItems,
     };

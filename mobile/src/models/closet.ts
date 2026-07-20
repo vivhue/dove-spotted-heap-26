@@ -13,13 +13,16 @@ export type ScreenId =
 
 export type CategoryId = 'tops' | 'bottoms' | 'outerwear' | 'shoes' | 'accessories' | 'bags';
 export type WardrobeDestination = 'closet' | 'wishlist';
+export type AvatarChoice = 'initial' | 'hanger' | 'shirt' | 'bag' | 'shoe';
 export const currentUserDisplayName = 'there';
 
 export type ClosetAccount = {
+  avatar?: AvatarChoice;
   id: string;
   username: string;
   password: string;
   createdAt: string;
+  gender?: 'female' | 'male';
 };
 
 export type WardrobeItem = {
@@ -34,13 +37,24 @@ export type WardrobeItem = {
   price?: string;
   saved?: boolean;
   destination?: WardrobeDestination;
-  imageUrl?: string;
   pattern?: string;
   primaryColor?: string;
   subcategory?: string;
   tags?: string[];
   userId?: string;
   createdAt?: string;
+};
+
+export type SavedTrip = {
+  dateRange: string;
+  id: string;
+  looks: {
+    id: string;
+    itemIds: string[];
+    title: string;
+  }[];
+  packedItems: WardrobeItem[];
+  title: string;
 };
 
 export type InventoryState = {
@@ -172,8 +186,8 @@ export const calendarLooks = [
 export const categoryFilters = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories', 'Bags'];
 
 export const initialInventoryState: InventoryState = {
-  closet: closetItems.map((item) => ({ ...item })),
-  wishlist: wishlistItems.map((item) => ({ ...item, saved: false })),
+  closet: [],
+  wishlist: [],
 };
 
 export function cloneInventoryState(state: InventoryState): InventoryState {

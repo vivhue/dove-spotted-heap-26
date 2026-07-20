@@ -17,7 +17,7 @@ import {
   WeatherSummary,
 } from '@/services/weather-recommendation';
 import { useClosetStore } from '@/stores/closet-store';
-import { AppScreen, AvatarButton } from '@/views/components/app-chrome';
+import { AppScreen, AvatarButton, initialForUsername, NotificationButton, useAppNotifications } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { CalendarIcon, ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
@@ -39,8 +39,11 @@ export function HomeScreen({
   const [isRecommending, setIsRecommending] = useState(false);
   const [weatherVariant, setWeatherVariant] = useState(0);
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const hasLoadedInitialWeather = useRef(false);
-  const { applyOutfit, closetItems, selectedOutfit, toggleWornItem } = useClosetStore();
+  const { applyOutfit, closetItems, currentUser, selectedOutfit, toggleWornItem } = useClosetStore();
+  const notifications = useAppNotifications(currentUser?.username);
+  const hasUnreadNotification = notifications.some((notification) => !readNotificationIds.includes(notification.id));
   const featuredItems = closetItems;
   const greeting = greetingForTime(currentDate);
   const timeLabel = formatClockTime(currentDate);
@@ -175,7 +178,17 @@ export function HomeScreen({
             <CalendarIcon color={closetTheme.ink} size={22} />
           </Pressable>
           <View style={styles.spacer} />
-          <AvatarButton onPress={() => onNavigate('account')} />
+          <View style={styles.topActions}>
+            <NotificationButton
+              unread={hasUnreadNotification}
+              onPress={() => setReadNotificationIds(notifications.map((notification) => notification.id))}
+            />
+            <AvatarButton
+              avatar={currentUser?.avatar ?? 'shirt'}
+              initial={initialForUsername(currentUser?.username)}
+              onPress={() => onNavigate('account')}
+            />
+          </View>
         </View>
 
         <View style={styles.weatherCard}>
@@ -396,6 +409,11 @@ const styles = StyleSheet.create({
   },
   spacer: {
     flex: 1,
+  },
+  topActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
   },
   stage: {
     alignItems: 'center',

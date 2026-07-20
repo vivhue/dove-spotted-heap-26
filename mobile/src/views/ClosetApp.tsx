@@ -20,7 +20,9 @@ export function ClosetApp() {
     activeCategory,
     goTo,
     measurements,
+    saveTrip,
     screen,
+    savedTrips,
     setActiveCategory,
     updateMeasurement,
   } = useClosetApp();
@@ -28,11 +30,11 @@ export function ClosetApp() {
   const shownScreen = needsAccount ? 'account' : screen;
 
   function openAfterLanding() {
-    goTo(currentUser ? 'dashboard' : 'account');
+    goTo(currentUser ? 'home' : 'account');
   }
 
   function openDashboardAfterAuth() {
-    goTo('dashboard');
+    goTo('home');
   }
 
   const content = (
@@ -56,16 +58,17 @@ export function ClosetApp() {
       {shownScreen === 'wishlist' && <WardrobeScreen mode="wishlist" onNavigate={goTo} />}
       {shownScreen === 'add' && <AddItemScreen onNavigate={goTo} />}
       {shownScreen === 'try-on' && <TryOnScreen onNavigate={goTo} />}
-      {shownScreen === 'trip-planner' && <TripPlannerScreen onNavigate={goTo} />}
+      {shownScreen === 'trip-planner' && <TripPlannerScreen onNavigate={goTo} onTripSaved={saveTrip} />}
       {shownScreen === 'account' && (
         <AccountScreen
           measurements={measurements}
           onAuthenticated={openDashboardAfterAuth}
           onMeasurementChange={updateMeasurement}
           onNavigate={goTo}
+          savedTrips={savedTrips}
         />
       )}
-      {shownScreen === 'discover' && <DiscoverScreen onNavigate={goTo} />}
+      {shownScreen === 'discover' && <DiscoverScreen measurements={measurements} onNavigate={goTo} />}
       {shownScreen === 'calendar' && <CalendarScreen onNavigate={goTo} />}
     </>
   );
