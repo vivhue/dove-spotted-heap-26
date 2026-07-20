@@ -171,7 +171,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
           </Pressable>
         </View>
 
-        {avatarUrl && displayPhotoUrl !== avatarUrl && (
+        {avatarUrl !== '' && displayPhotoUrl !== avatarUrl && (
           <Pressable style={styles.resetButton} onPress={() => setDisplayPhotoUrl(avatarUrl)}>
             <Text style={styles.resetText}>Reset to original photo</Text>
           </Pressable>

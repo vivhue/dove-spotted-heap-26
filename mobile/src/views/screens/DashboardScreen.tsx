@@ -44,7 +44,7 @@ export function DashboardScreen({ activeCategory, onCategoryChange, onNavigate }
 
       <ScrollView contentContainerStyle={styles.grid}>
         {isLoadingItems && <Text style={styles.emptyText}>Loading your saved items...</Text>}
-        {!isLoadingItems && itemsError && <Text style={styles.emptyText}>{itemsError}</Text>}
+        {!isLoadingItems && itemsError !== '' && <Text style={styles.emptyText}>{itemsError}</Text>}
         {categoryItems.map((item) => (
           <View key={item.id} style={styles.cardWrap}>
             <WardrobeCard item={item} />

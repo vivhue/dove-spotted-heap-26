@@ -77,7 +77,7 @@ export function WardrobeScreen({
             <Text style={styles.emptyText}>Loading your saved items...</Text>
           </View>
         )}
-        {!isLoadingItems && itemsError && filteredItems.length === 0 && <Text style={styles.emptyText}>{itemsError}</Text>}
+        {!isLoadingItems && itemsError !== '' && filteredItems.length === 0 && <Text style={styles.emptyText}>{itemsError}</Text>}
         {filteredItems.map((item) => (
           <View key={item.id} style={styles.cardWrap}>
             <WardrobeCard

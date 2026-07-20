@@ -329,7 +329,12 @@ const db = {
 // ---------------------------------------------------------------------------
 
 async function preprocess(buffer: Buffer): Promise<{ buffer: Buffer; contentType: string }> {
-  const out = await sharp(buffer)
+  // failOn:'error' instead of sharp's default 'warning'. Phone and social-media
+  // JPEGs routinely carry recoverable defects ("extraneous bytes before marker",
+  // unlinkable ICC profiles) that libjpeg decodes fine; at the default those
+  // warnings become thrown errors and reject a perfectly good photo. Genuinely
+  // broken files still fail here, and re-encoding below emits a clean buffer.
+  const out = await sharp(buffer, { failOn: 'error' })
     .rotate() // auto-orient from EXIF; re-encoding below drops the EXIF block
     .resize(1536, 1536, { fit: 'inside', withoutEnlargement: true })
     .jpeg({ quality: 90 })
