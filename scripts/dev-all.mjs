@@ -1,16 +1,22 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import net from "node:net";
 
 const isWindows = process.platform === "win32";
 const npmCommand = "npm";
 const backendPort = Number(process.env.PORT || 5173);
+const backendArgs = [
+  ...(existsSync(".env") ? ["--env-file=.env"] : []),
+  "--experimental-strip-types",
+  "server.ts",
+];
 
 const processes = [
   {
     name: "backend",
     color: "\x1b[36m",
     command: process.execPath,
-    args: ["--env-file=.env", "--experimental-strip-types", "server.ts"],
+    args: backendArgs,
     cwd: process.cwd(),
   },
   {
