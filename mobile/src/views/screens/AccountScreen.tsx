@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 
 import { BodyMeasurements, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
-import { AppScreen } from '@/views/components/app-chrome';
+import { AppScreen, initialForUsername } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
@@ -55,7 +55,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.authPanel}>
             <View style={styles.authAvatar}>
-              <ClosetIcon category="tops" color={closetTheme.camel} accent={closetTheme.blush} size={74} />
+              <AuthHangerLogo />
             </View>
             <Text style={styles.authTitle}>{authMode === 'signup' ? 'Create your account' : 'Log in'}</Text>
             <Text style={styles.authSubtitle}>
@@ -105,7 +105,8 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
                 setAuthMessage('');
               }}>
               <Text style={styles.switchAuthText}>
-                {authMode === 'signup' ? 'Already have an account? Log in' : 'Need an account? Create one'}
+                {authMode === 'signup' ? 'Already have an account? ' : 'Need an account? '}
+                <Text style={styles.switchAuthAction}>{authMode === 'signup' ? 'Log in' : 'Create one'}</Text>
               </Text>
             </Pressable>
           </View>
@@ -126,9 +127,9 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
 
         <View style={styles.profileRow}>
           <View style={styles.avatarLarge}>
-            <ClosetIcon category="tops" color={closetTheme.camel} accent={closetTheme.blush} size={68} />
+            <AuthHangerLogo scale={1.02} />
             <View style={styles.avatarBadge}>
-              <LineIcon name="u" color={closetTheme.cream} />
+              <Text style={styles.avatarBadgeInitial}>{initialForUsername(currentUser.username)}</Text>
             </View>
           </View>
 
@@ -152,16 +153,13 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
           <Pressable style={styles.actionButton}>
             <Text style={styles.actionText}>Share profile</Text>
           </Pressable>
-          <Pressable style={styles.iconAction}>
-            <LineIcon name="+" color={closetTheme.ink} />
-          </Pressable>
         </View>
 
         <Pressable style={styles.logoutButton} onPress={logOut}>
           <Text style={styles.logoutText}>Log out</Text>
         </Pressable>
 
-        <Pressable style={styles.completion}>
+        <Pressable style={styles.completion} onPress={() => onNavigate('try-on')}>
           <View>
             <Text style={styles.completionTitle}>Your profile is almost complete</Text>
             <Text style={styles.completionText}>Add a photo to finish setting up your account</Text>
@@ -252,6 +250,46 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
   );
 }
 
+const authHangerPixels: { w?: number; x: number; y: number }[] = [
+  { x: 5, y: 0, w: 3 },
+  { x: 5, y: 1 },
+  { x: 7, y: 1 },
+  { x: 5, y: 2 },
+  { x: 5, y: 3 },
+  { x: 4, y: 4, w: 4 },
+  { x: 3, y: 5 },
+  { x: 8, y: 5 },
+  { x: 2, y: 6 },
+  { x: 9, y: 6 },
+  { x: 1, y: 7 },
+  { x: 10, y: 7 },
+  { x: 0, y: 8, w: 2 },
+  { x: 10, y: 8, w: 2 },
+  { x: 1, y: 8, w: 10 },
+  { x: 0, y: 9 },
+  { x: 11, y: 9 },
+];
+
+function AuthHangerLogo({ scale = 1 }: { scale?: number }) {
+  return (
+    <View style={[styles.authHanger, { transform: [{ scale }] }]}>
+      {authHangerPixels.map((pixel) => (
+        <View
+          key={`${pixel.x}-${pixel.y}-${pixel.w ?? 1}`}
+          style={[
+            styles.authHangerPixel,
+            {
+              left: pixel.x * 6,
+              top: pixel.y * 6,
+              width: (pixel.w ?? 1) * 6,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 function formatMemberSince(createdAt: string) {
   const createdDate = new Date(createdAt);
 
@@ -282,7 +320,7 @@ const styles = StyleSheet.create({
   settingsRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    marginTop: -34,
+    marginTop: -38,
   },
   spacer: {
     flex: 1,
@@ -304,6 +342,18 @@ const styles = StyleSheet.create({
     height: 116,
     justifyContent: 'center',
     width: 116,
+  },
+  authHanger: {
+    height: 60,
+    position: 'relative',
+    width: 72,
+  },
+  authHangerPixel: {
+    backgroundColor: closetTheme.camel,
+    borderColor: 'rgba(247, 241, 231, 0.28)',
+    borderWidth: 1,
+    height: 6,
+    position: 'absolute',
   },
   authTitle: {
     color: closetTheme.ink,
@@ -372,9 +422,12 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   switchAuthText: {
-    color: closetTheme.camelDeep,
+    color: closetTheme.muted,
     fontSize: 14,
     fontWeight: '900',
+  },
+  switchAuthAction: {
+    color: closetTheme.blush,
   },
   settingsButton: {
     alignItems: 'center',
@@ -385,34 +438,39 @@ const styles = StyleSheet.create({
   profileRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 22,
-    marginTop: 38,
+    gap: 12,
+    marginTop: 14,
   },
   avatarLarge: {
     alignItems: 'center',
     backgroundColor: closetTheme.ink,
-    borderRadius: 58,
-    height: 116,
+    borderRadius: 50,
+    height: 100,
     justifyContent: 'center',
     position: 'relative',
-    width: 116,
+    width: 100,
   },
   avatarBadge: {
     alignItems: 'center',
     backgroundColor: closetTheme.navy,
     borderColor: closetTheme.cream,
-    borderRadius: 23,
+    borderRadius: 21,
     borderWidth: 3,
     bottom: 0,
-    height: 46,
+    height: 42,
     justifyContent: 'center',
     position: 'absolute',
     right: -4,
-    width: 46,
+    width: 42,
+  },
+  avatarBadgeInitial: {
+    color: closetTheme.cream,
+    fontSize: 20,
+    fontWeight: '900',
   },
   profileMeta: {
     flex: 1,
-    gap: 22,
+    gap: 8,
   },
   name: {
     color: closetTheme.ink,
@@ -440,7 +498,7 @@ const styles = StyleSheet.create({
     color: closetTheme.ink,
     fontSize: 17,
     fontWeight: '800',
-    marginTop: 24,
+    marginTop: 10,
   },
   memberText: {
     color: closetTheme.muted,
@@ -451,7 +509,7 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 26,
+    marginTop: 14,
   },
   actionButton: {
     alignItems: 'center',
@@ -480,15 +538,6 @@ const styles = StyleSheet.create({
     color: closetTheme.ink,
     fontSize: 15,
     fontWeight: '900',
-  },
-  iconAction: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 3,
-    borderWidth: 1,
-    justifyContent: 'center',
-    width: 52,
   },
   completion: {
     alignItems: 'center',

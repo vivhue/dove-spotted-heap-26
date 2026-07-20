@@ -18,6 +18,19 @@ type TripLook = {
 };
 
 const categoryOrder: CategoryId[] = ['tops', 'bottoms', 'outerwear', 'shoes', 'bags', 'accessories'];
+const tripDestinations = [
+  'Singapore',
+  'Vietnam',
+  'Bangkok, Thailand',
+  'Seoul, South Korea',
+  'Tokyo, Japan',
+  'Bali, Indonesia',
+  'Paris, France',
+  'London, United Kingdom',
+  'New York, United States',
+  'Melbourne, Australia',
+];
+const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
   const { closetItems } = useClosetStore();
@@ -25,6 +38,11 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
   const [step, setStep] = useState<TripStep>('destination');
   const [destination, setDestination] = useState('');
   const [dateRange, setDateRange] = useState('');
+  const [destinationSuggestionsOpen, setDestinationSuggestionsOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(2026, 6, 1));
+  const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
+  const [tripEndDate, setTripEndDate] = useState<Date | null>(null);
   const [luggageType, setLuggageType] = useState<LuggageType>('Carry on');
   const [activities, setActivities] = useState('');
   const [resultsTab, setResultsTab] = useState<ResultsTab>('packing');
@@ -36,6 +54,14 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
   const tripDates = dateRange.trim() || 'Dates not set';
   const progressWidth = isGenerating ? '74%' : '100%';
   const packedCategories = useMemo(() => countByCategory(packingItems), [packingItems]);
+  const destinationSuggestions = useMemo(() => {
+    const query = destination.trim().toLowerCase();
+
+    return tripDestinations
+      .filter((place) => !query || place.toLowerCase().includes(query))
+      .slice(0, 5);
+  }, [destination]);
+  const calendarDays = useMemo(() => buildCalendarDays(calendarMonth), [calendarMonth]);
 
   useEffect(() => {
     Animated.loop(
@@ -110,6 +136,24 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
     ]);
   }
 
+  function chooseDestination(place: string) {
+    setDestination(place);
+    setDestinationSuggestionsOpen(false);
+  }
+
+  function chooseTripDate(date: Date) {
+    if (!tripStartDate || tripEndDate || date < tripStartDate) {
+      setTripStartDate(date);
+      setTripEndDate(null);
+      setDateRange(formatTripDate(date));
+      return;
+    }
+
+    setTripEndDate(date);
+    setDateRange(`${formatTripDate(tripStartDate)} - ${formatTripDate(date)}`);
+    setCalendarOpen(false);
+  }
+
   if (step === 'destination') {
     return (
       <TripShell onBack={goBack} stepLabel="I">
@@ -133,29 +177,80 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
           <View style={styles.inputRow}>
             <TextInput
               autoCapitalize="words"
-              onChangeText={setDestination}
+              onChangeText={(text) => {
+                setDestination(text);
+                setDestinationSuggestionsOpen(true);
+              }}
+              onFocus={() => setDestinationSuggestionsOpen(true)}
               placeholder="Search by city, postal code, or landmark"
-              placeholderTextColor="#9D9D9D"
+              placeholderTextColor={closetTheme.muted}
               style={styles.tripInput}
               value={destination}
             />
-            <LineIcon name="⌕" color="#888888" />
+            <LineIcon name="⌕" color={closetTheme.muted} />
           </View>
+          {destinationSuggestionsOpen && destinationSuggestions.length > 0 && (
+            <View style={styles.destinationSuggestions}>
+              {destinationSuggestions.map((place) => (
+                <Pressable key={place} style={styles.destinationSuggestion} onPress={() => chooseDestination(place)}>
+                  <Text style={styles.destinationSuggestionText}>{place}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
           <View style={styles.inputDivider} />
-          <View style={styles.inputRow}>
-            <TextInput
-              onChangeText={setDateRange}
-              placeholder="Select date"
-              placeholderTextColor="#9D9D9D"
-              style={styles.tripInput}
-              value={dateRange}
-            />
-            <LineIcon name="□" color="#888888" />
-          </View>
+          <Pressable style={styles.inputRow} onPress={() => setCalendarOpen((open) => !open)}>
+            <Text style={[styles.dateValue, !dateRange && styles.datePlaceholder]}>
+              {dateRange || 'Select date'}
+            </Text>
+            <LineIcon name="□" color={closetTheme.muted} />
+          </Pressable>
         </View>
 
+        {calendarOpen && (
+          <View style={styles.calendarCard}>
+            <View style={styles.calendarHeader}>
+              <Pressable style={styles.calendarNavButton} onPress={() => setCalendarMonth(shiftMonth(calendarMonth, -1))}>
+                <LineIcon name="‹" color={closetTheme.ink} />
+              </Pressable>
+              <Text style={styles.calendarMonthText}>{formatCalendarMonth(calendarMonth)}</Text>
+              <Pressable style={styles.calendarNavButton} onPress={() => setCalendarMonth(shiftMonth(calendarMonth, 1))}>
+                <LineIcon name="›" color={closetTheme.ink} />
+              </Pressable>
+            </View>
+            <View style={styles.calendarGrid}>
+              {weekdays.map((weekday, index) => (
+                <Text key={`${weekday}-${index}`} style={styles.calendarWeekday}>{weekday}</Text>
+              ))}
+              {calendarDays.map((day) => {
+                const selected = isSameCalendarDate(day.date, tripStartDate) || isSameCalendarDate(day.date, tripEndDate);
+                const inRange = isDateInRange(day.date, tripStartDate, tripEndDate);
+
+                return (
+                  <Pressable
+                    key={day.key}
+                    style={[
+                      styles.calendarDay,
+                      !day.inCurrentMonth && styles.calendarDayMuted,
+                      inRange && styles.calendarDayInRange,
+                      selected && styles.calendarDaySelected,
+                    ]}
+                    onPress={() => chooseTripDate(day.date)}>
+                    <Text style={[styles.calendarDayText, selected && styles.calendarDayTextSelected]}>
+                      {day.date.getDate()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.calendarHint}>
+              {tripStartDate && !tripEndDate ? 'Select an end date' : 'Select start and end dates'}
+            </Text>
+          </View>
+        )}
+
         <Pressable style={styles.addDestination}>
-          <LineIcon name="+" color="#000000" />
+          <LineIcon name="+" color={closetTheme.ink} />
           <Text style={styles.addDestinationText}>Add another destination</Text>
         </Pressable>
 
@@ -177,7 +272,7 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
             return (
               <Pressable key={option} style={styles.optionRow} onPress={() => setLuggageType(option)}>
                 <View style={[styles.radio, selected && styles.radioSelected]}>
-                  {selected && <LineIcon name="✓" color="#FFFFFF" />}
+                  {selected && <LineIcon name="✓" color={closetTheme.cream} />}
                 </View>
                 <Text style={styles.optionText}>{option}</Text>
               </Pressable>
@@ -193,7 +288,7 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
             const mustHaves = closetItems.slice(0, 3);
             setPackingItems(mustHaves);
           }}>
-          <LineIcon name="+" color="#FFFFFF" />
+          <LineIcon name="+" color={closetTheme.cream} />
           <Text style={styles.blackPillText}>Add from closet</Text>
         </Pressable>
 
@@ -225,7 +320,7 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
           <TextInput
             onChangeText={setActivities}
             placeholder="What activities do you have planned?"
-            placeholderTextColor="#9D9D9D"
+            placeholderTextColor={closetTheme.muted}
             style={styles.activityInput}
             value={activities}
           />
@@ -240,11 +335,11 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
     <SafeAreaView style={styles.resultsSafe}>
       <View style={styles.resultsTop}>
         <Pressable style={styles.circleButton} onPress={goBack}>
-          <LineIcon name="‹" color="#000000" />
+          <LineIcon name="‹" color={closetTheme.ink} />
         </Pressable>
         <View style={styles.resultActions}>
-          <LineIcon name="⇧" color="#000000" />
-          <LineIcon name="…" color="#000000" />
+          <LineIcon name="⇧" color={closetTheme.ink} />
+          <LineIcon name="…" color={closetTheme.ink} />
         </View>
       </View>
 
@@ -285,7 +380,7 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
           <>
             {packingItems.length === 0 && !isGenerating && (
               <Pressable style={styles.blackWideButton} onPress={() => setStep('bag')}>
-                <LineIcon name="+" color="#FFFFFF" />
+                <LineIcon name="+" color={closetTheme.cream} />
                 <Text style={styles.blackWideText}>Add to packing list</Text>
               </Pressable>
             )}
@@ -367,12 +462,12 @@ function TripShell({
     <SafeAreaView style={styles.safe}>
       <View style={styles.tripNav}>
         <Pressable style={styles.circleButton} onPress={onBack}>
-          <LineIcon name="‹" color="#000000" />
+          <LineIcon name="‹" color={closetTheme.ink} />
         </Pressable>
         <Text style={styles.stepLabel}>{stepLabel}</Text>
         {onClose ? (
           <Pressable style={styles.circleButton} onPress={onClose}>
-            <LineIcon name="×" color="#000000" />
+            <LineIcon name="×" color={closetTheme.ink} />
           </Pressable>
         ) : (
           <View style={styles.circlePlaceholder} />
@@ -417,7 +512,7 @@ function TripItemTile({
           <ClosetIcon category={item.category} size={72} />
         )}
         <Pressable style={styles.itemAction} onPress={onPress}>
-          <LineIcon name={action === 'add' ? '+' : '−'} color="#FFFFFF" />
+          <LineIcon name={action === 'add' ? '+' : '−'} color={closetTheme.cream} />
         </Pressable>
       </View>
       <Text numberOfLines={1} style={styles.tripItemName}>{item.name}</Text>
@@ -544,13 +639,70 @@ function hasAny(text: string, needles: string[]) {
   return needles.some((needle) => text.includes(needle));
 }
 
+function buildCalendarDays(monthDate: Date) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPreviousMonth = new Date(year, month, 0).getDate();
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const dayNumber = index - startOffset + 1;
+    let date: Date;
+
+    if (dayNumber < 1) {
+      date = new Date(year, month - 1, daysInPreviousMonth + dayNumber);
+    } else if (dayNumber > daysInMonth) {
+      date = new Date(year, month + 1, dayNumber - daysInMonth);
+    } else {
+      date = new Date(year, month, dayNumber);
+    }
+
+    return {
+      date,
+      inCurrentMonth: date.getMonth() === month,
+      key: date.toISOString(),
+    };
+  });
+}
+
+function shiftMonth(date: Date, amount: number) {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
+function formatCalendarMonth(date: Date) {
+  return date.toLocaleString('en', { month: 'long', year: 'numeric' });
+}
+
+function formatTripDate(date: Date) {
+  return date.toLocaleString('en', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function isSameCalendarDate(left: Date, right: Date | null) {
+  return Boolean(
+    right &&
+      left.getFullYear() === right.getFullYear() &&
+      left.getMonth() === right.getMonth() &&
+      left.getDate() === right.getDate()
+  );
+}
+
+function isDateInRange(date: Date, start: Date | null, end: Date | null) {
+  if (!start || !end) {
+    return false;
+  }
+
+  return date > start && date < end;
+}
+
 const styles = StyleSheet.create({
   safe: {
-    backgroundColor: '#F3F3F3',
+    backgroundColor: closetTheme.cream,
     flex: 1,
   },
   resultsSafe: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.cream,
     flex: 1,
   },
   tripNav: {
@@ -569,13 +721,15 @@ const styles = StyleSheet.create({
   },
   circleButton: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.white,
     borderRadius: 28,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
     height: 56,
     justifyContent: 'center',
-    shadowColor: '#C8C8D8',
+    shadowColor: closetTheme.ink,
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.34,
+    shadowOpacity: 0.08,
     shadowRadius: 18,
     width: 56,
   },
@@ -584,7 +738,7 @@ const styles = StyleSheet.create({
     width: 56,
   },
   stepLabel: {
-    color: '#777777',
+    color: closetTheme.muted,
     fontSize: 24,
     fontWeight: '900',
   },
@@ -593,14 +747,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   title: {
-    color: '#000000',
+    color: closetTheme.ink,
     fontSize: 30,
     fontWeight: '800',
     marginTop: 44,
     textAlign: 'center',
   },
   subtitle: {
-    color: '#000000',
+    color: closetTheme.ink,
     fontSize: 20,
     fontWeight: '500',
     lineHeight: 30,
@@ -608,7 +762,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   mutedSubtitle: {
-    color: '#999999',
+    color: closetTheme.muted,
     fontSize: 19,
     fontWeight: '600',
     lineHeight: 28,
@@ -621,12 +775,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   plane: {
-    color: '#BFC1C2',
+    color: closetTheme.camel,
     fontSize: 118,
-    opacity: 0.56,
+    opacity: 0.5,
   },
   planeTrail: {
-    backgroundColor: '#D7D9DA',
+    backgroundColor: closetTheme.line,
     height: 2,
     opacity: 0.3,
     position: 'absolute',
@@ -634,7 +788,26 @@ const styles = StyleSheet.create({
     width: 190,
   },
   formBlock: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 6,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  destinationSuggestions: {
+    backgroundColor: closetTheme.cream,
+    borderTopColor: closetTheme.line,
+    borderTopWidth: 1,
+    paddingVertical: 4,
+  },
+  destinationSuggestion: {
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+  },
+  destinationSuggestionText: {
+    color: closetTheme.ink,
+    fontSize: 15,
+    fontWeight: '800',
   },
   inputRow: {
     alignItems: 'center',
@@ -643,15 +816,96 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   inputDivider: {
-    backgroundColor: '#EEEEEE',
+    backgroundColor: closetTheme.line,
     height: 1,
   },
   tripInput: {
-    color: '#111111',
+    color: closetTheme.ink,
     flex: 1,
     fontSize: 17,
     fontWeight: '500',
     minHeight: 64,
+  },
+  dateValue: {
+    color: closetTheme.ink,
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  datePlaceholder: {
+    color: closetTheme.muted,
+    fontWeight: '600',
+  },
+  calendarCard: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 10,
+    padding: 14,
+  },
+  calendarHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  calendarNavButton: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.creamDeep,
+    borderRadius: 16,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  calendarMonthText: {
+    color: closetTheme.ink,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarWeekday: {
+    color: closetTheme.muted,
+    fontSize: 12,
+    fontWeight: '900',
+    marginBottom: 6,
+    textAlign: 'center',
+    width: '14.285%',
+  },
+  calendarDay: {
+    alignItems: 'center',
+    borderRadius: 16,
+    height: 32,
+    justifyContent: 'center',
+    marginVertical: 2,
+    width: '14.285%',
+  },
+  calendarDayMuted: {
+    opacity: 0.36,
+  },
+  calendarDayInRange: {
+    backgroundColor: closetTheme.creamDeep,
+  },
+  calendarDaySelected: {
+    backgroundColor: closetTheme.ink,
+  },
+  calendarDayText: {
+    color: closetTheme.ink,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  calendarDayTextSelected: {
+    color: closetTheme.cream,
+  },
+  calendarHint: {
+    color: closetTheme.muted,
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 8,
+    textAlign: 'center',
   },
   addDestination: {
     alignItems: 'center',
@@ -661,13 +915,13 @@ const styles = StyleSheet.create({
     marginTop: 42,
   },
   addDestinationText: {
-    color: '#000000',
+    color: closetTheme.ink,
     fontSize: 18,
     fontWeight: '700',
   },
   footerButton: {
     alignItems: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: closetTheme.ink,
     borderRadius: 28,
     bottom: 26,
     height: 58,
@@ -677,20 +931,24 @@ const styles = StyleSheet.create({
     right: 20,
   },
   footerButtonDisabled: {
-    backgroundColor: '#838383',
+    backgroundColor: closetTheme.muted,
   },
   footerButtonText: {
-    color: '#FFFFFF',
+    color: closetTheme.cream,
     fontSize: 22,
     fontWeight: '500',
   },
   optionList: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 6,
+    borderWidth: 1,
+    overflow: 'hidden',
     marginTop: 44,
   },
   optionRow: {
     alignItems: 'center',
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: closetTheme.line,
     borderBottomWidth: 1,
     flexDirection: 'row',
     gap: 18,
@@ -699,7 +957,7 @@ const styles = StyleSheet.create({
   },
   radio: {
     alignItems: 'center',
-    borderColor: '#D2D2D2',
+    borderColor: closetTheme.line,
     borderRadius: 16,
     borderWidth: 2,
     height: 32,
@@ -707,16 +965,16 @@ const styles = StyleSheet.create({
     width: 32,
   },
   radioSelected: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
+    backgroundColor: closetTheme.ink,
+    borderColor: closetTheme.ink,
   },
   optionText: {
-    color: '#000000',
+    color: closetTheme.ink,
     fontSize: 20,
     fontWeight: '700',
   },
   sectionTitle: {
-    color: '#000000',
+    color: closetTheme.ink,
     fontSize: 30,
     fontWeight: '700',
     marginTop: 48,
@@ -725,7 +983,7 @@ const styles = StyleSheet.create({
   blackPill: {
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: closetTheme.ink,
     borderRadius: 24,
     flexDirection: 'row',
     gap: 12,
@@ -734,12 +992,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   blackPillText: {
-    color: '#FFFFFF',
+    color: closetTheme.cream,
     fontSize: 18,
     fontWeight: '700',
   },
   optionalText: {
-    color: '#9E9E9E',
+    color: closetTheme.muted,
     fontSize: 20,
     fontWeight: '600',
     marginTop: 32,
@@ -751,42 +1009,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   activityIcon: {
-    color: '#BFC1C2',
+    color: closetTheme.camel,
     fontSize: 96,
     opacity: 0.44,
   },
   activityIconSmall: {
-    color: '#BFC1C2',
+    color: closetTheme.muted,
     fontSize: 30,
     opacity: 0.56,
   },
   activityInputWrap: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 6,
+    borderWidth: 1,
     marginTop: 14,
     paddingHorizontal: 22,
   },
   activityInput: {
-    color: '#111111',
+    color: closetTheme.ink,
     fontSize: 18,
     fontWeight: '500',
     minHeight: 72,
   },
   resultActions: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.white,
     borderRadius: 28,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
     flexDirection: 'row',
     gap: 22,
     height: 56,
     justifyContent: 'center',
     paddingHorizontal: 22,
-    shadowColor: '#C8C8D8',
+    shadowColor: closetTheme.ink,
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.34,
+    shadowOpacity: 0.08,
     shadowRadius: 18,
   },
   toast: {
-    backgroundColor: '#2F2F2F',
+    backgroundColor: closetTheme.ink,
     borderRadius: 28,
     left: 20,
     paddingHorizontal: 26,
@@ -797,39 +1060,39 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   toastText: {
-    color: '#FFFFFF',
+    color: closetTheme.cream,
     fontSize: 18,
     fontWeight: '700',
     lineHeight: 28,
   },
   tripHeader: {
-    backgroundColor: '#F4F4F4',
+    backgroundColor: closetTheme.creamDeep,
     marginTop: 20,
     paddingHorizontal: 20,
     paddingVertical: 18,
   },
   tripTitle: {
-    color: '#000000',
+    color: closetTheme.ink,
     fontSize: 28,
     fontWeight: '800',
   },
   tripDates: {
-    color: '#6C6C6C',
+    color: closetTheme.muted,
     fontSize: 18,
     fontWeight: '700',
     marginTop: 4,
   },
   progressTrack: {
-    backgroundColor: '#E0E3EA',
+    backgroundColor: closetTheme.line,
     height: 10,
     marginTop: 34,
   },
   progressFill: {
-    backgroundColor: '#3047FF',
+    backgroundColor: closetTheme.camel,
     height: 10,
   },
   generatingText: {
-    color: '#9A9A9A',
+    color: closetTheme.muted,
     fontSize: 18,
     fontWeight: '600',
     lineHeight: 26,
@@ -838,13 +1101,13 @@ const styles = StyleSheet.create({
   },
   resultsTabs: {
     alignItems: 'center',
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: closetTheme.line,
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-around',
   },
   resultsTabText: {
-    color: '#777777',
+    color: closetTheme.muted,
     fontSize: 22,
     fontWeight: '800',
     minWidth: 150,
@@ -853,12 +1116,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   resultsTabSelected: {
-    borderBottomColor: '#000000',
+    borderBottomColor: closetTheme.ink,
     borderBottomWidth: 3,
-    color: '#000000',
+    color: closetTheme.ink,
   },
   countText: {
-    color: '#929292',
+    color: closetTheme.muted,
   },
   resultsContent: {
     paddingBottom: 36,
@@ -866,7 +1129,7 @@ const styles = StyleSheet.create({
   blackWideButton: {
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: closetTheme.ink,
     borderRadius: 28,
     flexDirection: 'row',
     gap: 14,
@@ -876,7 +1139,7 @@ const styles = StyleSheet.create({
     width: '92%',
   },
   blackWideText: {
-    color: '#FFFFFF',
+    color: closetTheme.cream,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -887,13 +1150,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   categoryChip: {
-    backgroundColor: '#F1F1F1',
+    backgroundColor: closetTheme.creamDeep,
     borderRadius: 24,
     paddingHorizontal: 18,
     paddingVertical: 12,
   },
   categoryChipText: {
-    color: '#000000',
+    color: closetTheme.ink,
     fontSize: 17,
     fontWeight: '700',
   },
@@ -906,7 +1169,9 @@ const styles = StyleSheet.create({
   },
   tripItemImageWrap: {
     alignItems: 'center',
-    backgroundColor: '#F3F3F3',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
     height: 172,
     justifyContent: 'center',
     position: 'relative',
@@ -917,7 +1182,7 @@ const styles = StyleSheet.create({
   },
   itemAction: {
     alignItems: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: closetTheme.ink,
     borderRadius: 17,
     height: 34,
     justifyContent: 'center',
@@ -927,20 +1192,20 @@ const styles = StyleSheet.create({
     width: 34,
   },
   tripItemName: {
-    color: '#000000',
+    color: closetTheme.ink,
     fontSize: 17,
     fontWeight: '800',
     marginHorizontal: 14,
     marginTop: 12,
   },
   tripItemMeta: {
-    color: '#777777',
+    color: closetTheme.muted,
     fontSize: 14,
     marginHorizontal: 14,
     marginTop: 4,
   },
   suggestedTitle: {
-    color: '#000000',
+    color: closetTheme.ink,
     fontSize: 25,
     fontWeight: '800',
     marginHorizontal: 20,
@@ -952,7 +1217,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   lookCard: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
     borderRadius: 10,
     padding: 14,
   },
@@ -962,26 +1229,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   lookTitle: {
-    color: '#000000',
+    color: closetTheme.ink,
     fontSize: 18,
     fontWeight: '800',
   },
   lookToggle: {
-    backgroundColor: '#000000',
+    backgroundColor: closetTheme.ink,
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   lookToggleAdded: {
-    backgroundColor: '#E2E2E2',
+    backgroundColor: closetTheme.creamDeep,
   },
   lookToggleText: {
-    color: '#FFFFFF',
+    color: closetTheme.cream,
     fontSize: 12,
     fontWeight: '900',
   },
   lookToggleTextAdded: {
-    color: '#000000',
+    color: closetTheme.ink,
   },
   lookItems: {
     flexDirection: 'row',
@@ -990,7 +1257,7 @@ const styles = StyleSheet.create({
   },
   lookItemMini: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.cream,
     borderRadius: 8,
     height: 58,
     justifyContent: 'center',

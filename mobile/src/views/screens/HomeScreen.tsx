@@ -17,7 +17,7 @@ import {
   WeatherSummary,
 } from '@/services/weather-recommendation';
 import { useClosetStore } from '@/stores/closet-store';
-import { AppScreen, AvatarButton } from '@/views/components/app-chrome';
+import { AppScreen, AvatarButton, initialForUsername } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { CalendarIcon, ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
@@ -40,7 +40,7 @@ export function HomeScreen({
   const [weatherVariant, setWeatherVariant] = useState(0);
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const hasLoadedInitialWeather = useRef(false);
-  const { applyOutfit, closetItems, selectedOutfit, toggleWornItem } = useClosetStore();
+  const { applyOutfit, closetItems, currentUser, selectedOutfit, toggleWornItem } = useClosetStore();
   const featuredItems = closetItems;
   const greeting = greetingForTime(currentDate);
   const timeLabel = formatClockTime(currentDate);
@@ -175,7 +175,7 @@ export function HomeScreen({
             <CalendarIcon color={closetTheme.ink} size={22} />
           </Pressable>
           <View style={styles.spacer} />
-          <AvatarButton onPress={() => onNavigate('account')} />
+          <AvatarButton initial={initialForUsername(currentUser?.username)} onPress={() => onNavigate('account')} />
         </View>
 
         <View style={styles.weatherCard}>

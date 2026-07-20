@@ -56,7 +56,11 @@ export function WardrobeScreen({
         </Pressable>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroller}
+        contentContainerStyle={styles.chips}>
         {categoryFilters.map((filter) => (
           <Pressable
             key={filter}
@@ -141,16 +145,21 @@ const styles = StyleSheet.create({
     color: closetTheme.ink,
   },
   chips: {
+    alignItems: 'flex-start',
     gap: 8,
     paddingHorizontal: 22,
     paddingTop: 14,
+  },
+  chipScroller: {
+    flexGrow: 0,
+    height: 58,
   },
   chip: {
     backgroundColor: closetTheme.white,
     borderColor: closetTheme.line,
     borderRadius: 16,
     borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 13,
     paddingVertical: 8,
   },
   chipSelected: {

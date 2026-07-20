@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenId } from '@/models/closet';
+import { useClosetStore } from '@/stores/closet-store';
 import { closetTheme } from '@/views/components/closet-theme';
-import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 type ScreenProps = {
   children: ReactNode;
@@ -23,17 +23,20 @@ export function AppScreen({
   showStatus = true,
   title,
 }: ScreenProps) {
+  const { currentUser } = useClosetStore();
+  const userInitial = initialForUsername(currentUser?.username);
+
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safe}>
       {showStatus && <StatusRow />}
       {title && (
         <View style={styles.pageHead}>
           <Text style={styles.pageTitle}>{title}</Text>
-          <AvatarButton onPress={() => onNavigate('account')} />
+          <AvatarButton initial={userInitial} onPress={() => onNavigate('account')} />
         </View>
       )}
       <View style={styles.body}>{children}</View>
-      {showBottomNav && <BottomNav activeTab={activeTab} onNavigate={onNavigate} />}
+      {showBottomNav && <BottomNav activeTab={activeTab} initial={userInitial} onNavigate={onNavigate} />}
     </SafeAreaView>
   );
 }
@@ -47,27 +50,29 @@ export function StatusRow() {
   );
 }
 
-export function AvatarButton({ onPress }: { onPress?: () => void }) {
+export function AvatarButton({ initial, onPress }: { initial?: string; onPress?: () => void }) {
   return (
     <Pressable disabled={!onPress} onPress={onPress} style={styles.avatar}>
-      <LineIcon name="u" color={closetTheme.cream} />
+      <Text style={styles.avatarInitial}>{initial ?? 'U'}</Text>
     </Pressable>
   );
 }
 
 export function BottomNav({
   activeTab,
+  initial,
   onNavigate,
 }: {
   activeTab: ScreenId;
+  initial?: string;
   onNavigate: (screen: ScreenId) => void;
 }) {
   const tabs: Array<{ id: ScreenId; icon: ReactNode }> = [
-    { id: 'home', icon: <LineIcon name="⌂" /> },
-    { id: 'discover', icon: <LineIcon name="✦" /> },
-    { id: 'add', icon: <LineIcon name="+" /> },
-    { id: 'closet', icon: <ClosetIcon size={25} /> },
-    { id: 'account', icon: <LineIcon name="u" /> },
+    { id: 'home', icon: <Text style={styles.navGlyph}>⌂</Text> },
+    { id: 'discover', icon: <Text style={styles.navGlyph}>✦</Text> },
+    { id: 'add', icon: <Text style={styles.navGlyph}>+</Text> },
+    { id: 'closet', icon: <NavTshirtIcon /> },
+    { id: 'account', icon: <Text style={styles.navInitial}>{initial ?? 'U'}</Text> },
   ];
 
   return (
@@ -81,10 +86,24 @@ export function BottomNav({
             key={tab.id}
             onPress={() => onNavigate(tab.id)}
             style={[styles.navButton, selected && styles.navButtonActive]}>
-            {tab.icon}
+            <View style={styles.navIconFrame}>{tab.icon}</View>
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+export function initialForUsername(username?: string | null) {
+  return username?.trim().charAt(0).toUpperCase() || 'U';
+}
+
+function NavTshirtIcon() {
+  return (
+    <View style={styles.navTshirt}>
+      <View style={[styles.navTshirtSleeve, styles.navTshirtLeftSleeve]} />
+      <View style={[styles.navTshirtSleeve, styles.navTshirtRightSleeve]} />
+      <View style={styles.navTshirtBody} />
     </View>
   );
 }
@@ -141,6 +160,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 36,
   },
+  avatarInitial: {
+    color: closetTheme.cream,
+    fontSize: 17,
+    fontWeight: '900',
+  },
   body: {
     flex: 1,
   },
@@ -150,20 +174,75 @@ const styles = StyleSheet.create({
     borderTopColor: closetTheme.line,
     borderTopWidth: 1,
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingBottom: 16,
+    paddingBottom: 8,
     paddingHorizontal: 12,
-    paddingTop: 12,
+    paddingTop: 7,
   },
   navButton: {
     alignItems: 'center',
     borderRadius: 14,
-    height: 44,
+    flex: 1,
+    height: 38,
     justifyContent: 'center',
-    width: 48,
+    marginHorizontal: 4,
+    maxWidth: 72,
   },
   navButtonActive: {
     backgroundColor: closetTheme.creamDeep,
+  },
+  navIconFrame: {
+    alignItems: 'center',
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  navGlyph: {
+    color: closetTheme.ink,
+    fontSize: 22,
+    fontWeight: '900',
+    lineHeight: 28,
+    textAlign: 'center',
+  },
+  navInitial: {
+    color: closetTheme.ink,
+    fontSize: 22,
+    fontWeight: '900',
+    lineHeight: 28,
+    textAlign: 'center',
+  },
+  navTshirt: {
+    alignItems: 'center',
+    height: 28,
+    justifyContent: 'center',
+    position: 'relative',
+    width: 28,
+  },
+  navTshirtBody: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.ink,
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 6,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    height: 18,
+    overflow: 'hidden',
+    width: 16,
+  },
+  navTshirtSleeve: {
+    backgroundColor: closetTheme.ink,
+    borderRadius: 5,
+    height: 12,
+    position: 'absolute',
+    top: 5,
+    width: 10,
+  },
+  navTshirtLeftSleeve: {
+    left: 3,
+    transform: [{ rotate: '-26deg' }],
+  },
+  navTshirtRightSleeve: {
+    right: 3,
+    transform: [{ rotate: '26deg' }],
   },
   chip: {
     backgroundColor: closetTheme.white,
