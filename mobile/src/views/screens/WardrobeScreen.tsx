@@ -1,12 +1,21 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { categoryFilters, ScreenId } from '@/models/closet';
+import { CategoryId, categoryFilters, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
+
+// Maps the plural display labels in categoryFilters to garment categories.
+// Any label not listed here (e.g. "All") shows everything.
+const filterToCategory: Record<string, CategoryId> = {
+  Shirts: 'shirt',
+  Dresses: 'dress',
+  Shorts: 'shorts',
+  Pants: 'pants',
+};
 
 export function WardrobeScreen({
   mode,
@@ -19,19 +28,13 @@ export function WardrobeScreen({
   const { closetItems, isLoadingItems, itemsError, selectedOutfit, toggleWornItem, wishlistItems } = useClosetStore();
   const items = mode === 'closet' ? closetItems : wishlistItems;
   const filteredItems = useMemo(() => {
-    if (activeFilter === 'All' || activeFilter === '...') {
+    const category = filterToCategory[activeFilter];
+
+    if (!category) {
       return items;
     }
 
-    const category = activeFilter.toLowerCase();
-    return items.filter((item) => {
-      if (category === 'tops') return item.category === 'tops';
-      if (category === 'bottoms') return item.category === 'bottoms';
-      if (category === 'outerwear') return item.category === 'outerwear';
-      if (category === 'shoes') return item.category === 'shoes';
-      if (category === 'accessories') return item.category === 'accessories';
-      return true;
-    });
+    return items.filter((item) => item.category === category);
   }, [activeFilter, items]);
 
   return (

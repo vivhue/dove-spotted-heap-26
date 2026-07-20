@@ -1,13 +1,21 @@
 {
-  "name": "bovecloset-3d-avatar-prototype",
+  "name": "bovecloset-tryon-server",
   "version": "0.1.0",
   "private": true,
-  "description": "Local 3D avatar customizer prototype for BoveCloset.",
+  "description": "BoveCloset 2D try-on backend: R2 storage, local background removal, and IDM-VTON.",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.658.1",
+    "@aws-sdk/s3-request-presigner": "^3.658.1",
+    "@gradio/client": "^1.7.1",
+    "@imgly/background-removal-node": "^1.4.5",
+    "sharp": "^0.33.5"
+  },
   "scripts": {
     "dev": "node scripts/dev-all.mjs",
     "dev:server": "node --env-file=.env --experimental-strip-types server.ts",
     "dev:mobile": "npm --prefix mobile run start",
     "start": "node --env-file=.env --experimental-strip-types server.ts",
-    "check": "node --env-file=.env --experimental-strip-types -e \"require('./server.ts')\" && node --check src/app.js"
+    "check": "node --experimental-strip-types -e \"require('./server.ts')\"",
+    "test": "node --experimental-strip-types --test"
   }
 }

@@ -41,17 +41,17 @@ export function SplashScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =>
       <Animated.View
         pointerEvents="none"
         style={[styles.floatItem, styles.floatShirt, { opacity: fadeItems, transform: [{ translateY: driftUp }] }]}>
-        <ClosetIcon category="tops" color="#7D92B8" size={48} />
+        <ClosetIcon category="shirt" color="#7D92B8" size={48} />
       </Animated.View>
       <Animated.View
         pointerEvents="none"
         style={[styles.floatItem, styles.floatShoe, { opacity: fadeItems, transform: [{ translateY: driftDown }] }]}>
-        <ClosetIcon category="shoes" color={closetTheme.blush} size={42} />
+        <ClosetIcon category="pants" color={closetTheme.blush} size={42} />
       </Animated.View>
       <Animated.View
         pointerEvents="none"
         style={[styles.floatItem, styles.floatBag, { opacity: fadeItems, transform: [{ translateY: driftUp }] }]}>
-        <ClosetIcon category="bags" color={closetTheme.sage} size={42} />
+        <ClosetIcon category="dress" color={closetTheme.sage} size={42} />
       </Animated.View>
       <Animated.View
         pointerEvents="none"

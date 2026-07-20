@@ -17,7 +17,7 @@ type TripLook = {
   title: string;
 };
 
-const categoryOrder: CategoryId[] = ['tops', 'bottoms', 'outerwear', 'shoes', 'bags', 'accessories'];
+const categoryOrder: CategoryId[] = ['shirt', 'dress', 'shorts', 'pants'];
 
 export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
   const { closetItems } = useClosetStore();
@@ -457,11 +457,10 @@ function buildTripLooks(items: WardrobeItem[]) {
     .map((seed, index) => ({
       ...seed,
       items: uniqueItems([
-        pickByCategory(items, 'tops', index),
-        pickByCategory(items, 'bottoms', index),
-        pickByCategory(items, 'outerwear', index),
-        pickByCategory(items, 'shoes', index),
-        pickByCategory(items, 'bags', index),
+        pickByCategory(items, 'shirt', index),
+        pickByCategory(items, 'pants', index),
+        pickByCategory(items, 'shorts', index),
+        pickByCategory(items, 'dress', index),
       ]),
     }))
     .filter((look) => look.items.length > 0);
@@ -494,12 +493,12 @@ function scoreTripItem(item: WardrobeItem, activities: string) {
   const activityText = activities.toLowerCase();
   let score = 0;
 
-  if (item.category === 'tops' || item.category === 'bottoms' || item.category === 'shoes') score += 6;
-  if (item.category === 'bags') score += 5;
-  if (activityText.includes('beach') && hasAny(text, ['linen', 'short', 'sandal', 'tank', 'skirt'])) score += 10;
-  if (activityText.includes('hike') && hasAny(text, ['sneaker', 'boot', 'jacket', 'pants'])) score += 10;
-  if (activityText.includes('dinner') && hasAny(text, ['dress', 'shirt', 'black', 'silk', 'loafer', 'boot'])) score += 10;
-  if (activityText.includes('work') && hasAny(text, ['blazer', 'shirt', 'trouser', 'loafer'])) score += 10;
+  if (item.category === 'shirt' || item.category === 'pants') score += 6;
+  if (item.category === 'dress' || item.category === 'shorts') score += 5;
+  if (activityText.includes('beach') && hasAny(text, ['linen', 'short', 'dress', 'tank'])) score += 10;
+  if (activityText.includes('hike') && hasAny(text, ['pants', 'short'])) score += 10;
+  if (activityText.includes('dinner') && hasAny(text, ['dress', 'shirt', 'black', 'silk'])) score += 10;
+  if (activityText.includes('work') && hasAny(text, ['shirt', 'trouser', 'pants'])) score += 10;
 
   return score;
 }
@@ -514,12 +513,10 @@ function countByCategory(items: WardrobeItem[]) {
 
 function labelForCategory(category: CategoryId) {
   const labels: Record<CategoryId, string> = {
-    accessories: 'Accessories',
-    bags: 'Bags',
-    bottoms: 'Bottoms',
-    outerwear: 'Outerwear',
-    shoes: 'Shoes',
-    tops: 'Tops',
+    shirt: 'Shirt',
+    dress: 'Dress',
+    shorts: 'Shorts',
+    pants: 'Pants',
   };
 
   return labels[category];

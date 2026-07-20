@@ -14,7 +14,7 @@ export type ClosetChatReply = {
   text: string;
 };
 
-const categoryOrder: CategoryId[] = ['tops', 'bottoms', 'outerwear', 'shoes', 'accessories', 'bags'];
+const categoryOrder: CategoryId[] = ['shirt', 'dress', 'shorts', 'pants'];
 
 export async function getClosetChatReply({
   closetItems,
@@ -165,7 +165,7 @@ async function getOutfitReply(message: string, items: WardrobeItem[]): Promise<C
       const names = recommendation.selectedItems.map(formatOwnedItem).join(', ');
 
       if (!names) {
-        return { text: 'I checked your closet, but I need at least a top, bottom, or shoes saved before I can build a weather outfit.' };
+        return { text: 'I checked your closet, but I need at least a shirt, dress, shorts, or pants saved before I can build a weather outfit.' };
       }
 
       return {
@@ -200,7 +200,7 @@ function buildLocalOutfit(items: WardrobeItem[], lower: string) {
   }, {});
 
   return {
-    names: selectedItems.map(formatOwnedItem).join(', ') || 'one of your saved tops with your easiest shoes',
+    names: selectedItems.map(formatOwnedItem).join(', ') || 'one of your saved shirts with your favorite pants',
     outfit,
   };
 }
@@ -310,12 +310,10 @@ function searchableText(item: WardrobeItem) {
 
 function labelForCategory(category: CategoryId) {
   const labels: Record<CategoryId, string> = {
-    accessories: 'accessories',
-    bags: 'bags',
-    bottoms: 'bottoms',
-    outerwear: 'outerwear',
-    shoes: 'shoes',
-    tops: 'tops',
+    shirt: 'shirts',
+    dress: 'dresses',
+    shorts: 'shorts',
+    pants: 'pants',
   };
 
   return labels[category];

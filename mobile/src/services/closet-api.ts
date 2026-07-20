@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-import { WardrobeDestination, WardrobeItem } from '@/models/closet';
+import { CategoryId, WardrobeDestination, WardrobeItem } from '@/models/closet';
 
 type ImageAsset = {
   fileName?: string | null;
@@ -9,45 +9,43 @@ type ImageAsset = {
   uri: string;
 };
 
-type ClosetItemPayload = {
+type CreateGarmentPayload = {
+  category: CategoryId;
   destination: WardrobeDestination;
   image: ImageAsset;
-  tag: string;
+  name?: string;
+  userId?: string;
+};
+
+type SetupAvatarPayload = {
+  image: ImageAsset;
   userId?: string;
 };
 
 type TryOnPayload = {
-  baseImageUrl?: string;
-  category: WardrobeItem['category'];
-  garmentImageUrl: string;
-  garmentImageUrls?: string[];
-  poseId?: string;
-  productType?: string;
-  provider?: 'gemini' | 'photta';
-  userId?: string;
-};
-
-type MannequinPayload = {
-  image: ImageAsset;
-  provider?: 'gemini' | 'photta';
+  garmentId: string;
   userId?: string;
 };
 
 const apiBaseUrl = resolveApiBaseUrl();
 
-export async function createClosetItem({
+export async function createGarment({
+  category,
   destination,
   image,
-  tag,
+  name,
   userId = 'demo-user',
-}: ClosetItemPayload) {
+}: CreateGarmentPayload) {
   const formData = new FormData();
-  formData.append('tag', tag);
-  formData.append('destination', destination === 'closet' ? 'Closet' : 'Wishlist');
+  formData.append('category', category);
+  formData.append('destination', destination === 'wishlist' ? 'wishlist' : 'closet');
   formData.append('userId', userId);
+  if (name?.trim()) {
+    formData.append('name', name.trim());
+  }
   await appendImageFile(formData, image);
 
-  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/closet-items`, {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/garments`, {
     body: formData,
     method: 'POST',
   });
@@ -55,16 +53,49 @@ export async function createClosetItem({
   return readJsonResponse<WardrobeItem>(response);
 }
 
-export async function getClosetItems(userId = 'demo-user') {
-  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/closet-items?userId=${encodeURIComponent(userId)}`, {
+export async function getGarments(userId = 'demo-user') {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/garments?userId=${encodeURIComponent(userId)}`, {
     method: 'GET',
   });
 
   return readJsonResponse<WardrobeItem[]>(response);
 }
 
+export async function setupAvatar({ image, userId = 'demo-user' }: SetupAvatarPayload) {
+  const formData = new FormData();
+  formData.append('userId', userId);
+  await appendImageFile(formData, image);
+
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/avatar`, {
+    body: formData,
+    method: 'POST',
+  });
+
+  return readJsonResponse<{ avatarUrl: string }>(response);
+}
+
+export async function getAvatar(userId = 'demo-user') {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/avatar?userId=${encodeURIComponent(userId)}`, {
+    method: 'GET',
+  });
+
+  return readJsonResponse<{ avatarUrl: string | null }>(response);
+}
+
+export async function createTryOn({ garmentId, userId = 'demo-user' }: TryOnPayload) {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/try-on`, {
+    body: JSON.stringify({ garmentId, userId }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+  });
+
+  return readJsonResponse<{ resultUrl: string }>(response);
+}
+
 async function appendImageFile(formData: FormData, image: ImageAsset) {
-  const fileName = image.fileName ?? `closet-item-${Date.now()}.${extensionFromMime(image.mimeType)}`;
+  const fileName = image.fileName ?? `upload-${Date.now()}.${extensionFromMime(image.mimeType)}`;
   const mimeType = image.mimeType ?? mimeTypeFromFileName(fileName);
 
   if (Platform.OS === 'web') {
@@ -97,68 +128,6 @@ function mimeTypeFromFileName(fileName: string) {
   if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) return 'image/jpeg';
 
   return 'image/jpeg';
-}
-
-export async function createTryOn({
-  baseImageUrl,
-  category,
-  garmentImageUrl,
-  garmentImageUrls,
-  poseId,
-  productType,
-  provider,
-  userId = 'demo-user',
-}: TryOnPayload) {
-  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/try-on`, {
-    body: JSON.stringify({
-      baseImageUrl,
-      category,
-      garmentImageUrl,
-      garmentImageUrls,
-      poseId,
-      productType,
-      provider,
-      userId,
-    }),
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    method: 'POST',
-  });
-
-  return readJsonResponse<{ generationId: string; outputUrl?: string; status?: string }>(response);
-}
-
-export async function getProfile(userId = 'demo-user') {
-  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/profile?userId=${encodeURIComponent(userId)}`, {
-    method: 'GET',
-  });
-
-  return readJsonResponse<{ mannequinId: string | null; selfieImageUrl: string | null }>(response);
-}
-
-export async function setupMannequin({ image, provider, userId = 'demo-user' }: MannequinPayload) {
-  const formData = new FormData();
-  formData.append('userId', userId);
-  if (provider) {
-    formData.append('provider', provider);
-  }
-  await appendImageFile(formData, image);
-
-  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/profile/mannequin`, {
-    body: formData,
-    method: 'POST',
-  });
-
-  return readJsonResponse<{ mannequinId: string; selfieImageUrl: string }>(response);
-}
-
-export async function getTryOnStatus(generationId: string) {
-  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/try-on/${encodeURIComponent(generationId)}`, {
-    method: 'GET',
-  });
-
-  return readJsonResponse<{ error?: unknown; error_message?: string; message?: string; output_url?: string; status: string }>(response);
 }
 
 async function fetchWithBackendMessage(url: string, init: RequestInit) {

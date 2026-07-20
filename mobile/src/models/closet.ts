@@ -11,7 +11,9 @@ export type ScreenId =
   | 'discover'
   | 'calendar';
 
-export type CategoryId = 'tops' | 'bottoms' | 'outerwear' | 'shoes' | 'accessories' | 'bags';
+// Try-on garment categories. Single source of truth, mirrored server-side in
+// lib/garments.ts. Only these four are supported by IDM-VTON try-on.
+export type CategoryId = 'shirt' | 'dress' | 'shorts' | 'pants';
 export type WardrobeDestination = 'closet' | 'wishlist';
 export const currentUserDisplayName = 'there';
 
@@ -34,7 +36,6 @@ export type WardrobeItem = {
   price?: string;
   saved?: boolean;
   destination?: WardrobeDestination;
-  imageUrl?: string;
   pattern?: string;
   primaryColor?: string;
   subcategory?: string;
@@ -135,15 +136,13 @@ export const browseCategories: {
   label: string;
   shortLabel: string;
 }[] = [
-  { id: 'tops', label: 'Tops', shortLabel: 'Tops' },
-  { id: 'bottoms', label: 'Bottoms', shortLabel: 'Bottoms' },
-  { id: 'outerwear', label: 'Outerwear', shortLabel: 'Outerwear' },
-  { id: 'shoes', label: 'Shoes', shortLabel: 'Shoes' },
-  { id: 'accessories', label: 'Accessories', shortLabel: 'Accessories' },
-  { id: 'bags', label: 'Bags', shortLabel: 'Bags' },
+  { id: 'shirt', label: 'Shirts', shortLabel: 'Shirts' },
+  { id: 'dress', label: 'Dresses', shortLabel: 'Dresses' },
+  { id: 'shorts', label: 'Shorts', shortLabel: 'Shorts' },
+  { id: 'pants', label: 'Pants', shortLabel: 'Pants' },
 ];
 
-export const homeSwatches: CategoryId[] = ['tops', 'bottoms', 'outerwear', 'shoes'];
+export const homeSwatches: CategoryId[] = ['shirt', 'dress', 'shorts', 'pants'];
 
 export const chatMessages = [
   {
@@ -169,11 +168,13 @@ export const calendarLooks = [
   { day: 28, selected: true },
 ];
 
-export const categoryFilters = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories', 'Bags'];
+export const categoryFilters = ['All', 'Shirts', 'Dresses', 'Shorts', 'Pants'];
 
+// Starts empty; real items load from the backend via the closet store. (The
+// legacy local inventory in use-closet-app.ts is seeded from this.)
 export const initialInventoryState: InventoryState = {
-  closet: closetItems.map((item) => ({ ...item })),
-  wishlist: wishlistItems.map((item) => ({ ...item, saved: false })),
+  closet: [],
+  wishlist: [],
 };
 
 export function cloneInventoryState(state: InventoryState): InventoryState {

@@ -55,7 +55,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.authPanel}>
             <View style={styles.authAvatar}>
-              <ClosetIcon category="tops" color={closetTheme.camel} accent={closetTheme.blush} size={74} />
+              <ClosetIcon category="shirt" color={closetTheme.camel} accent={closetTheme.blush} size={74} />
             </View>
             <Text style={styles.authTitle}>{authMode === 'signup' ? 'Create your account' : 'Log in'}</Text>
             <Text style={styles.authSubtitle}>
@@ -126,7 +126,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
 
         <View style={styles.profileRow}>
           <View style={styles.avatarLarge}>
-            <ClosetIcon category="tops" color={closetTheme.camel} accent={closetTheme.blush} size={68} />
+            <ClosetIcon category="shirt" color={closetTheme.camel} accent={closetTheme.blush} size={68} />
             <View style={styles.avatarBadge}>
               <LineIcon name="u" color={closetTheme.cream} />
             </View>

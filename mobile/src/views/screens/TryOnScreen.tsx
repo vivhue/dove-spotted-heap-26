@@ -1,87 +1,66 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
-import { CategoryId, ScreenId, WardrobeItem } from '@/models/closet';
-import { createTryOn, getProfile, getTryOnStatus, setupMannequin } from '@/services/closet-api';
+import { ScreenId } from '@/models/closet';
+import { createTryOn, getAvatar, setupAvatar } from '@/services/closet-api';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
-const tryOnOrder: CategoryId[] = ['tops', 'bottoms', 'outerwear', 'shoes', 'accessories', 'bags'];
-const tryOnProvider = 'gemini';
-
-type TryOnJob = {
-  garmentImageUrls: string[];
-  label: string;
-  primaryCategory: WardrobeItem['category'];
-  productType: string;
-};
-
 export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const { closetItems, currentUser, selectedOutfit, toggleWornItem } = useClosetStore();
-  const [basePhotoUrl, setBasePhotoUrl] = useState('');
+  const { closetItems, currentUser } = useClosetStore();
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [displayPhotoUrl, setDisplayPhotoUrl] = useState('');
-  const [status, setStatus] = useState('Checking your model...');
-  const [isCheckingProfile, setIsCheckingProfile] = useState(true);
+  const [selectedGarmentId, setSelectedGarmentId] = useState<string | null>(null);
+  const [status, setStatus] = useState('Checking your photo...');
+  const [isCheckingAvatar, setIsCheckingAvatar] = useState(true);
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-
-  const tryOnItems = useMemo(
-    () => closetItems,
-    [closetItems]
-  );
-  const selectedItems = useMemo(
-    () =>
-      tryOnOrder
-        .map((category) => closetItems.find((item) => item.id === selectedOutfit[category]))
-        .filter((item): item is WardrobeItem => Boolean(item?.imageUrl)),
-    [closetItems, selectedOutfit]
-  );
 
   useEffect(() => {
     let isMounted = true;
 
-    async function loadProfile() {
+    async function loadAvatar() {
       if (!currentUser) {
-        setStatus('Create an account before setting up your model.');
-        setIsCheckingProfile(false);
+        setStatus('Create an account before setting up your photo.');
+        setIsCheckingAvatar(false);
         return;
       }
 
       try {
-        const profile = await getProfile(currentUser.id);
+        const { avatarUrl: url } = await getAvatar(currentUser.id);
 
         if (!isMounted) {
           return;
         }
 
-        setBasePhotoUrl(profile.selfieImageUrl ?? '');
-        setDisplayPhotoUrl(profile.selfieImageUrl ?? '');
-        setStatus(profile.selfieImageUrl ? 'Choose items, then tap Try it on.' : 'Take a full-body photo to see clothes on yourself.');
+        setAvatarUrl(url ?? '');
+        setDisplayPhotoUrl(url ?? '');
+        setStatus(url ? 'Pick a garment, then tap Try it on.' : 'Upload a full-body photo to see clothes on yourself.');
       } catch (error) {
         if (isMounted) {
-          setStatus(error instanceof Error ? error.message : 'Could not load your model.');
+          setStatus(error instanceof Error ? error.message : 'Could not load your photo.');
         }
       } finally {
         if (isMounted) {
-          setIsCheckingProfile(false);
+          setIsCheckingAvatar(false);
         }
       }
     }
 
-    loadProfile();
+    loadAvatar();
 
     return () => {
       isMounted = false;
     };
   }, [currentUser]);
 
-  async function setupModel() {
+  async function uploadAvatar() {
     if (!currentUser) {
-      setStatus('Create an account before setting up your model.');
+      setStatus('Create an account before setting up your photo.');
       return;
     }
 
@@ -104,23 +83,23 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
 
     try {
       setIsSettingUp(true);
-      setStatus('Saving your model photo...');
+      setStatus('Saving your photo...');
       setDisplayPhotoUrl(result.assets[0].uri);
-      const model = await setupMannequin({ image: result.assets[0], provider: tryOnProvider, userId: currentUser.id });
+      const { avatarUrl: url } = await setupAvatar({ image: result.assets[0], userId: currentUser.id });
 
-      setBasePhotoUrl(model.selfieImageUrl);
-      setDisplayPhotoUrl(model.selfieImageUrl);
-      setStatus('Model ready. Choose clothes, then tap Try it on.');
+      setAvatarUrl(url);
+      setDisplayPhotoUrl(url);
+      setStatus('Photo ready. Pick a garment, then tap Try it on.');
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not set up your model.');
+      setStatus(error instanceof Error ? error.message : 'Could not save your photo.');
     } finally {
       setIsSettingUp(false);
     }
   }
 
-  async function tryOnSelectedOutfit() {
-    if (!basePhotoUrl) {
-      setStatus('Take a full-body photo to see clothes on yourself.');
+  async function tryOnSelectedGarment() {
+    if (!avatarUrl) {
+      setStatus('Upload a full-body photo to see clothes on yourself.');
       return;
     }
 
@@ -129,36 +108,17 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
       return;
     }
 
-    if (selectedItems.length === 0) {
-      setStatus('Select at least one closet item first.');
+    if (!selectedGarmentId) {
+      setStatus('Select a garment first.');
       return;
     }
 
     try {
       setIsGenerating(true);
-      setStatus('Creating Taobao-style try-on...');
-      let currentBase = basePhotoUrl;
-      const jobs = buildTryOnJobs(selectedItems);
+      setStatus('Running virtual try-on... this can take 30-60s.');
+      const { resultUrl } = await createTryOn({ garmentId: selectedGarmentId, userId: currentUser.id });
 
-      for (let index = 0; index < jobs.length; index += 1) {
-        const job = jobs[index];
-
-        setStatus(`Creating Taobao-style try-on... ${index + 1}/${jobs.length}`);
-        const result = await createTryOn({
-          baseImageUrl: currentBase,
-          category: job.primaryCategory,
-          garmentImageUrl: job.garmentImageUrls[0],
-          garmentImageUrls: job.garmentImageUrls,
-          productType: job.productType,
-          provider: tryOnProvider,
-          userId: currentUser.id,
-        });
-        const outputUrl = result.outputUrl ?? await pollTryOn(result.generationId);
-
-        currentBase = outputUrl;
-        setDisplayPhotoUrl(outputUrl);
-      }
-
+      setDisplayPhotoUrl(resultUrl);
       setStatus('Try-on ready.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Try-on failed. You can retry.');
@@ -167,22 +127,8 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
     }
   }
 
-  async function pollTryOn(generationId: string) {
-    for (let attempt = 0; attempt < 120; attempt += 1) {
-      const result = await getTryOnStatus(generationId);
-
-      if (result.status === 'completed' && result.output_url) {
-        return result.output_url;
-      }
-
-      if (result.status === 'failed' || result.status === 'error') {
-        throw new Error(providerErrorMessage(result));
-      }
-
-      await sleep(3000);
-    }
-
-    throw new Error('Try-on is taking longer than expected. Please check again in a minute.');
+  function toggleGarment(id: string) {
+    setSelectedGarmentId((current) => (current === id ? null : id));
   }
 
   return (
@@ -193,12 +139,12 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
             <Image source={{ uri: displayPhotoUrl }} style={styles.userPhoto} resizeMode="cover" />
           ) : (
             <View style={styles.emptyPhoto}>
-              {isCheckingProfile ? (
+              {isCheckingAvatar ? (
                 <ActivityIndicator color={closetTheme.camelDeep} />
               ) : (
                 <>
                   <LineIcon name="▧" color={closetTheme.camelDeep} />
-                  <Text style={styles.emptyTitle}>Take a full-body photo to see clothes on yourself</Text>
+                  <Text style={styles.emptyTitle}>Upload a full-body photo to see clothes on yourself</Text>
                 </>
               )}
             </View>
@@ -211,34 +157,34 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
           <Pressable
             disabled={isSettingUp}
             style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, isSettingUp && styles.disabled]}
-            onPress={setupModel}>
+            onPress={uploadAvatar}>
             {isSettingUp ? <ActivityIndicator color={closetTheme.camelDeep} /> : <LineIcon name="▧" color={closetTheme.camelDeep} />}
-            <Text style={styles.secondaryText}>{basePhotoUrl ? 'Retake photo' : 'Upload photo'}</Text>
+            <Text style={styles.secondaryText}>{avatarUrl ? 'Retake photo' : 'Upload photo'}</Text>
           </Pressable>
 
           <Pressable
             disabled={isGenerating}
             style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, isGenerating && styles.disabled]}
-            onPress={tryOnSelectedOutfit}>
+            onPress={tryOnSelectedGarment}>
             {isGenerating ? <ActivityIndicator color={closetTheme.cream} /> : <LineIcon name="✦" color={closetTheme.cream} />}
             <Text style={styles.primaryText}>{isGenerating ? 'Creating' : 'Try it on'}</Text>
           </Pressable>
         </View>
 
-        {basePhotoUrl && displayPhotoUrl !== basePhotoUrl && (
-          <Pressable style={styles.resetButton} onPress={() => setDisplayPhotoUrl(basePhotoUrl)}>
+        {avatarUrl && displayPhotoUrl !== avatarUrl && (
+          <Pressable style={styles.resetButton} onPress={() => setDisplayPhotoUrl(avatarUrl)}>
             <Text style={styles.resetText}>Reset to original photo</Text>
           </Pressable>
         )}
 
-        <Text style={styles.sectionLabel}>Select outfit pieces</Text>
+        <Text style={styles.sectionLabel}>Select a garment</Text>
         <View style={styles.grid}>
-          {tryOnItems.map((item) => (
+          {closetItems.map((item) => (
             <View key={item.id} style={styles.cardWrap}>
               <WardrobeCard
-                isWorn={selectedOutfit[item.category] === item.id}
+                isWorn={selectedGarmentId === item.id}
                 item={item}
-                onPress={() => toggleWornItem(item)}
+                onPress={() => toggleGarment(item.id)}
                 showHeart
               />
             </View>
@@ -247,64 +193,6 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
       </ScrollView>
     </AppScreen>
   );
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function providerErrorMessage(result: { error?: unknown; error_message?: string; message?: string }) {
-  if (result.error_message) return result.error_message;
-  if (result.message) return result.message;
-
-  if (result.error && typeof result.error === 'object' && 'message' in result.error) {
-    return String(result.error.message);
-  }
-
-  if (typeof result.error === 'string') return result.error;
-
-  return 'Try-on failed.';
-}
-
-function buildTryOnJobs(items: WardrobeItem[]): TryOnJob[] {
-  const top = items.find((item) => item.category === 'tops');
-  const bottom = items.find((item) => item.category === 'bottoms');
-  const jobs: TryOnJob[] = [];
-  const bundledIds = new Set<string>();
-
-  if (top?.imageUrl && bottom?.imageUrl) {
-    jobs.push({
-      garmentImageUrls: [top.imageUrl, bottom.imageUrl],
-      label: 'top and bottom',
-      primaryCategory: 'tops',
-      productType: 'top_and_bottom',
-    });
-    bundledIds.add(top.id);
-    bundledIds.add(bottom.id);
-  }
-
-  for (const item of items) {
-    if (!item.imageUrl || bundledIds.has(item.id)) {
-      continue;
-    }
-
-    jobs.push({
-      garmentImageUrls: [item.imageUrl],
-      label: item.name,
-      primaryCategory: item.category,
-      productType: productTypeFromCategory(item.category),
-    });
-  }
-
-  return jobs;
-}
-
-function productTypeFromCategory(category: WardrobeItem['category']) {
-  if (category === 'tops') return 'top';
-  if (category === 'bottoms') return 'bottom';
-  if (category === 'outerwear') return 'top';
-
-  return category;
 }
 
 const styles = StyleSheet.create({

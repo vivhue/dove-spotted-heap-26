@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { CategoryId, ClosetAccount, WardrobeItem } from '@/models/closet';
-import { getClosetItems } from '@/services/closet-api';
+import { getGarments } from '@/services/closet-api';
 
 export type SelectedOutfit = Record<CategoryId, string | null>;
 
@@ -34,12 +34,10 @@ const closetItemsStoragePrefix = 'bove-closet-items';
 const currentUserStorageKey = 'bove-closet-current-user';
 
 const initialSelectedOutfit: SelectedOutfit = {
-  accessories: null,
-  bags: null,
-  bottoms: null,
-  outerwear: null,
-  shoes: null,
-  tops: null,
+  shirt: null,
+  dress: null,
+  shorts: null,
+  pants: null,
 };
 
 function canUseLocalStorage() {
@@ -148,7 +146,7 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
     setItemsError('');
 
     try {
-      const freshItems = await getClosetItems(currentUserId);
+      const freshItems = await getGarments(currentUserId);
       setItems(freshItems);
       saveCachedClosetItems(currentUserId, freshItems);
     } catch (error) {
