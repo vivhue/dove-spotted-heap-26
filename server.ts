@@ -63,6 +63,27 @@ type SupabaseProfile = {
 
 type TryOnProvider = 'gemini' | 'photta';
 
+type WebStyleSource = {
+  snippet: string;
+  title: string;
+  url: string;
+};
+
+type WebStyleStore = {
+  name: string;
+  query: string;
+  url: string;
+};
+
+type WebStyleSuggestion = {
+  outfit: string[];
+  searchQuery: string;
+  stores: WebStyleStore[];
+  sources: WebStyleSource[];
+  summary: string;
+  title: string;
+};
+
 class HttpError extends Error {
   status: number;
 
@@ -157,6 +178,12 @@ const server = http.createServer(async (req: typeof http.IncomingMessage.prototy
 
     if (req.method === 'POST' && url.pathname === '/api/try-on') {
       const result = await handleTryOn(req);
+      sendJson(res, 200, result);
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/style/web-outfit') {
+      const result = await handleWebOutfitSuggestion(req);
       sendJson(res, 200, result);
       return;
     }
@@ -322,6 +349,269 @@ async function handleTryOn(req: typeof http.IncomingMessage.prototype): Promise<
       productType,
     }),
   };
+}
+
+async function handleWebOutfitSuggestion(req: typeof http.IncomingMessage.prototype): Promise<{
+  text: string;
+  webSuggestion: WebStyleSuggestion;
+}> {
+  const body = await readJsonBody<{ query?: string }>(req);
+  const query = body.query?.trim();
+
+  if (!query) {
+    throw new HttpError(400, 'Query is required.');
+  }
+
+  const plan = buildWebStylePlan(query);
+  const sources = await fetchWebStyleSources(plan.searchQuery);
+  const outfitText = plan.outfit.join(', ');
+  const sourceLead = sources[0]?.title ? ` I checked ${sources[0].title} for extra live inspiration.` : '';
+
+  return {
+    text: `I checked the web for ${plan.searchQuery}. Try ${outfitText}.${sourceLead}`.trim(),
+    webSuggestion: {
+      outfit: plan.outfit,
+      searchQuery: plan.searchQuery,
+      stores: plan.stores,
+      sources,
+      summary: plan.summary,
+      title: plan.title,
+    },
+  };
+}
+
+function buildWebStylePlan(query: string) {
+  const lower = query.toLowerCase();
+
+  if (hasAny(lower, ['sleep', 'bed', 'pajama', 'pajamas', 'lounge', 'loungewear'])) {
+    return {
+      outfit: ['soft tee or tank', 'matching lounge pants', 'light cardigan or hoodie', 'slides or clean socks'],
+      searchQuery: 'sleepwear loungewear outfit ideas',
+      stores: storeTargets('sleepwear', 'loungewear', 'pajama set'),
+      summary: 'Keep it soft, breathable, and easy to move in.',
+      title: 'Sleepwear',
+    };
+  }
+
+  if (hasAny(lower, ['interview', 'presentation', 'scholarship', 'formal', 'work', 'meeting', 'pitch', 'seminar'])) {
+    return {
+      outfit: ['structured blazer', 'crisp shirt or polished top', 'tailored trousers or a neat skirt', 'simple loafers or flats'],
+      searchQuery: 'presentation interview outfit ideas smart casual',
+      stores: storeTargets('white shirt', 'tailored trousers', 'blazer', 'smart loafers'),
+      summary: 'Keep the silhouette clean, polished, and comfortable enough to move in.',
+      title: 'Presentation-ready',
+    };
+  }
+
+  if (hasAny(lower, ['date', 'dinner', 'party', 'event', 'night out'])) {
+    return {
+      outfit: ['refined top', 'straight trousers or a sleek skirt', 'light layer or jacket', 'minimal shoe or heel'],
+      searchQuery: 'date night outfit ideas current fashion',
+      stores: storeTargets('minimal top', 'sleek skirt', 'heeled sandals', 'statement jacket'),
+      summary: 'Aim for one focal point and keep the rest simple.',
+      title: 'Date-night',
+    };
+  }
+
+  if (hasAny(lower, ['school', 'errand', 'casual', 'weekend', 'coffee', 'brunch', 'travel', 'airport'])) {
+    return {
+      outfit: ['clean tee or knit top', 'straight-leg jeans or relaxed trousers', 'light jacket', 'sneakers or loafers'],
+      searchQuery: 'casual outfit ideas capsule wardrobe',
+      stores: storeTargets('basic tee', 'straight-leg jeans', 'light jacket', 'clean sneakers'),
+      summary: 'Keep it easy, balanced, and still put together.',
+      title: 'Easy casual',
+    };
+  }
+
+  return {
+    outfit: ['clean neutral top', 'well-fitting bottom', 'light layer', 'simple shoe'],
+    searchQuery: 'minimal outfit ideas 2026',
+    stores: storeTargets('neutral tee', 'well-fitting trousers', 'light cardigan', 'simple sneakers'),
+    summary: 'Start with clean basics and let fit do the work.',
+    title: 'Everyday',
+  };
+}
+
+async function fetchWebStyleSources(searchQuery: string): Promise<WebStyleSource[]> {
+  const htmlResults = await fetchDuckDuckGoHtmlResults(searchQuery);
+
+  if (htmlResults.length > 0) {
+    return htmlResults;
+  }
+
+  return fetchDuckDuckGoInstantResults(searchQuery);
+}
+
+async function fetchDuckDuckGoHtmlResults(searchQuery: string): Promise<WebStyleSource[]> {
+  try {
+    const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`, {
+      headers: {
+        'accept-language': 'en-US,en;q=0.9',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36',
+      },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const html = await response.text();
+    return parseDuckDuckGoHtmlResults(html).slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchDuckDuckGoInstantResults(searchQuery: string): Promise<WebStyleSource[]> {
+  try {
+    const response = await fetch(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(searchQuery)}&format=json&no_html=1&skip_disambig=1`
+    );
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const payload = (await response.json()) as Record<string, unknown>;
+    const sources: WebStyleSource[] = [];
+
+    if (typeof payload.Heading === 'string' && typeof payload.AbstractText === 'string' && payload.AbstractText.trim()) {
+      sources.push({
+        snippet: cleanWebText(payload.AbstractText),
+        title: cleanWebText(payload.Heading),
+        url: typeof payload.AbstractURL === 'string' && payload.AbstractURL ? payload.AbstractURL : 'https://duckduckgo.com/',
+      });
+    }
+
+    const relatedTopics = Array.isArray(payload.RelatedTopics) ? payload.RelatedTopics : [];
+
+    for (const topic of relatedTopics) {
+      if (!topic || typeof topic !== 'object') {
+        continue;
+      }
+
+      const record = topic as Record<string, unknown>;
+
+      if (typeof record.Text === 'string' && typeof record.FirstURL === 'string') {
+        sources.push({
+          snippet: cleanWebText(record.Text),
+          title: cleanWebText(record.Text.split(' - ')[0] || record.Text),
+          url: record.FirstURL,
+        });
+      }
+
+      if (sources.length >= 3) {
+        break;
+      }
+    }
+
+    return sources.slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
+function parseDuckDuckGoHtmlResults(html: string): WebStyleSource[] {
+  const sources: WebStyleSource[] = [];
+  const anchorRegex = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+
+  for (const match of html.matchAll(anchorRegex)) {
+    const rawUrl = cleanWebText(match[1]);
+    const title = cleanWebText(match[2]);
+    const start = (match.index ?? 0) + match[0].length;
+    const block = html.slice(start, start + 900);
+    const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/(?:a|div)>/i);
+    const snippet = snippetMatch ? cleanWebText(snippetMatch[1]) : '';
+
+    sources.push({
+      snippet,
+      title,
+      url: normalizeDuckDuckGoUrl(rawUrl),
+    });
+
+    if (sources.length >= 3) {
+      break;
+    }
+  }
+
+  return sources;
+}
+
+function normalizeDuckDuckGoUrl(rawUrl: string) {
+  const cleaned = rawUrl.startsWith('//') ? `https:${rawUrl}` : rawUrl;
+
+  try {
+    const url = new URL(cleaned, 'https://duckduckgo.com');
+    const destination = url.searchParams.get('uddg');
+
+    if (destination) {
+      return decodeURIComponent(destination);
+    }
+
+    return url.toString();
+  } catch {
+    return cleaned;
+  }
+}
+
+function storeTargets(...queries: string[]): WebStyleStore[] {
+  const stores = [
+    {
+      name: 'Uniqlo',
+      searchBase: 'https://www.uniqlo.com/sg/en/search/',
+      toUrl: (query: string) => `https://www.uniqlo.com/sg/en/search/?q=${encodeURIComponent(query)}`,
+    },
+    {
+      name: 'Shopee',
+      searchBase: 'https://shopee.sg/search?keyword=',
+      toUrl: (query: string) => `https://shopee.sg/search?keyword=${encodeURIComponent(query)}`,
+    },
+    {
+      name: 'Lazada',
+      searchBase: 'https://www.lazada.sg/catalog/?q=',
+      toUrl: (query: string) => `https://www.lazada.sg/catalog/?q=${encodeURIComponent(query)}`,
+    },
+  ];
+
+  return stores.flatMap((store) =>
+    queries.map((query) => ({
+      name: store.name,
+      query,
+      url: store.toUrl(query),
+    }))
+  );
+}
+
+function cleanWebText(value: string) {
+  return decodeHtmlEntities(value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
+}
+
+function decodeHtmlEntities(value: string) {
+  return value.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (_, entity: string) => {
+    const lower = entity.toLowerCase();
+
+    if (lower === 'amp') return '&';
+    if (lower === 'lt') return '<';
+    if (lower === 'gt') return '>';
+    if (lower === 'quot') return '"';
+    if (lower === 'apos' || lower === '#39') return "'";
+
+    if (lower.startsWith('#x')) {
+      const code = Number.parseInt(lower.slice(2), 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+    }
+
+    if (lower.startsWith('#')) {
+      const code = Number.parseInt(lower.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+    }
+
+    return _;
+  });
+}
+
+function hasAny(text: string, needles: string[]) {
+  return needles.some((needle) => text.includes(needle));
 }
 
 async function createGeminiTryOnResponse({

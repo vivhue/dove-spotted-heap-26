@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 import { BodyMeasurements, CategoryId, ScreenId, WardrobeItem, browseCategories } from '@/models/closet';
@@ -12,6 +12,7 @@ import {
   StyleProfile,
   Undertone,
 } from '@/services/closet-chatbot';
+import type { WebStyleSuggestion } from '@/services/closet-api';
 import type { SelectedOutfit } from '@/stores/closet-store';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
@@ -22,6 +23,7 @@ type ChatMessage = {
   actions?: ChatAction[];
   id: string;
   outfit?: Partial<SelectedOutfit>;
+  webSuggestion?: WebStyleSuggestion;
   role: 'bot' | 'user';
   text: string;
 };
@@ -321,7 +323,12 @@ export function DiscoverScreen({
           <Text style={styles.heroQuestion}>How can I style you?</Text>
         </View>
 
-        <ScrollView ref={scrollRef} contentContainerStyle={styles.chatLog} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.chatLogScroll}
+          contentContainerStyle={styles.chatLog}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
           {visibleMessages.map((message) => {
             const isUser = message.role === 'user';
             const hasOutfit = message.role === 'bot' && message.outfit && Object.keys(message.outfit).length > 0;
@@ -342,6 +349,37 @@ export function DiscoverScreen({
                   <Pressable style={styles.useOutfitButton} onPress={() => useOutfit(message.outfit ?? {})}>
                     <Text style={styles.useOutfitText}>Try this outfit</Text>
                   </Pressable>
+                )}
+                {message.webSuggestion && (
+                  <View style={styles.webPanel}>
+                    <Text style={styles.webEyebrow}>WEB</Text>
+                    <Text style={styles.webTitle}>{message.webSuggestion.title}</Text>
+                    <Text style={styles.webSummary}>{message.webSuggestion.summary}</Text>
+                    <View style={styles.webOutfitRow}>
+                      {message.webSuggestion.outfit.map((step) => (
+                        <View key={step} style={styles.webOutfitChip}>
+                          <Text style={styles.webOutfitText}>{step}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    {message.webSuggestion.sources.slice(0, 2).map((source) => (
+                      <Pressable key={source.url} style={styles.webSource} onPress={() => void Linking.openURL(source.url)}>
+                        <Text numberOfLines={1} style={styles.webSourceTitle}>{source.title}</Text>
+                        {source.snippet ? <Text numberOfLines={2} style={styles.webSourceSnippet}>{source.snippet}</Text> : null}
+                      </Pressable>
+                    ))}
+                    <View style={styles.webStoreSection}>
+                      <Text style={styles.webStoreLabel}>Where to buy</Text>
+                      <View style={styles.webStoreRow}>
+                        {message.webSuggestion.stores.slice(0, 4).map((store) => (
+                          <Pressable key={`${store.name}:${store.query}`} style={styles.webStoreChip} onPress={() => void Linking.openURL(store.url)}>
+                            <Text style={styles.webStoreName}>{store.name}</Text>
+                            <Text numberOfLines={1} style={styles.webStoreQuery}>{store.query}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
                 )}
               </View>
             );
@@ -533,11 +571,10 @@ const styles = StyleSheet.create({
   },
   chatHero: {
     alignItems: 'center',
-    flexGrow: 1,
     flexShrink: 0,
     justifyContent: 'center',
-    minHeight: 360,
-    paddingBottom: 52,
+    paddingBottom: 18,
+    paddingTop: 18,
   },
   heroGreeting: {
     color: closetTheme.ink,
@@ -561,6 +598,9 @@ const styles = StyleSheet.create({
   chatLog: {
     gap: 10,
     paddingBottom: 12,
+  },
+  chatLogScroll: {
+    flex: 1,
   },
   actionList: {
     gap: 8,
@@ -615,6 +655,95 @@ const styles = StyleSheet.create({
     color: closetTheme.cream,
     fontSize: 11,
     fontWeight: '900',
+  },
+  webPanel: {
+    backgroundColor: closetTheme.creamDeep,
+    borderRadius: 14,
+    gap: 8,
+    marginTop: 12,
+    padding: 12,
+  },
+  webEyebrow: {
+    color: closetTheme.camelDeep,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  webTitle: {
+    color: closetTheme.ink,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  webSummary: {
+    color: closetTheme.ink,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  webOutfitRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  webOutfitChip: {
+    backgroundColor: closetTheme.white,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  webOutfitText: {
+    color: closetTheme.ink,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  webSource: {
+    backgroundColor: closetTheme.white,
+    borderRadius: 12,
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  webSourceTitle: {
+    color: closetTheme.ink,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  webSourceSnippet: {
+    color: closetTheme.muted,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  webStoreSection: {
+    gap: 8,
+  },
+  webStoreLabel: {
+    color: closetTheme.camelDeep,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  webStoreRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  webStoreChip: {
+    backgroundColor: closetTheme.white,
+    borderRadius: 12,
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  webStoreName: {
+    color: closetTheme.ink,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  webStoreQuery: {
+    color: closetTheme.muted,
+    fontSize: 10,
+    lineHeight: 13,
+    maxWidth: 120,
   },
   suggestions: {
     flexDirection: 'row',
@@ -690,6 +819,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     gap: 12,
     marginBottom: 10,
+    marginTop: 6,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 14,

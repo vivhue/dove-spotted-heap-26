@@ -1,5 +1,6 @@
 import { BodyMeasurements, CategoryId, ClosetAccount, WardrobeItem } from '@/models/closet';
 import type { SelectedOutfit } from '@/stores/closet-store';
+import { getWebOutfitSuggestion, WebStyleSuggestion } from '@/services/closet-api';
 import { getWeatherOutfitRecommendation } from '@/services/weather-recommendation';
 
 export type BodyShape = 'hourglass' | 'pear' | 'inverted triangle' | 'rectangle' | 'apple';
@@ -43,6 +44,7 @@ type ChatContext = {
 
 export type ClosetChatReply = {
   outfit?: Partial<SelectedOutfit>;
+  webSuggestion?: WebStyleSuggestion;
   text: string;
 };
 
@@ -239,7 +241,7 @@ async function getOutfitReply(
   gender?: ClosetAccount['gender']
 ): Promise<ClosetChatReply> {
   if (items.length === 0) {
-    return { text: 'Your closet is empty for this account, so I need you to add clothes before I can suggest an outfit you own.' };
+    return getWebFallbackReply(message);
   }
 
   const lower = message.toLowerCase();
@@ -268,10 +270,29 @@ async function getOutfitReply(
 
   const outfit = buildLocalOutfit(items, lower, bodyProfile, styleProfile, gender);
 
+  if (Object.keys(outfit.outfit).length === 0) {
+    return getWebFallbackReply(message);
+  }
+
   return {
     outfit: outfit.outfit,
     text: `Based on your closet, try ${outfit.names}.`,
   };
+}
+
+async function getWebFallbackReply(message: string): Promise<ClosetChatReply> {
+  try {
+    const reply = await getWebOutfitSuggestion(message);
+
+    return {
+      text: reply.text,
+      webSuggestion: reply.webSuggestion,
+    };
+  } catch {
+    return {
+      text: 'I could not pull a live web outfit right now, so add a few items to your closet and I can build one from there.',
+    };
+  }
 }
 
 function buildLocalOutfit(

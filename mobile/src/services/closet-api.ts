@@ -27,6 +27,25 @@ type TryOnPayload = {
   userId?: string;
 };
 
+export type WebStyleSource = {
+  snippet: string;
+  title: string;
+  url: string;
+};
+
+export type WebStyleSuggestion = {
+  outfit: string[];
+  searchQuery: string;
+  stores: {
+    name: string;
+    query: string;
+    url: string;
+  }[];
+  sources: WebStyleSource[];
+  summary: string;
+  title: string;
+};
+
 type MannequinPayload = {
   image: ImageAsset;
   provider?: 'gemini' | 'photta';
@@ -159,6 +178,18 @@ export async function getTryOnStatus(generationId: string) {
   });
 
   return readJsonResponse<{ error?: unknown; error_message?: string; message?: string; output_url?: string; status: string }>(response);
+}
+
+export async function getWebOutfitSuggestion(query: string) {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/style/web-outfit`, {
+    body: JSON.stringify({ query }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+  });
+
+  return readJsonResponse<{ text: string; webSuggestion: WebStyleSuggestion }>(response);
 }
 
 async function fetchWithBackendMessage(url: string, init: RequestInit) {
