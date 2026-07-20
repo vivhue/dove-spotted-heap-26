@@ -34,7 +34,7 @@ function file(bytes: string) {
 
 function fakeDb() {
   const avatars = new Map<string, unknown>();
-  const garments = new Map<string, unknown>();
+  const garments = new Map<string, { id: string; userId: string; sha256: string }>();
   const calls = { upsertAvatar: 0, insertGarment: 0 };
 
   return {
@@ -48,7 +48,16 @@ function fakeDb() {
     getGarmentBySha(userId: string, sha256: string) {
       return garments.get(`${userId}:${sha256}`);
     },
-    insertGarment(row: { userId: string; sha256: string }) {
+    insertGarment(row: { id: string; userId: string; sha256: string }) {
+      // garments.id is a global PRIMARY KEY in the real schema. Enforce that
+      // here too, otherwise a user-agnostic id passes the tests and only fails
+      // against SQLite.
+      for (const existing of garments.values()) {
+        if (existing.id === row.id) {
+          throw new Error('UNIQUE constraint failed: garments.id');
+        }
+      }
+
       calls.insertGarment += 1;
       garments.set(`${row.userId}:${row.sha256}`, row);
     },
@@ -207,6 +216,25 @@ test('garment upload runs background removal, validates, stores both files', asy
   assert.ok(d.value.storage.puts.some((p) => p.key.endsWith('/cutout.png')));
   assert.match(item.imageUrl, /cutout\.png/);
   assert.equal(d.value.db.calls.insertGarment, 1);
+});
+
+test('two users can upload the same garment photo', async () => {
+  const d = deps();
+  const bytes = () => file('same-product-photo');
+
+  const first = await processGarmentUpload(
+    { userId: 'u1', file: bytes(), category: 'shirt' },
+    d.value
+  );
+  const second = await processGarmentUpload(
+    { userId: 'u2', file: bytes(), category: 'shirt' },
+    d.value
+  );
+
+  // Identical bytes, so the same content hash, but the row ids are namespaced
+  // per user and must not collide on the global garments.id primary key.
+  assert.notEqual(first.id, second.id);
+  assert.equal(d.value.db.calls.insertGarment, 2);
 });
 
 test('re-uploading the same garment skips background removal (dedup short-circuit)', async () => {

@@ -32,6 +32,15 @@ function sha256Hex(buffer: Buffer): string {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
+// garments.id is a global PRIMARY KEY, so it cannot be the content hash alone:
+// two users saving the same product photo would collide on insert. Storage keys
+// are already namespaced by user, so the row id is too. Hashed rather than
+// concatenated to keep ids opaque, fixed-length, and safe inside an object key.
+// The NUL separator cannot appear in a user id, so (user, sha) maps 1:1.
+function garmentId(userId: string, sha256: string): string {
+  return sha256Hex(Buffer.from(`${userId}\u0000${sha256}`, 'utf8'));
+}
+
 function avatarKey(userId: string, sha256: string): string {
   return `avatars/${userId}/${sha256}.jpg`;
 }
@@ -54,6 +63,7 @@ module.exports = {
   assertGarmentCategory,
   buildGarmentDescription,
   sha256Hex,
+  garmentId,
   avatarKey,
   garmentOriginalKey,
   garmentCutoutKey,

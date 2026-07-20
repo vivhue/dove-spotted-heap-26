@@ -3,6 +3,7 @@ const {
   assertGarmentCategory,
   buildGarmentDescription,
   sha256Hex,
+  garmentId,
   avatarKey,
   garmentOriginalKey,
   garmentCutoutKey,
@@ -116,6 +117,7 @@ async function processGarmentUpload(
   const destination = input.destination === 'wishlist' ? 'wishlist' : 'closet';
   const { buffer: original } = await deps.preprocess(input.file.data);
   const sha256 = sha256Hex(original);
+  const id = garmentId(input.userId, sha256);
   const originalKey = garmentOriginalKey(input.userId, sha256);
   const cutoutKey = garmentCutoutKey(input.userId, sha256);
   const name = input.name?.trim() || defaultName(category);
@@ -130,7 +132,7 @@ async function processGarmentUpload(
     }
 
     const reused: GarmentRow = {
-      id: sha256,
+      id,
       userId: input.userId,
       sha256,
       category,
@@ -159,7 +161,7 @@ async function processGarmentUpload(
   await deps.storage.put(cutoutKey, cutoutPng, 'image/png');
 
   const row: GarmentRow = {
-    id: sha256,
+    id,
     userId: input.userId,
     sha256,
     category,
