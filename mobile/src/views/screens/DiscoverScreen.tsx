@@ -1,39 +1,29 @@
 import { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { chatMessages, ScreenId } from '@/models/closet';
+import { chatMessages, InventoryState, ScreenId, WardrobeItem } from '@/models/closet';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
-import { LineIcon } from '@/views/components/closet-icons';
+import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
+import { buildReply, buildStyleRecommendation, StyleRecommendation } from '@/services/stylist';
 
 type ChatMessage = {
   id: string;
   role: 'bot' | 'user';
   text: string;
+  recommendation?: StyleRecommendation;
 };
 
-export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
+export function DiscoverScreen({
+  inventory,
+  onNavigate,
+}: {
+  inventory: InventoryState;
+  onNavigate: (screen: ScreenId) => void;
+}) {
   const [messages, setMessages] = useState<ChatMessage[]>([...chatMessages]);
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<ScrollView>(null);
-
-  function botReply(text: string) {
-    const lower = text.toLowerCase();
-
-    if (lower.includes('save')) {
-      return 'Saved this as a polished interview look. You can find it from saved looks in the calendar.';
-    }
-
-    if (lower.includes('shop')) {
-      return 'I found the closest wishlist match: the Wool Coat and Checkered Collar Shirt pairing.';
-    }
-
-    if (lower.includes('another') || lower.includes('try')) {
-      return 'Try the checkered shirt, wide bottoms, and black ankle boots. It keeps the look neat but softer.';
-    }
-
-    return 'I would start with your beige trench coat, white polo, and black ankle boots. Want me to save it or try another?';
-  }
 
   function sendMessage(text = draft) {
     const trimmed = text.trim();
@@ -42,10 +32,11 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
       return;
     }
 
+    const recommendation = buildStyleRecommendation(trimmed, inventory);
     const nextMessages = [
       ...messages,
       { id: `user-${Date.now()}`, role: 'user' as const, text: trimmed },
-      { id: `bot-${Date.now()}`, role: 'bot' as const, text: botReply(trimmed) },
+      { id: `bot-${Date.now()}`, role: 'bot' as const, text: buildReply(trimmed, recommendation), recommendation },
     ];
 
     setMessages(nextMessages);
@@ -62,13 +53,21 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
           return (
             <View key={message.id} style={[styles.bubble, isUser ? styles.userBubble : styles.botBubble]}>
               <Text style={[styles.bubbleText, isUser && styles.userText]}>{message.text}</Text>
+              {message.recommendation && message.recommendation.showPanel !== false && (
+                <RecommendationPanel recommendation={message.recommendation} />
+              )}
             </View>
           );
         })}
       </ScrollView>
 
       <View style={styles.suggestions}>
-        {['Save outfit', 'Try another', 'Shop similar'].map((suggestion) => (
+        {[
+          'What should I wear for presentations?',
+          'What should I wear for an interview?',
+          'Make it more casual',
+          'Show me something to buy',
+        ].map((suggestion) => (
           <Pressable key={suggestion} style={styles.suggestionChip} onPress={() => sendMessage(suggestion)}>
             <Text style={styles.suggestionText}>{suggestion}</Text>
           </Pressable>
@@ -90,6 +89,67 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
         </Pressable>
       </View>
     </AppScreen>
+  );
+}
+
+function RecommendationPanel({ recommendation }: { recommendation: StyleRecommendation }) {
+  return (
+    <View style={styles.recommendation}>
+      <View style={styles.recoHeader}>
+        <Text style={styles.recoTitle}>{recommendation.title}</Text>
+        <Text style={styles.recoMode}>{recommendation.mode}</Text>
+      </View>
+      <Text style={styles.recoSummary}>{recommendation.summary}</Text>
+        {recommendation.outfit.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>Wear from your closet</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.itemRow}>
+            {recommendation.outfit.map((item) => (
+              <CompactItemCard key={item.id} item={item} />
+            ))}
+          </ScrollView>
+        </>
+      )}
+      {recommendation.fallback.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>If you need to buy</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.itemRow}>
+            {recommendation.fallback.map((item) => (
+              <CompactItemCard key={item.id} item={item} isWishlist />
+            ))}
+          </ScrollView>
+        </>
+      )}
+      <View style={styles.tipStack}>
+        {recommendation.tips.map((tip, index) => (
+          <View key={`${tip}-${index}`} style={styles.tipPill}>
+            <Text style={styles.tipText}>{tip}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function CompactItemCard({ item, isWishlist = false }: { item: WardrobeItem; isWishlist?: boolean }) {
+  const accent = item.accent ?? closetTheme.camel;
+  const color = item.color ?? closetTheme.ink;
+
+  return (
+    <View style={styles.itemCard}>
+      <View style={styles.itemThumb}>
+        <View style={[styles.itemBackdrop, { backgroundColor: `${accent}22` }]} />
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={styles.itemImage} resizeMode="cover" />
+        ) : (
+          <ClosetIcon category={item.category} color={color} accent={accent} size={28} />
+        )}
+      </View>
+      <Text numberOfLines={2} style={styles.itemName}>
+        {item.name}
+      </Text>
+      {isWishlist && <Text style={styles.itemMeta}>{item.price ?? item.category}</Text>}
+    </View>
   );
 }
 
@@ -123,6 +183,107 @@ const styles = StyleSheet.create({
   },
   userText: {
     color: closetTheme.cream,
+  },
+  recommendation: {
+    borderTopColor: 'rgba(255,255,255,0.22)',
+    borderTopWidth: 1,
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 12,
+  },
+  recoHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  recoTitle: {
+    color: closetTheme.ink,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  recoMode: {
+    color: closetTheme.camelDeep,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  recoSummary: {
+    color: closetTheme.muted,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  recoBasis: {
+    color: closetTheme.camelDeep,
+    fontSize: 11,
+    fontWeight: '800',
+    lineHeight: 16,
+  },
+  sectionLabel: {
+    color: closetTheme.camelDeep,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  itemRow: {
+    gap: 10,
+    paddingRight: 4,
+  },
+  itemCard: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 8,
+    width: 96,
+  },
+  itemThumb: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 68,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  itemBackdrop: {
+    borderRadius: 20,
+    height: 48,
+    position: 'absolute',
+    width: 48,
+  },
+  itemImage: {
+    borderRadius: 12,
+    height: 58,
+    width: 58,
+  },
+  itemName: {
+    color: closetTheme.ink,
+    fontSize: 10,
+    fontWeight: '800',
+    marginTop: 6,
+    minHeight: 24,
+  },
+  itemMeta: {
+    color: closetTheme.muted,
+    fontSize: 9,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  tipStack: {
+    gap: 6,
+  },
+  tipPill: {
+    backgroundColor: closetTheme.creamDeep,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  tipText: {
+    color: closetTheme.ink,
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 15,
   },
   suggestions: {
     flexDirection: 'row',

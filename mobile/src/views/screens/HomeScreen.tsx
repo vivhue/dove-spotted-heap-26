@@ -59,6 +59,13 @@ const outfitByCategory: Record<
     shoes: '#8B2F2F',
     top: closetTheme.ink,
   },
+  bags: {
+    accessory: closetTheme.camel,
+    bottom: '#3B4A63',
+    outerwear: '#EFE6D6',
+    shoes: closetTheme.ink,
+    top: closetTheme.ink,
+  },
   tops: {
     accessory: closetTheme.camel,
     bottom: '#3B4A63',

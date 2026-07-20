@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "description": "Starter training dataset for wardrobe and occasion styling examples.",
+  "collections": {
+    "images": "training/images",
+    "labels": "training/labels.sample.json",
+    "outfits": "training/outfits.sample.json",
+    "occasions": "training/occasions.sample.json"
+  }
+}
+

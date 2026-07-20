@@ -1,0 +1,550 @@
+{
+  "items": [
+    {
+      "id": "item-01",
+      "image": "item-01_oxford-shirt-lightblue.png",
+      "category": "tops",
+      "subtype": "oxford button-down shirt",
+      "color": "light blue",
+      "formality": "smart",
+      "occasions": ["work", "casual", "date", "travel"],
+      "seasons": ["spring", "summer", "fall"],
+      "fitNotes": ["regular/relaxed fit", "roll-up sleeves shown, versatile worn buttoned or open"],
+      "styleNotes": ["classic oxford cloth", "small embroidered logo on chest", "pairs well with denim or chinos"],
+      "buyLater": false
+    },
+    {
+      "id": "item-02",
+      "image": "item-02_dressshirt-tie-trousers-formal.png",
+      "imageRole": "composite-look",
+      "category": "tops",
+      "subtype": "dress shirt",
+      "color": "white",
+      "formality": "formal",
+      "occasions": ["interview", "presentation", "work", "formal event"],
+      "seasons": ["all"],
+      "fitNotes": ["slim/tailored fit", "spread collar", "French-style cuff visible"],
+      "styleNotes": ["crisp poplin fabric", "pairs with tie and dress trousers for formal settings"],
+      "buyLater": false
+    },
+    {
+      "id": "item-02b",
+      "image": "item-02_dressshirt-tie-trousers-formal.png",
+      "imageRole": "composite-look",
+      "category": "accessories",
+      "subtype": "necktie",
+      "color": "black with white diagonal stripes",
+      "formality": "formal",
+      "occasions": ["interview", "presentation", "formal event"],
+      "seasons": ["all"],
+      "fitNotes": ["standard width, regular length"],
+      "styleNotes": ["repp stripe pattern", "adds formality to dress shirt"],
+      "buyLater": false
+    },
+    {
+      "id": "item-02c",
+      "image": "item-02_dressshirt-tie-trousers-formal.png",
+      "imageRole": "composite-look",
+      "category": "bottoms",
+      "subtype": "pleated dress trousers",
+      "color": "black",
+      "formality": "formal",
+      "occasions": ["interview", "presentation", "formal event"],
+      "seasons": ["all"],
+      "fitNotes": ["front pleats", "relaxed through leg"],
+      "styleNotes": ["classic formal trouser silhouette"],
+      "buyLater": false
+    },
+    {
+      "id": "item-03",
+      "image": "item-03_oversized-shirt-pink.png",
+      "category": "tops",
+      "subtype": "oversized button-down shirt",
+      "color": "light pink",
+      "formality": "casual",
+      "occasions": ["casual", "date", "travel", "work"],
+      "seasons": ["spring", "summer"],
+      "fitNotes": ["oversized/relaxed fit", "can be worn tucked or untucked, sleeves rolled"],
+      "styleNotes": ["Ralph Lauren-style embroidered logo cuff", "soft pastel tone, easy to dress up or down"],
+      "buyLater": false
+    },
+    {
+      "id": "item-04",
+      "image": "item-04_trousers-black-tapered.png",
+      "category": "bottoms",
+      "subtype": "tapered chino/dress pants",
+      "color": "black",
+      "formality": "smart",
+      "occasions": ["work", "interview", "date", "travel"],
+      "seasons": ["all"],
+      "fitNotes": ["slim-tapered leg", "flat front, likely stretch fabric"],
+      "styleNotes": ["versatile smart-casual trouser, works with blazers or knitwear"],
+      "buyLater": false
+    },
+    {
+      "id": "item-05",
+      "image": "item-05_wideleg-trousers-khaki.png",
+      "category": "bottoms",
+      "subtype": "wide-leg drawstring trousers",
+      "color": "khaki/tan",
+      "formality": "casual",
+      "occasions": ["casual", "travel"],
+      "seasons": ["spring", "summer"],
+      "fitNotes": ["wide, relaxed leg", "elastic/drawstring waist", "cropped hem with cinched ankle"],
+      "styleNotes": ["utility-inspired, lightweight cotton", "pairs well with tanks and sandals"],
+      "buyLater": false
+    },
+    {
+      "id": "item-06",
+      "image": "item-06_cargo-pants-beige.png",
+      "category": "bottoms",
+      "subtype": "cargo pants",
+      "color": "beige/khaki",
+      "formality": "casual",
+      "occasions": ["casual", "travel"],
+      "seasons": ["fall", "spring"],
+      "fitNotes": ["relaxed/loose fit", "tapered ankle"],
+      "styleNotes": ["streetwear staple", "large side cargo pockets", "pairs well with sneakers and oversized tops"],
+      "buyLater": false
+    },
+    {
+      "id": "item-07",
+      "image": "item-07_polo-plaidskirt-olive-grey.png",
+      "imageRole": "composite-look",
+      "category": "tops",
+      "subtype": "knit polo shirt",
+      "color": "olive/khaki green",
+      "formality": "smart",
+      "occasions": ["casual", "date", "work"],
+      "seasons": ["spring", "fall"],
+      "fitNotes": ["fitted, cropped at hip"],
+      "styleNotes": ["ribbed knit texture, collared", "elevates casual outfits, pairs nicely with midi skirts or trousers"],
+      "buyLater": false
+    },
+    {
+      "id": "item-07b",
+      "image": "item-07_polo-plaidskirt-olive-grey.png",
+      "imageRole": "composite-look",
+      "category": "bottoms",
+      "subtype": "pleated plaid midi skirt",
+      "color": "grey/brown plaid",
+      "formality": "smart",
+      "occasions": ["work", "date", "travel"],
+      "seasons": ["fall", "winter"],
+      "fitNotes": ["A-line, pleated, midi length"],
+      "styleNotes": ["preppy academia feel", "pairs well with fitted knitwear and flats"],
+      "buyLater": false
+    },
+    {
+      "id": "item-08",
+      "image": "item-08_stripedtee-skater-skirt-black.png",
+      "imageRole": "composite-look",
+      "category": "tops",
+      "subtype": "striped crew-neck t-shirt",
+      "color": "black and white",
+      "formality": "casual",
+      "occasions": ["casual", "travel"],
+      "seasons": ["spring", "summer"],
+      "fitNotes": ["regular fit, short sleeve"],
+      "styleNotes": ["classic Breton stripe", "easy to dress up with a skirt or down with jeans"],
+      "buyLater": false
+    },
+    {
+      "id": "item-08b",
+      "image": "item-08_stripedtee-skater-skirt-black.png",
+      "imageRole": "composite-look",
+      "category": "bottoms",
+      "subtype": "skater/circle skirt",
+      "color": "black",
+      "formality": "casual",
+      "occasions": ["casual", "work", "date"],
+      "seasons": ["spring", "summer", "fall"],
+      "fitNotes": ["high-waisted, full flared skirt with pockets"],
+      "styleNotes": ["flattering A-line shape", "pairs well with fitted tops and heels"],
+      "buyLater": false
+    },
+    {
+      "id": "item-09",
+      "image": "item-09_pencil-skirt-slit-charcoal.png",
+      "category": "bottoms",
+      "subtype": "pencil midi skirt with slit",
+      "color": "charcoal grey",
+      "formality": "smart",
+      "occasions": ["work", "interview", "presentation"],
+      "seasons": ["all"],
+      "fitNotes": ["fitted through hip, thigh-high side slit", "flap pockets at front"],
+      "styleNotes": ["tailored office-wear staple", "pairs well with fitted tops and heels"],
+      "buyLater": false
+    },
+    {
+      "id": "item-10",
+      "image": "item-10_midi-dress-pink-puffsleeve.png",
+      "category": "tops",
+      "subtype": "midi dress (puff sleeve)",
+      "color": "light pink",
+      "formality": "smart",
+      "occasions": ["date", "presentation", "garden party"],
+      "seasons": ["spring", "summer"],
+      "fitNotes": ["fitted bodice with cutout waist, full A-line skirt", "puff sleeves"],
+      "styleNotes": ["romantic textured/embroidered fabric", "feminine silhouette, great for daytime events"],
+      "buyLater": false
+    },
+    {
+      "id": "item-11",
+      "image": "item-11_bridal-gown-white.png",
+      "category": "tops",
+      "subtype": "formal gown (bridal/evening)",
+      "color": "white/ivory",
+      "formality": "formal",
+      "occasions": ["wedding", "formal event"],
+      "seasons": ["all"],
+      "fitNotes": ["off-shoulder straps, fitted bodice, A-line skirt with leg slit"],
+      "styleNotes": ["satin fabric, bridal-style gown", "not suitable for everyday wardrobe rotation - special occasion only"],
+      "buyLater": false
+    },
+    {
+      "id": "item-12",
+      "image": "item-12_slip-dress-olive-satin.png",
+      "category": "tops",
+      "subtype": "satin slip dress",
+      "color": "olive green",
+      "formality": "smart",
+      "occasions": ["date", "dinner", "cocktail event"],
+      "seasons": ["spring", "summer", "fall"],
+      "fitNotes": ["bias-cut, body-skimming fit, midi length"],
+      "styleNotes": ["minimalist evening style", "pairs beautifully with pearls and heels"],
+      "buyLater": false
+    },
+    {
+      "id": "item-13",
+      "image": "item-13_kids-pajama-stripe-navy.png",
+      "category": "tops",
+      "subtype": "pajama set (kids)",
+      "color": "white and navy stripe",
+      "formality": "casual",
+      "occasions": ["sleepwear"],
+      "seasons": ["all"],
+      "fitNotes": ["relaxed fit, long sleeve/long pant set"],
+      "styleNotes": ["classic stripe with piped collar and cuffs", "kidswear item - not applicable to adult outfit planning"],
+      "buyLater": false
+    },
+    {
+      "id": "item-14",
+      "image": "item-14_pajama-bird-print-blue.png",
+      "category": "tops",
+      "subtype": "pajama set",
+      "color": "blue with multicolor bird print",
+      "formality": "casual",
+      "occasions": ["sleepwear"],
+      "seasons": ["all"],
+      "fitNotes": ["relaxed button-up top, straight leg pant"],
+      "styleNotes": ["playful novelty print", "cotton/lightweight fabric, contrast piping"],
+      "buyLater": false
+    },
+    {
+      "id": "item-15",
+      "image": "item-15_pajama-plaid-navy.png",
+      "category": "tops",
+      "subtype": "pajama set",
+      "color": "navy plaid",
+      "formality": "casual",
+      "occasions": ["sleepwear"],
+      "seasons": ["fall", "winter"],
+      "fitNotes": ["relaxed fit, flannel weight"],
+      "styleNotes": ["classic tartan check", "cozy loungewear staple"],
+      "buyLater": false
+    },
+    {
+      "id": "item-16",
+      "image": "item-16_oxford-shirt-burgundy.png",
+      "category": "tops",
+      "subtype": "oxford button-down shirt",
+      "color": "burgundy/maroon",
+      "formality": "smart",
+      "occasions": ["work", "casual", "date", "travel"],
+      "seasons": ["fall", "winter"],
+      "fitNotes": ["regular fit", "chest patch pocket"],
+      "styleNotes": ["rich jewel tone, great fall/winter alternative to lighter oxfords", "pairs well with dark denim or chinos"],
+      "buyLater": false
+    },
+    {
+      "id": "item-16b",
+      "image": "item-16b_oxford-shirt-burgundy-alt.png",
+      "category": "tops",
+      "subtype": "oxford button-down shirt (duplicate/alt photo)",
+      "color": "burgundy/maroon",
+      "formality": "smart",
+      "occasions": ["work", "casual", "date", "travel"],
+      "seasons": ["fall", "winter"],
+      "fitNotes": ["regular fit", "chest patch pocket"],
+      "styleNotes": ["appears to be the same garment as item-16, alternate product photo - kept separate only because it was uploaded as its own file"],
+      "buyLater": false
+    },
+    {
+      "id": "item-17",
+      "image": "item-17_ribbed-tank-cream.png",
+      "category": "tops",
+      "subtype": "ribbed racerback tank",
+      "color": "cream/pale yellow",
+      "formality": "casual",
+      "occasions": ["casual", "travel"],
+      "seasons": ["spring", "summer"],
+      "fitNotes": ["cropped, fitted/ribbed knit"],
+      "styleNotes": ["basic layering piece", "pairs well under shackets or with high-waisted bottoms"],
+      "buyLater": false
+    },
+    {
+      "id": "item-18",
+      "image": "item-18_dress-white-blackbow.png",
+      "category": "tops",
+      "subtype": "off-shoulder cocktail dress with bow detail",
+      "color": "white with black bow trim",
+      "formality": "formal",
+      "occasions": ["formal event", "cocktail party", "date"],
+      "seasons": ["all"],
+      "fitNotes": ["off-shoulder fitted bodice, structured bow at neckline"],
+      "styleNotes": ["statement contrast bow adds drama", "great for black-tie-optional or cocktail events"],
+      "buyLater": false
+    },
+    {
+      "id": "item-19",
+      "image": "item-19_tank-skirt-black.png",
+      "imageRole": "composite-look",
+      "category": "tops",
+      "subtype": "scoop-neck tank",
+      "color": "black",
+      "formality": "casual",
+      "occasions": ["casual", "travel"],
+      "seasons": ["spring", "summer"],
+      "fitNotes": ["relaxed fit, wide scoop neckline"],
+      "styleNotes": ["simple layering basic, pairs with almost anything"],
+      "buyLater": false
+    },
+    {
+      "id": "item-19b",
+      "image": "item-19_tank-skirt-black.png",
+      "imageRole": "composite-look",
+      "category": "bottoms",
+      "subtype": "pleated midi skirt",
+      "color": "black",
+      "formality": "smart",
+      "occasions": ["casual", "work", "travel"],
+      "seasons": ["all"],
+      "fitNotes": ["high-waisted, soft pleats, midi length"],
+      "styleNotes": ["fluid drape, minimalist silhouette", "pairs well with sandals or flats for elevated-casual look"],
+      "buyLater": false
+    },
+    {
+      "id": "item-20",
+      "image": "item-20_draped-top-navy.png",
+      "category": "tops",
+      "subtype": "draped asymmetric top",
+      "color": "navy",
+      "formality": "smart",
+      "occasions": ["work", "date", "casual"],
+      "seasons": ["all"],
+      "fitNotes": ["fitted through torso, ruched asymmetric hem, boat neckline"],
+      "styleNotes": ["cotton jersey with sculptural draping", "modern minimalist top, elevates jeans instantly"],
+      "buyLater": false
+    },
+    {
+      "id": "item-21",
+      "image": "item-21_oxford-shirt-bluegrey.png",
+      "category": "tops",
+      "subtype": "oxford button-down shirt",
+      "color": "slate/blue-grey",
+      "formality": "smart",
+      "occasions": ["work", "casual", "travel"],
+      "seasons": ["all"],
+      "fitNotes": ["relaxed fit", "chest patch pocket"],
+      "styleNotes": ["muted tone works as a neutral layering shirt", "can be worn open over a tee or buttoned alone"],
+      "buyLater": false
+    },
+    {
+      "id": "item-22",
+      "image": "item-22_gingham-dress-blue.png",
+      "category": "tops",
+      "subtype": "one-shoulder mini dress",
+      "color": "light blue and white gingham",
+      "formality": "smart",
+      "occasions": ["date", "brunch", "garden party"],
+      "seasons": ["spring", "summer"],
+      "fitNotes": ["fitted bodice, one-shoulder with 3/4 sleeve, flared mini skirt"],
+      "styleNotes": ["playful gingham print", "romantic and youthful, pairs well with heeled sandals"],
+      "buyLater": false
+    },
+    {
+      "id": "item-23",
+      "image": "item-23_knit-cami-blush.png",
+      "category": "tops",
+      "subtype": "ribbed knit cami",
+      "color": "blush/nude pink",
+      "formality": "casual",
+      "occasions": ["casual", "date", "travel"],
+      "seasons": ["spring", "summer"],
+      "fitNotes": ["fitted, cropped, adjustable straps"],
+      "styleNotes": ["soft knit texture", "versatile layering piece, pairs well with denim or trousers"],
+      "buyLater": false
+    },
+    {
+      "id": "item-24",
+      "image": "item-24_pleated-skirt-black.png",
+      "category": "bottoms",
+      "subtype": "pleated A-line midi skirt",
+      "color": "black",
+      "formality": "smart",
+      "occasions": ["work", "date", "formal"],
+      "seasons": ["all"],
+      "fitNotes": ["structured pleats, voluminous silhouette, knee-to-midi length"],
+      "styleNotes": ["sculptural, sturdy fabric holds shape well", "pairs nicely with fitted tops to balance volume"],
+      "buyLater": false
+    },
+    {
+      "id": "item-25",
+      "image": "item-25_boxy-knit-top-blue.png",
+      "category": "tops",
+      "subtype": "boxy knit top",
+      "color": "light blue",
+      "formality": "smart",
+      "occasions": ["work", "casual", "date"],
+      "seasons": ["fall", "winter", "spring"],
+      "fitNotes": ["boxy/relaxed fit, cap sleeves, ribbed hem and cuffs"],
+      "styleNotes": ["cozy knit with structured shape", "pairs well with tailored trousers"],
+      "buyLater": false
+    },
+    {
+      "id": "item-26",
+      "image": "item-26_draped-top-wrap-pants-set.png",
+      "imageRole": "composite-look",
+      "category": "tops",
+      "subtype": "asymmetric draped t-shirt",
+      "color": "ivory/off-white",
+      "formality": "smart",
+      "occasions": ["work", "presentation", "date"],
+      "seasons": ["all"],
+      "fitNotes": ["boat neckline, asymmetric draped hem, short sleeve"],
+      "styleNotes": ["structured cotton with sculptural drape", "modern minimalist statement top"],
+      "buyLater": false
+    },
+    {
+      "id": "item-26b",
+      "image": "item-26_draped-top-wrap-pants-set.png",
+      "imageRole": "composite-look",
+      "category": "bottoms",
+      "subtype": "wide-leg trousers with asymmetric wrap overlay",
+      "color": "black",
+      "formality": "formal",
+      "occasions": ["presentation", "formal event", "date"],
+      "seasons": ["all"],
+      "fitNotes": ["wide relaxed leg with draped asymmetric front panel"],
+      "styleNotes": ["avant-garde tailoring, statement piece", "best worn with simple tops so the drape stands out"],
+      "buyLater": false
+    }
+  ],
+  "outfitIdeas": [
+    {
+      "occasion": "interview",
+      "look": "Sharp formal",
+      "items": ["item-02", "item-02b", "item-02c"],
+      "whyItWorks": "White dress shirt, striped tie, and black pleated trousers form a complete formal look - ready as-is for interviews or formal presentations without modification."
+    },
+    {
+      "occasion": "work / office",
+      "look": "Smart office separates",
+      "items": ["item-09", "item-01"],
+      "whyItWorks": "The charcoal slit pencil skirt paired with the light blue oxford shirt (tucked in) creates a polished, professional silhouette suitable for most office environments."
+    },
+    {
+      "occasion": "work / office (new)",
+      "look": "Modern minimalist office look",
+      "items": ["item-20", "item-04"],
+      "whyItWorks": "The navy draped asymmetric top tucked into the black tapered trousers gives a sculptural, elevated take on office basics without needing a blazer."
+    },
+    {
+      "occasion": "casual weekend",
+      "look": "Relaxed street style",
+      "items": ["item-08", "item-06"],
+      "whyItWorks": "Striped tee tucked into cargo pants with sneakers gives an easy, comfortable streetwear look for errands or hanging out."
+    },
+    {
+      "occasion": "casual weekend (new)",
+      "look": "Effortless neutral layers",
+      "items": ["item-17", "item-05"],
+      "whyItWorks": "The cream ribbed tank with the khaki wide-leg drawstring trousers is breathable, easy, and works well for warm-weather errands or travel days."
+    },
+    {
+      "occasion": "date night",
+      "look": "Elevated evening",
+      "items": ["item-12"],
+      "whyItWorks": "The olive satin slip dress alone makes a complete, refined date-night outfit - minimal styling needed, just add heels and simple jewelry."
+    },
+    {
+      "occasion": "date night (new)",
+      "look": "Romantic gingham mini",
+      "items": ["item-22"],
+      "whyItWorks": "The one-shoulder gingham mini dress is a complete outfit on its own - flattering, playful, and appropriate for daytime dates or brunch."
+    },
+    {
+      "occasion": "travel",
+      "look": "Comfortable but put-together",
+      "items": ["item-03", "item-05"],
+      "whyItWorks": "Oversized pink shirt with wide-leg khaki trousers is breathable, wrinkle-forgiving, and stylish enough for airports or sightseeing."
+    },
+    {
+      "occasion": "presentation",
+      "look": "Polished feminine",
+      "items": ["item-07", "item-07b"],
+      "whyItWorks": "The olive knit polo tucked into the pleated plaid midi skirt reads professional yet has personality - good for presentations in creative or business-casual settings."
+    },
+    {
+      "occasion": "presentation (new)",
+      "look": "Avant-garde statement",
+      "items": ["item-26", "item-26b"],
+      "whyItWorks": "The ivory draped top with the black wrap-overlay trousers is a striking, design-forward look - strong for creative-industry presentations where personality is welcome."
+    },
+    {
+      "occasion": "formal event",
+      "look": "Bow-detail cocktail look",
+      "items": ["item-18"],
+      "whyItWorks": "The off-shoulder white dress with the black bow is a ready-made statement piece for cocktail parties or dressy formal events."
+    },
+    {
+      "occasion": "casual (menswear)",
+      "look": "Weekend oxford + jeans",
+      "items": ["item-16", "item-21"],
+      "whyItWorks": "Both the burgundy and blue-grey oxford shirts are easy weekend staples - rotate them with jeans for a put-together but low-effort look."
+    }
+  ],
+  "missingPieces": [
+    {
+      "occasion": "presentation / interview",
+      "recommendedItem": "structured blazer (neutral color: black, navy, or camel)",
+      "reason": "Still no blazer or suit jacket in the wardrobe. A blazer would let you layer over oxford shirts (item-01, item-16, item-21), knit tops (item-20, item-25), or tanks to instantly create formal or presentation-ready outfits without needing a full suit.",
+      "searchKeywords": ["women's tailored blazer", "men's single-breasted blazer", "neutral structured blazer"]
+    },
+    {
+      "occasion": "work / everyday",
+      "recommendedItem": "pair of neutral leather flats or low block heels",
+      "reason": "No confirmed everyday shoe exists in the wardrobe yet. A comfortable neutral flat or low heel would ground the many skirts and trousers (item-07b, item-09, item-19b, item-24) for realistic all-day office wear.",
+      "searchKeywords": ["leather ballet flats", "block heel pumps neutral", "office-friendly flats"]
+    },
+    {
+      "occasion": "smart-casual / travel",
+      "recommendedItem": "lightweight neutral trench or shirt-jacket (overshirt)",
+      "reason": "There is still no outerwear item in the wardrobe. A trench or overshirt would tie together the many tops and trousers for cooler weather or travel days.",
+      "searchKeywords": ["cotton trench coat", "utility overshirt jacket", "neutral shacket"]
+    },
+    {
+      "occasion": "casual (bottoms variety)",
+      "recommendedItem": "well-fitted straight or slim jeans",
+      "reason": "Despite many tops and skirts, the wardrobe has no denim of its own - several tank and tee items (item-17, item-19, item-23) would benefit from a versatile jean to complete casual, low-effort outfits.",
+      "searchKeywords": ["straight leg jeans", "high-rise slim jeans", "classic mid-wash denim"]
+    },
+    {
+      "occasion": "sleepwear",
+      "recommendedItem": "soft pajama or lounge set",
+      "reason": "The closet does not currently show any dedicated sleepwear. A soft pajama set, lounge set, or oversized tee and shorts combo would make the sleep query feel intentional instead of borrowed from daytime clothes.",
+      "searchKeywords": ["pajama set", "loungewear", "sleepwear", "soft tee", "nightwear"]
+    }
+  ]
+}

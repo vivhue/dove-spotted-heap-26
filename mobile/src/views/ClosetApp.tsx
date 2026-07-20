@@ -14,12 +14,16 @@ export function ClosetApp() {
   const {
     activeCategory,
     bodyProportions,
+    closetItems,
+    addItem,
     goTo,
     measurements,
     screen,
     setActiveCategory,
+    wishlistItems,
     updateMeasurement,
   } = useClosetApp();
+  const inventory = { closet: closetItems, wishlist: wishlistItems };
 
   const content = (
     <>
@@ -37,14 +41,15 @@ export function ClosetApp() {
       {screen === 'dashboard' && (
         <DashboardScreen
           activeCategory={activeCategory}
+          items={closetItems}
           onCategoryChange={setActiveCategory}
           onNavigate={goTo}
         />
       )}
-      {screen === 'closet' && <WardrobeScreen mode="closet" onNavigate={goTo} />}
-      {screen === 'wishlist' && <WardrobeScreen mode="wishlist" onNavigate={goTo} />}
-      {screen === 'add' && <AddItemScreen onNavigate={goTo} />}
-      {screen === 'discover' && <DiscoverScreen onNavigate={goTo} />}
+      {screen === 'closet' && <WardrobeScreen items={closetItems} mode="closet" onNavigate={goTo} />}
+      {screen === 'wishlist' && <WardrobeScreen items={wishlistItems} mode="wishlist" onNavigate={goTo} />}
+      {screen === 'add' && <AddItemScreen onAddItem={addItem} onNavigate={goTo} />}
+      {screen === 'discover' && <DiscoverScreen inventory={inventory} onNavigate={goTo} />}
       {screen === 'calendar' && <CalendarScreen onNavigate={goTo} />}
     </>
   );

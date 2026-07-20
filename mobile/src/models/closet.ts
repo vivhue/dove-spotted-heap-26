@@ -16,11 +16,19 @@ export type WardrobeItem = {
   category: CategoryId;
   accent?: string;
   color?: string;
+  imageUrl?: string;
   texture?: 'classic' | 'denim' | 'knit' | 'leather' | 'metal' | 'silk';
   source?: string;
   price?: string;
   saved?: boolean;
 };
+
+export type InventoryState = {
+  closet: WardrobeItem[];
+  wishlist: WardrobeItem[];
+};
+
+export type InventoryLocation = keyof InventoryState;
 
 export type BodyMeasurements = {
   chest: string;
@@ -109,6 +117,7 @@ export const browseCategories: {
   { id: 'outerwear', label: 'Outerwear', shortLabel: 'Outerwear' },
   { id: 'shoes', label: 'Shoes', shortLabel: 'Shoes' },
   { id: 'accessories', label: 'Accessories', shortLabel: 'Accessories' },
+  { id: 'bags', label: 'Bags', shortLabel: 'Bags' },
 ];
 
 export const homeSwatches: CategoryId[] = ['tops', 'bottoms', 'outerwear', 'shoes'];
@@ -172,4 +181,41 @@ export const calendarLooks = [
   { day: 28, selected: true },
 ];
 
-export const categoryFilters = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
+export const categoryFilters = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories', 'Bags'];
+
+export const initialInventoryState: InventoryState = {
+  closet: closetItems.map((item) => ({ ...item })),
+  wishlist: wishlistItems.map((item) => ({ ...item, saved: false })),
+};
+
+export function cloneInventoryState(state: InventoryState): InventoryState {
+  return {
+    closet: state.closet.map((item) => ({ ...item })),
+    wishlist: state.wishlist.map((item) => ({ ...item })),
+  };
+}
+
+export function createWardrobeItem(input: {
+  category: CategoryId;
+  destination: InventoryLocation;
+  name: string;
+  color?: string;
+  accent?: string;
+  imageUrl?: string;
+  texture?: WardrobeItem['texture'];
+  source?: string;
+  price?: string;
+}): WardrobeItem {
+  return {
+    id: `${input.destination}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: input.name.trim(),
+    category: input.category,
+    color: input.color,
+    accent: input.accent,
+    imageUrl: input.imageUrl,
+    texture: input.texture,
+    source: input.source,
+    price: input.price,
+    saved: input.destination === 'closet',
+  };
+}

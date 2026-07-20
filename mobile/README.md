@@ -48,6 +48,23 @@ To learn more about developing your project with Expo, look at the following res
 - [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
 - [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
+## Cloudflare R2 setup
+
+This app now expects Cloudflare R2 to sit behind an upload endpoint rather than being called directly from the client.
+
+- Copy `.env.example` to `.env`
+- Set `EXPO_PUBLIC_R2_UPLOAD_ENDPOINT` to your Worker or backend upload route
+- Use that route to accept a file and return a public `url`
+
+## Training first
+
+If you want to build the chatbot from examples before wiring the full inventory UI, use the `training/` folder.
+
+- Put clothing photos in `training/images/`
+- Add labels to `training/labels.sample.json`
+- Add outfit examples to `training/outfits.sample.json`
+- Add occasion rules to `training/occasions.sample.json`
+
 ## Join the community
 
 Join our community of developers creating universal apps.

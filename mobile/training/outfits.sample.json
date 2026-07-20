@@ -1,0 +1,30 @@
+[
+  {
+    "id": "look-presentation-001",
+    "occasion": "presentation",
+    "label": "Clean presentation look",
+    "items": ["item-02", "item-02c", "item-18"],
+    "notes": ["Add a structured layer if available.", "Keep colors low contrast."]
+  },
+  {
+    "id": "look-casual-001",
+    "occasion": "casual",
+    "label": "Relaxed weekend look",
+    "items": ["item-08", "item-19"],
+    "notes": ["Swap the shirt for a tee if you want it more relaxed."]
+  },
+  {
+    "id": "look-office-001",
+    "occasion": "work",
+    "label": "Smart office separates",
+    "items": ["item-01", "item-09", "item-16"],
+    "notes": ["Tuck the shirt in and keep the silhouette clean."]
+  },
+  {
+    "id": "look-travel-001",
+    "occasion": "travel",
+    "label": "Comfortable travel outfit",
+    "items": ["item-03", "item-05", "item-17"],
+    "notes": ["Use breathable layers and keep the shoes easy to walk in."]
+  }
+]

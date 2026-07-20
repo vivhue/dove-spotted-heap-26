@@ -1,18 +1,19 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { browseCategories, CategoryId, closetItems, ScreenId } from '@/models/closet';
+import { browseCategories, CategoryId, ScreenId, WardrobeItem } from '@/models/closet';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
 type Props = {
   activeCategory: CategoryId;
+  items: WardrobeItem[];
   onCategoryChange: (category: CategoryId) => void;
   onNavigate: (screen: ScreenId) => void;
 };
 
-export function DashboardScreen({ activeCategory, onCategoryChange, onNavigate }: Props) {
-  const categoryItems = closetItems.filter((item) => item.category === activeCategory);
+export function DashboardScreen({ activeCategory, items, onCategoryChange, onNavigate }: Props) {
+  const categoryItems = items.filter((item) => item.category === activeCategory);
 
   return (
     <AppScreen activeTab="home" onNavigate={onNavigate} title="Browse">

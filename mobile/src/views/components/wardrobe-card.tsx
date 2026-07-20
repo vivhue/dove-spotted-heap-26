@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 import { WardrobeItem } from '@/models/closet';
 import { closetTheme } from '@/views/components/closet-theme';
@@ -13,7 +13,11 @@ export function WardrobeCard({ item, showHeart = false }: { item: WardrobeItem; 
     <View style={styles.card}>
       <View style={styles.thumb}>
         <View style={[styles.backdrop, { backgroundColor: `${accent}22` }]} />
-        <ClosetIcon category={item.category} color={color} accent={accent} size={54} />
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
+        ) : (
+          <ClosetIcon category={item.category} color={color} accent={accent} size={54} />
+        )}
         {item.texture && <View style={[styles.textureBadge, textureStyle(item.texture)]} />}
         {showHeart && (
           <View style={styles.heart}>
@@ -81,6 +85,11 @@ const styles = StyleSheet.create({
     height: 72,
     position: 'absolute',
     width: 72,
+  },
+  image: {
+    height: 72,
+    width: 72,
+    borderRadius: 18,
   },
   textureBadge: {
     borderColor: closetTheme.white,

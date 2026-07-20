@@ -1,21 +1,22 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { categoryFilters, closetItems, ScreenId, wishlistItems } from '@/models/closet';
+import { categoryFilters, ScreenId, WardrobeItem } from '@/models/closet';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
 export function WardrobeScreen({
+  items,
   mode,
   onNavigate,
 }: {
+  items: WardrobeItem[];
   mode: 'closet' | 'wishlist';
   onNavigate: (screen: ScreenId) => void;
 }) {
   const [activeFilter, setActiveFilter] = useState('All');
-  const items = mode === 'closet' ? closetItems : wishlistItems;
   const filteredItems = useMemo(() => {
     if (activeFilter === 'All' || activeFilter === '...') {
       return items;
@@ -28,6 +29,7 @@ export function WardrobeScreen({
       if (category === 'outerwear') return item.category === 'outerwear';
       if (category === 'shoes') return item.category === 'shoes';
       if (category === 'accessories') return item.category === 'accessories';
+      if (category === 'bags') return item.category === 'bags';
       return true;
     });
   }, [activeFilter, items]);

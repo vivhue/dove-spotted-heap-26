@@ -1,15 +1,44 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { ScreenId } from '@/models/closet';
+import { browseCategories, CategoryId, ScreenId, WardrobeItem } from '@/models/closet';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 
-export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const [selectedTag, setSelectedTag] = useState('Tops');
+export function AddItemScreen({
+  onAddItem,
+  onNavigate,
+}: {
+  onAddItem: (args: { destination: 'closet' | 'wishlist'; item: Omit<WardrobeItem, 'id' | 'saved'> }) => void;
+  onNavigate: (screen: ScreenId) => void;
+}) {
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('tops');
   const [destination, setDestination] = useState<'Closet' | 'Wishlist'>('Closet');
+  const [itemName, setItemName] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState('Choose how to add your item.');
+
+  function saveItem() {
+    const trimmedName = itemName.trim();
+
+    if (!trimmedName) {
+      setStatus('Add a name first so we can store the item.');
+      return;
+    }
+
+    onAddItem({
+      destination: destination === 'Closet' ? 'closet' : 'wishlist',
+      item: {
+        category: selectedCategory,
+        imageUrl: imageUrl.trim() || undefined,
+        name: trimmedName,
+      },
+    });
+    setStatus(`Saved ${trimmedName} to ${destination.toLowerCase()}.`);
+    setItemName('');
+    setImageUrl('');
+  }
 
   return (
     <AppScreen activeTab="add" onNavigate={onNavigate} title="Add new">
@@ -29,19 +58,47 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
         />
         <Text style={styles.statusText}>{status}</Text>
 
-        <Text style={styles.sectionLabel}>Tags</Text>
+        <Text style={styles.sectionLabel}>Item name</Text>
+        <View style={styles.nameBox}>
+          <LineIcon name="tag" color={closetTheme.camelDeep} />
+          <TextInput
+            autoCapitalize="words"
+            autoCorrect={false}
+            placeholder="Pearl Rib Polo"
+            placeholderTextColor={closetTheme.muted}
+            style={styles.nameInput}
+            value={itemName}
+            onChangeText={setItemName}
+          />
+        </View>
+
+        <Text style={styles.sectionLabel}>Item image URL</Text>
+        <View style={styles.nameBox}>
+          <LineIcon name="img" color={closetTheme.camelDeep} />
+          <TextInput
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="https://..."
+            placeholderTextColor={closetTheme.muted}
+            style={styles.nameInput}
+            value={imageUrl}
+            onChangeText={setImageUrl}
+          />
+        </View>
+        <Text style={styles.helpText}>
+          This is where an R2-hosted file URL will live once we wire the upload endpoint.
+        </Text>
+
+        <Text style={styles.sectionLabel}>Category</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {['Tops', 'Bottoms', 'Shoes', '+ Add'].map((tag) => (
+          {browseCategories.map((category) => (
             <Pressable
-              key={tag}
-              onPress={() => {
-                setSelectedTag(tag);
-                if (tag === '+ Add') {
-                  setStatus('Custom tag input coming next.');
-                }
-              }}
-              style={[styles.chip, selectedTag === tag && styles.chipSelected]}>
-              <Text style={[styles.chipText, selectedTag === tag && styles.chipTextSelected]}>{tag}</Text>
+              key={category.id}
+              onPress={() => setSelectedCategory(category.id)}
+              style={[styles.chip, selectedCategory === category.id && styles.chipSelected]}>
+              <Text style={[styles.chipText, selectedCategory === category.id && styles.chipTextSelected]}>
+                {category.shortLabel}
+              </Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -57,6 +114,10 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
             </Pressable>
           ))}
         </View>
+
+        <Pressable style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed]} onPress={saveItem}>
+          <Text style={styles.primaryText}>Save item</Text>
+        </Pressable>
       </ScrollView>
     </AppScreen>
   );
@@ -123,6 +184,35 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginHorizontal: 22,
     marginTop: 2,
+  },
+  helpText: {
+    color: closetTheme.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 16,
+    marginHorizontal: 22,
+    marginTop: 8,
+  },
+  nameBox: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    marginHorizontal: 22,
+    marginTop: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  nameInput: {
+    color: closetTheme.ink,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '900',
+    minWidth: 0,
+    padding: 0,
   },
   optionIcon: {
     alignItems: 'center',
@@ -194,5 +284,22 @@ const styles = StyleSheet.create({
   },
   addToTextSelected: {
     color: closetTheme.cream,
+  },
+  primary: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.camelDeep,
+    borderRadius: 18,
+    marginHorizontal: 22,
+    marginTop: 18,
+    paddingVertical: 14,
+  },
+  primaryPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.98 }],
+  },
+  primaryText: {
+    color: closetTheme.cream,
+    fontSize: 13,
+    fontWeight: '900',
   },
 });
