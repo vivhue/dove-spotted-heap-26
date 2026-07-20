@@ -15,13 +15,18 @@ export type ScreenId =
 // lib/garments.ts. Only these four are supported by IDM-VTON try-on.
 export type CategoryId = 'shirt' | 'dress' | 'shorts' | 'pants';
 export type WardrobeDestination = 'closet' | 'wishlist';
+// Bag/shoe avatars went away with the broad browse categories; these are the
+// shapes ClosetIcon can actually draw.
+export type AvatarChoice = 'initial' | 'hanger' | 'shirt' | 'dress' | 'shorts' | 'pants';
 export const currentUserDisplayName = 'there';
 
 export type ClosetAccount = {
+  avatar?: AvatarChoice;
   id: string;
   username: string;
   password: string;
   createdAt: string;
+  gender?: 'female' | 'male';
 };
 
 export type WardrobeItem = {
@@ -42,6 +47,18 @@ export type WardrobeItem = {
   tags?: string[];
   userId?: string;
   createdAt?: string;
+};
+
+export type SavedTrip = {
+  dateRange: string;
+  id: string;
+  looks: {
+    id: string;
+    itemIds: string[];
+    title: string;
+  }[];
+  packedItems: WardrobeItem[];
+  title: string;
 };
 
 export type InventoryState = {

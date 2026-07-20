@@ -9,6 +9,7 @@ import {
   InventoryLocation,
   InventoryState,
   getBodyProportions,
+  SavedTrip,
   ScreenId,
   screenOrder,
   WardrobeItem,
@@ -20,6 +21,7 @@ export function useClosetApp() {
   const [activeCategory, setActiveCategory] = useState(browseCategories[0].id);
   const [measurements, setMeasurements] = useState<BodyMeasurements>(defaultMeasurements);
   const [inventory, setInventory] = useState<InventoryState>(() => loadInventoryState());
+  const [savedTrips, setSavedTrips] = useState<SavedTrip[]>([]);
 
   const activeBrowseCategory = useMemo(
     () => browseCategories.find((category) => category.id === activeCategory) ?? browseCategories[0],
@@ -40,6 +42,13 @@ export function useClosetApp() {
 
   function goTo(nextScreen: ScreenId) {
     setScreen(nextScreen);
+  }
+
+  function saveTrip(trip: SavedTrip) {
+    setSavedTrips((currentTrips) => [
+      trip,
+      ...currentTrips.filter((currentTrip) => currentTrip.id !== trip.id),
+    ]);
   }
 
   function addItem({
@@ -93,7 +102,9 @@ export function useClosetApp() {
     goTo,
     isForward,
     measurements,
+    saveTrip,
     screen,
+    savedTrips,
     setActiveCategory,
     updateMeasurement,
   };

@@ -1,8 +1,17 @@
 import { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
-import { ScreenId } from '@/models/closet';
-import { getClosetChatReply } from '@/services/closet-chatbot';
+import { BodyMeasurements, CategoryId, ScreenId, WardrobeItem, browseCategories } from '@/models/closet';
+import {
+  buildBodyProfile,
+  ColorProfile,
+  ContrastLevel,
+  FitPreference,
+  getClosetChatReply,
+  StyleProfile,
+  Undertone,
+} from '@/services/closet-chatbot';
 import type { SelectedOutfit } from '@/stores/closet-store';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
@@ -10,15 +19,65 @@ import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 
 type ChatMessage = {
+  actions?: ChatAction[];
   id: string;
   outfit?: Partial<SelectedOutfit>;
   role: 'bot' | 'user';
   text: string;
 };
 
-export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
+type ChatAction = {
+  label: string;
+  value: string;
+};
+
+type QuizState = {
+  answers: string[];
+  index: number;
+  mode: 'color' | 'style';
+};
+
+type ChatMode = 'closet' | 'shopping';
+
+const styleQuiz = [
+  { text: 'Pick the outfit pair you would actually wear: fitted top + baggy jeans, or baggy top + fitted jeans?', actions: ['fitted top + baggy jeans', 'baggy top + fitted jeans'] },
+  { text: 'For a casual day, which silhouette feels better?', actions: ['fitted + fitted', 'baggy + baggy'] },
+  { text: 'For dinner, which would you choose?', actions: ['fitted top + straight pants', 'relaxed shirt + slim skirt'] },
+  { text: 'For school or errands?', actions: ['baby tee + wide jeans', 'oversized tee + slim pants'] },
+  { text: 'Which layering idea feels more you?', actions: ['tailored jacket + fitted base', 'oversized jacket + relaxed base'] },
+  { text: 'Which aesthetic pair is closer?', actions: ['minimal', 'streetwear'] },
+  { text: 'Last one: tailored or sporty?', actions: ['tailored', 'sporty'] },
+];
+
+const colorQuiz = [
+  { text: 'Vein color on your wrist?', actions: ['greenish', 'bluish-purple', "can't tell"] },
+  { text: 'Jewelry that looks best?', actions: ['gold', 'silver', 'both'] },
+  { text: 'Sun reaction?', actions: ['tans easily', 'burns easily', 'mixed'] },
+  { text: 'Which shirt looks better?', actions: ['cream', 'white', 'both fine'] },
+  { text: 'Hair-to-skin contrast?', actions: ['close in tone', 'very different'] },
+];
+
+export function DiscoverScreen({
+  measurements,
+  onNavigate,
+}: {
+  measurements: BodyMeasurements;
+  onNavigate: (screen: ScreenId) => void;
+}) {
   const { applyOutfit, closetItems, currentUser, wishlistItems } = useClosetStore();
   const messageId = useRef(0);
+  const [colorProfile, setColorProfile] = useState<ColorProfile>({
+    avoidPalette: [],
+    contrastLevel: null,
+    recommendedPalette: [],
+    undertone: null,
+  });
+  const [styleProfile, setStyleProfile] = useState<StyleProfile>({
+    bottomFitPref: null,
+    tags: [],
+    topFitPref: null,
+  });
+  const [quiz, setQuiz] = useState<QuizState | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'bot-intro',
@@ -27,8 +86,31 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
     },
   ]);
   const [draft, setDraft] = useState('');
+  const [attachedImageUri, setAttachedImageUri] = useState('');
+  const [chatMode, setChatMode] = useState<ChatMode>('closet');
+  const [closetSearch, setClosetSearch] = useState('');
+  const [closetSheetOpen, setClosetSheetOpen] = useState(false);
+  const [isModeOpen, setIsModeOpen] = useState(false);
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'all'>('all');
+  const [selectedClosetItemIds, setSelectedClosetItemIds] = useState<string[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const visibleMessages = messages.filter((message) => message.id !== 'bot-intro');
+  const displayName = currentUser?.username || 'there';
+  const greeting = greetingForTime(new Date());
+  const selectedClosetItems = closetItems.filter((item) => selectedClosetItemIds.includes(item.id));
+  const filteredClosetItems = closetItems.filter((item) => {
+    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    const query = closetSearch.trim().toLowerCase();
+    const matchesSearch = !query || [item.name, item.category, item.primaryColor, item.subcategory]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(query);
+
+    return matchesCategory && matchesSearch;
+  });
 
   function nextMessageId(prefix: string) {
     messageId.current += 1;
@@ -42,6 +124,15 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
       return;
     }
 
+    const modeContext =
+      chatMode === 'closet'
+        ? 'Use my closet as much as possible.'
+        : 'Include shopping suggestions if my closet is missing something.';
+    const selectedContext = selectedClosetItems.length
+      ? ` Selected closet items: ${selectedClosetItems.map((item) => item.name).join(', ')}.`
+      : '';
+    const imageContext = attachedImageUri ? ' I attached a reference picture.' : '';
+    const messageForReply = `${trimmed} ${modeContext}${selectedContext}${imageContext}`;
     const userMessage: ChatMessage = { id: nextMessageId('user'), role: 'user', text: trimmed };
 
     setMessages((currentMessages) => [...currentMessages, userMessage]);
@@ -49,10 +140,25 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
     setIsThinking(true);
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
 
+    if (hasAny(trimmed.toLowerCase(), ['style quiz', 'fit quiz'])) {
+      setIsThinking(false);
+      startQuiz('style');
+      return;
+    }
+
+    if (hasAny(trimmed.toLowerCase(), ['color quiz', 'colour quiz', 'undertone quiz'])) {
+      setIsThinking(false);
+      startQuiz('color');
+      return;
+    }
+
     const reply = await getClosetChatReply({
+      bodyProfile: buildBodyProfile(measurements),
+      colorProfile,
       closetItems,
       currentUser,
-      message: trimmed,
+      message: messageForReply,
+      styleProfile,
       wishlistItems,
     });
 
@@ -60,6 +166,8 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
       ...currentMessages,
       { id: nextMessageId('bot'), outfit: reply.outfit, role: 'bot', text: reply.text },
     ]);
+    setIsModeOpen(false);
+    setClosetSheetOpen(false);
     setIsThinking(false);
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
   }
@@ -69,65 +177,405 @@ export function DiscoverScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
     onNavigate('try-on');
   }
 
-  return (
-    <AppScreen activeTab="discover" onNavigate={onNavigate} title="AI Chatbot">
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.chatLog}>
-        {messages.map((message) => {
-          const isUser = message.role === 'user';
-          const hasOutfit = message.role === 'bot' && message.outfit && Object.keys(message.outfit).length > 0;
+  async function pickReferenceImage() {
+    setIsModeOpen(false);
+    setClosetSheetOpen(false);
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-          return (
-            <View key={message.id} style={[styles.bubble, isUser ? styles.userBubble : styles.botBubble]}>
-              <Text style={[styles.bubbleText, isUser && styles.userText]}>{message.text}</Text>
-              {hasOutfit && (
-                <Pressable style={styles.useOutfitButton} onPress={() => useOutfit(message.outfit ?? {})}>
-                  <Text style={styles.useOutfitText}>Try this outfit</Text>
-                </Pressable>
-              )}
+    if (!permission.granted) {
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        { id: nextMessageId('bot'), role: 'bot', text: 'Allow photo access first, then I can use your picture as outfit inspiration.' },
+      ]);
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.82,
+    });
+
+    if (!result.canceled && result.assets[0]?.uri) {
+      setAttachedImageUri(result.assets[0].uri);
+    }
+  }
+
+  function toggleClosetItem(item: WardrobeItem) {
+    setSelectedClosetItemIds((currentIds) =>
+      currentIds.includes(item.id)
+        ? currentIds.filter((id) => id !== item.id)
+        : [...currentIds, item.id]
+    );
+  }
+
+  function toggleVoiceInput() {
+    setIsModeOpen(false);
+    setClosetSheetOpen(false);
+    setIsVoiceActive((isActive) => !isActive);
+  }
+
+  function openClosetSheet() {
+    setIsModeOpen(false);
+    setClosetSheetOpen(true);
+  }
+
+  function toggleModeMenu() {
+    setClosetSheetOpen(false);
+    setIsModeOpen((isOpen) => !isOpen);
+  }
+
+  function startQuiz(mode: QuizState['mode']) {
+    const question = mode === 'style' ? styleQuiz[0] : colorQuiz[0];
+    setQuiz({ answers: [], index: 0, mode });
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        actions: question.actions.map((action) => ({ label: action, value: action })),
+        id: nextMessageId('bot'),
+        role: 'bot',
+        text: question.text,
+      },
+    ]);
+  }
+
+  function chooseQuizAnswer(value: string) {
+    if (!quiz) {
+      return;
+    }
+
+    const userMessage: ChatMessage = { id: nextMessageId('user'), role: 'user', text: value };
+    const answers = [...quiz.answers, value];
+    const questions = quiz.mode === 'style' ? styleQuiz : colorQuiz;
+    const nextIndex = quiz.index + 1;
+
+    if (nextIndex < questions.length) {
+      const nextQuestion = questions[nextIndex];
+      setQuiz({ ...quiz, answers, index: nextIndex });
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        userMessage,
+        {
+          actions: nextQuestion.actions.map((action) => ({ label: action, value: action })),
+          id: nextMessageId('bot'),
+          role: 'bot',
+          text: nextQuestion.text,
+        },
+      ]);
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+      return;
+    }
+
+    setQuiz(null);
+    const result = quiz.mode === 'style' ? finishStyleQuiz(answers) : finishColorQuiz(answers);
+    setMessages((currentMessages) => [...currentMessages, userMessage, { id: nextMessageId('bot'), role: 'bot', text: result }]);
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  }
+
+  function finishStyleQuiz(answers: string[]) {
+    const topFitPref = countMatches(answers, ['fitted top', 'fitted + fitted', 'baby tee', 'fitted base']) >= 3 ? 'fitted' : 'relaxed';
+    const bottomFitPref = countMatches(answers, ['baggy jeans', 'wide jeans', 'baggy + baggy', 'relaxed base']) >= 3 ? 'relaxed' : 'fitted';
+    const tags = [
+      answers.includes('minimal') ? 'minimal' : '',
+      answers.includes('streetwear') ? 'streetwear' : '',
+      answers.includes('tailored') ? 'tailored' : '',
+      answers.includes('sporty') ? 'sporty' : '',
+    ].filter(Boolean);
+    const nextProfile: StyleProfile = {
+      bottomFitPref: bottomFitPref as FitPreference,
+      tags: tags.length ? tags : ['balanced'],
+      topFitPref: topFitPref as FitPreference,
+    };
+
+    setStyleProfile(nextProfile);
+
+    return `Saved. You tend to go for ${nextProfile.topFitPref} tops with ${nextProfile.bottomFitPref} bottoms - that's a ${nextProfile.tags.join(', ')} look.`;
+  }
+
+  function finishColorQuiz(answers: string[]) {
+    const warm = countMatches(answers, ['greenish', 'gold', 'tans easily', 'cream']);
+    const cool = countMatches(answers, ['bluish-purple', 'silver', 'burns easily', 'white']);
+    const undertone: Undertone = warm > cool ? 'warm' : cool > warm ? 'cool' : 'neutral';
+    const contrastLevel: ContrastLevel = answers.includes('very different') ? 'high contrast' : 'low contrast';
+    const palettes = paletteForUndertone(undertone);
+
+    setColorProfile({
+      avoidPalette: palettes.avoidPalette,
+      contrastLevel,
+      recommendedPalette: palettes.recommendedPalette,
+      undertone,
+    });
+
+    return `Saved. You're a ${undertone} undertone with ${contrastLevel}. Colors worth buying: ${palettes.recommendedPalette.join(', ')}.`;
+  }
+
+  return (
+    <AppScreen activeTab="discover" onNavigate={onNavigate}>
+      <View style={styles.chatScreen}>
+        <Pressable style={styles.closeButton} onPress={() => onNavigate('home')}>
+          <LineIcon name="×" color={closetTheme.ink} />
+        </Pressable>
+
+        <View style={styles.chatHero}>
+          <Text style={styles.heroGreeting}>{greeting}, {displayName}</Text>
+          <Text style={styles.heroQuestion}>How can I style you?</Text>
+        </View>
+
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.chatLog} showsVerticalScrollIndicator={false}>
+          {visibleMessages.map((message) => {
+            const isUser = message.role === 'user';
+            const hasOutfit = message.role === 'bot' && message.outfit && Object.keys(message.outfit).length > 0;
+
+            return (
+              <View key={message.id} style={[styles.bubble, isUser ? styles.userBubble : styles.botBubble]}>
+                <Text style={[styles.bubbleText, isUser && styles.userText]}>{message.text}</Text>
+                {message.actions && (
+                  <View style={styles.actionList}>
+                    {message.actions.map((action) => (
+                      <Pressable key={action.value} style={styles.quizAction} onPress={() => chooseQuizAnswer(action.value)}>
+                        <Text style={styles.quizActionText}>{action.label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+                {hasOutfit && (
+                  <Pressable style={styles.useOutfitButton} onPress={() => useOutfit(message.outfit ?? {})}>
+                    <Text style={styles.useOutfitText}>Try this outfit</Text>
+                  </Pressable>
+                )}
+              </View>
+            );
+          })}
+          {isThinking && (
+            <View style={[styles.bubble, styles.botBubble]}>
+              <Text style={styles.bubbleText}>Checking your closet...</Text>
             </View>
-          );
-        })}
-        {isThinking && (
-          <View style={[styles.bubble, styles.botBubble]}>
-            <Text style={styles.bubbleText}>Checking your closet...</Text>
+          )}
+        </ScrollView>
+
+        <View style={styles.suggestions}>
+          {[
+            { label: 'Today outfit', prompt: 'What should I wear today?' },
+            { label: 'Body fit', prompt: 'What suits my body?' },
+            { label: 'Style quiz', prompt: 'Start style quiz' },
+            { label: 'Undertone', prompt: 'Start undertone quiz' },
+          ].map((suggestion) => (
+            <Pressable key={suggestion.label} style={styles.suggestionChip} onPress={() => sendMessage(suggestion.prompt)}>
+              <Text style={styles.suggestionText}>{suggestion.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {(attachedImageUri || selectedClosetItems.length > 0 || isVoiceActive) && (
+          <View style={styles.contextTray}>
+            {attachedImageUri ? (
+              <View style={styles.contextImageWrap}>
+                <Image source={{ uri: attachedImageUri }} style={styles.contextImage} />
+                <Pressable style={styles.contextRemove} onPress={() => setAttachedImageUri('')}>
+                  <LineIcon name="×" color={closetTheme.cream} />
+                </Pressable>
+              </View>
+            ) : null}
+            {selectedClosetItems.slice(0, 3).map((item) => (
+              <View key={item.id} style={styles.contextChip}>
+                <Text numberOfLines={1} style={styles.contextChipText}>{item.name}</Text>
+              </View>
+            ))}
+            {selectedClosetItems.length > 3 && (
+              <Text style={styles.contextMore}>+{selectedClosetItems.length - 3}</Text>
+            )}
+            {isVoiceActive && <Text style={styles.voiceStatus}>Listening...</Text>}
           </View>
         )}
-      </ScrollView>
 
-      <View style={styles.suggestions}>
-        {['What should I wear today?', 'What colors do I own most?', 'What style should I try?'].map((suggestion) => (
-          <Pressable key={suggestion} style={styles.suggestionChip} onPress={() => sendMessage(suggestion)}>
-            <Text style={styles.suggestionText}>{suggestion}</Text>
-          </Pressable>
-        ))}
-      </View>
+        <View style={styles.chatComposer}>
+          <TextInput
+            editable={!isThinking}
+            multiline
+            placeholder={
+              currentUser
+                ? isVoiceActive
+                  ? 'Listening... tell me what you want styled.'
+                  : 'Help me style this from my closet.'
+                : 'Create an account first...'
+            }
+            placeholderTextColor={closetTheme.muted}
+            style={styles.input}
+            value={draft}
+            onChangeText={setDraft}
+            onSubmitEditing={() => sendMessage()}
+            returnKeyType="send"
+          />
+          <View style={styles.composerActions}>
+            <Pressable style={[styles.composerIconButton, attachedImageUri && styles.composerIconButtonActive]} onPress={pickReferenceImage}>
+              <LineIcon name="▧" color={closetTheme.ink} />
+            </Pressable>
+            <Pressable style={[styles.composerIconButton, selectedClosetItems.length > 0 && styles.composerIconButtonActive]} onPress={openClosetSheet}>
+              <LineIcon name="♕" color={closetTheme.ink} />
+            </Pressable>
+            <Pressable style={styles.modePill} onPress={toggleModeMenu}>
+              <Text style={styles.modePillText}>{chatMode === 'closet' ? 'Closet mode' : 'Shopping mode'}</Text>
+              <LineIcon name="⌄" color={closetTheme.ink} />
+            </Pressable>
+            <Pressable style={[styles.composerIconButton, isVoiceActive && styles.composerIconButtonActive]} onPress={toggleVoiceInput}>
+              <LineIcon name="♬" color={closetTheme.ink} />
+            </Pressable>
+            <Pressable
+              disabled={isThinking}
+              style={({ pressed }) => [styles.send, pressed && styles.sendPressed, isThinking && styles.sendDisabled]}
+              onPress={() => sendMessage()}>
+              <LineIcon name="→" color={closetTheme.cream} />
+            </Pressable>
+          </View>
+          {isModeOpen && (
+            <View style={styles.modeMenu}>
+              {(['closet', 'shopping'] as ChatMode[]).map((mode) => (
+                <Pressable
+                  key={mode}
+                  style={[styles.modeMenuItem, chatMode === mode && styles.modeMenuItemSelected]}
+                  onPress={() => {
+                    setChatMode(mode);
+                    setIsModeOpen(false);
+                  }}>
+                  <Text style={styles.modeMenuTitle}>{mode === 'closet' ? 'Closet mode' : 'Shopping mode'}</Text>
+                  <Text style={styles.modeMenuText}>
+                    {mode === 'closet'
+                      ? 'Looks use your closet as much as possible.'
+                      : 'Includes shopping ideas if something is missing.'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
 
-      <View style={styles.chatbar}>
-        <TextInput
-          editable={!isThinking}
-          placeholder={currentUser ? 'Ask what to wear...' : 'Create an account first...'}
-          placeholderTextColor={closetTheme.muted}
-          style={styles.input}
-          value={draft}
-          onChangeText={setDraft}
-          onSubmitEditing={() => sendMessage()}
-          returnKeyType="send"
-        />
-        <Pressable
-          disabled={isThinking}
-          style={({ pressed }) => [styles.send, pressed && styles.sendPressed, isThinking && styles.sendDisabled]}
-          onPress={() => sendMessage()}>
-          <LineIcon name="➤" color={closetTheme.camel} />
-        </Pressable>
+        {closetSheetOpen && (
+          <View style={styles.closetSheetOverlay}>
+            <Pressable style={styles.sheetScrim} onPress={() => setClosetSheetOpen(false)} />
+            <View style={styles.closetSheet}>
+              <View style={styles.sheetHandle} />
+              <TextInput
+                autoCapitalize="none"
+                onChangeText={setClosetSearch}
+                placeholder="Search your closet..."
+                placeholderTextColor={closetTheme.muted}
+                style={styles.closetSearch}
+                value={closetSearch}
+              />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.closetFilters}>
+                <Pressable
+                  style={[styles.closetFilter, selectedCategory === 'all' && styles.closetFilterSelected]}
+                  onPress={() => setSelectedCategory('all')}>
+                  <Text style={[styles.closetFilterText, selectedCategory === 'all' && styles.closetFilterTextSelected]}>All</Text>
+                </Pressable>
+                {browseCategories.map((category) => (
+                  <Pressable
+                    key={category.id}
+                    style={[styles.closetFilter, selectedCategory === category.id && styles.closetFilterSelected]}
+                    onPress={() => setSelectedCategory(category.id)}>
+                    <Text style={[styles.closetFilterText, selectedCategory === category.id && styles.closetFilterTextSelected]}>
+                      {category.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <ScrollView contentContainerStyle={styles.closetGrid} showsVerticalScrollIndicator={false}>
+                {filteredClosetItems.map((item) => {
+                  const selected = selectedClosetItemIds.includes(item.id);
+
+                  return (
+                    <Pressable
+                      key={item.id}
+                      style={[styles.closetTile, selected && styles.closetTileSelected]}
+                      onPress={() => toggleClosetItem(item)}>
+                      {item.imageUrl ? (
+                        <Image source={{ uri: item.imageUrl }} style={styles.closetTileImage} resizeMode="contain" />
+                      ) : (
+                        <View style={styles.closetTileFallback}>
+                          <LineIcon name="♕" color={closetTheme.camelDeep} />
+                        </View>
+                      )}
+                      <Text numberOfLines={1} style={styles.closetTileTitle}>{item.name}</Text>
+                      <Text numberOfLines={1} style={styles.closetTileMeta}>{item.primaryColor || item.category}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <Pressable style={styles.sheetDoneButton} onPress={() => setClosetSheetOpen(false)}>
+                <Text style={styles.sheetDoneText}>
+                  {selectedClosetItemIds.length ? `Done · ${selectedClosetItemIds.length} selected` : 'Done'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </View>
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  chatScreen: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+  },
+  closeButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 24,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
+  chatHero: {
+    alignItems: 'center',
+    flexGrow: 1,
+    flexShrink: 0,
+    justifyContent: 'center',
+    minHeight: 360,
+    paddingBottom: 52,
+  },
+  heroGreeting: {
+    color: closetTheme.ink,
+    fontFamily: 'serif',
+    fontSize: 23,
+    fontWeight: '700',
+    lineHeight: 30,
+    maxWidth: 360,
+    textAlign: 'center',
+  },
+  heroQuestion: {
+    color: closetTheme.ink,
+    fontFamily: 'serif',
+    fontSize: 28,
+    fontWeight: '700',
+    lineHeight: 36,
+    marginTop: 4,
+    maxWidth: 360,
+    textAlign: 'center',
+  },
   chatLog: {
     gap: 10,
-    padding: 18,
+    paddingBottom: 12,
+  },
+  actionList: {
+    gap: 8,
+    marginTop: 10,
+  },
+  quizAction: {
+    backgroundColor: closetTheme.creamDeep,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  quizActionText: {
+    color: closetTheme.camelDeep,
+    fontSize: 12,
+    fontWeight: '900',
   },
   bubble: {
     borderRadius: 16,
@@ -172,8 +620,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingBottom: 10,
   },
   suggestionChip: {
     backgroundColor: closetTheme.creamDeep,
@@ -186,23 +633,142 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
   },
-  chatbar: {
+  contextTray: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    gap: 8,
+    paddingBottom: 8,
+  },
+  contextImageWrap: {
+    borderColor: closetTheme.line,
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 44,
+    overflow: 'hidden',
+    position: 'relative',
+    width: 44,
+  },
+  contextImage: {
+    height: '100%',
+    width: '100%',
+  },
+  contextRemove: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.ink,
+    borderRadius: 9,
+    height: 18,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 2,
+    top: 2,
+    width: 18,
+  },
+  contextChip: {
+    backgroundColor: closetTheme.creamDeep,
+    borderRadius: 14,
+    maxWidth: 92,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  contextChipText: {
+    color: closetTheme.camelDeep,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  contextMore: {
+    color: closetTheme.camelDeep,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  voiceStatus: {
+    color: closetTheme.camelDeep,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  chatComposer: {
+    backgroundColor: closetTheme.creamDeep,
+    borderRadius: 28,
+    gap: 12,
+    marginBottom: 10,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
+    position: 'relative',
+    zIndex: 4,
   },
   input: {
+    color: closetTheme.ink,
+    fontSize: 18,
+    fontWeight: '800',
+    lineHeight: 26,
+    minHeight: 64,
+    padding: 0,
+    textAlignVertical: 'top',
+  },
+  composerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 9,
+  },
+  composerIconButton: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.cream,
+    borderRadius: 20,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  composerIconButtonActive: {
+    backgroundColor: closetTheme.camel,
+  },
+  modePill: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.cream,
+    borderRadius: 20,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+    height: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  modePillText: {
+    color: closetTheme.ink,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  modeMenu: {
     backgroundColor: closetTheme.white,
     borderColor: closetTheme.line,
-    borderRadius: 22,
+    borderRadius: 14,
     borderWidth: 1,
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: closetTheme.muted,
+    bottom: 62,
+    left: 92,
+    overflow: 'hidden',
+    position: 'absolute',
+    right: 68,
+    zIndex: 6,
+  },
+  modeMenuItem: {
+    borderBottomColor: closetTheme.line,
+    borderBottomWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  modeMenuItemSelected: {
+    backgroundColor: closetTheme.cream,
+  },
+  modeMenuTitle: {
+    color: closetTheme.ink,
     fontSize: 13,
+    fontWeight: '900',
+  },
+  modeMenuText: {
+    color: closetTheme.muted,
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 14,
+    marginTop: 2,
   },
   send: {
     alignItems: 'center',
@@ -219,4 +785,164 @@ const styles = StyleSheet.create({
   sendDisabled: {
     opacity: 0.5,
   },
+  closetSheetOverlay: {
+    bottom: 0,
+    left: -18,
+    position: 'absolute',
+    right: -18,
+    top: 0,
+    zIndex: 10,
+  },
+  sheetScrim: {
+    backgroundColor: 'rgba(47, 35, 25, 0.38)',
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  closetSheet: {
+    backgroundColor: closetTheme.ink,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    bottom: 0,
+    left: 0,
+    maxHeight: '82%',
+    padding: 18,
+    position: 'absolute',
+    right: 0,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    backgroundColor: closetTheme.muted,
+    borderRadius: 3,
+    height: 5,
+    marginBottom: 16,
+    width: 52,
+  },
+  closetSearch: {
+    backgroundColor: '#0F0D0C',
+    borderRadius: 22,
+    color: closetTheme.cream,
+    fontSize: 15,
+    fontWeight: '800',
+    minHeight: 44,
+    paddingHorizontal: 18,
+  },
+  closetFilters: {
+    gap: 8,
+    paddingVertical: 14,
+  },
+  closetFilter: {
+    backgroundColor: '#0F0D0C',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  closetFilterSelected: {
+    backgroundColor: closetTheme.cream,
+  },
+  closetFilterText: {
+    color: closetTheme.cream,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  closetFilterTextSelected: {
+    color: closetTheme.ink,
+  },
+  closetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingBottom: 18,
+  },
+  closetTile: {
+    backgroundColor: closetTheme.white,
+    borderColor: '#2F2F2F',
+    borderWidth: 1,
+    minHeight: 160,
+    padding: 8,
+    width: '33.333%',
+  },
+  closetTileSelected: {
+    borderColor: closetTheme.camel,
+    borderWidth: 3,
+  },
+  closetTileImage: {
+    height: 100,
+    width: '100%',
+  },
+  closetTileFallback: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.cream,
+    height: 100,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  closetTileTitle: {
+    color: closetTheme.muted,
+    fontSize: 12,
+    fontWeight: '900',
+    marginTop: 8,
+  },
+  closetTileMeta: {
+    color: closetTheme.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  sheetDoneButton: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.cream,
+    borderRadius: 24,
+    justifyContent: 'center',
+    minHeight: 50,
+  },
+  sheetDoneText: {
+    color: closetTheme.ink,
+    fontSize: 17,
+    fontWeight: '900',
+  },
 });
+
+function countMatches(values: string[], needles: string[]) {
+  return values.filter((value) => hasAny(value.toLowerCase(), needles)).length;
+}
+
+function greetingForTime(date: Date) {
+  const hour = date.getHours();
+
+  if (hour < 12) {
+    return 'Good morning';
+  }
+
+  if (hour < 18) {
+    return 'Good afternoon';
+  }
+
+  return 'Good evening';
+}
+
+function paletteForUndertone(undertone: Undertone) {
+  if (undertone === 'warm') {
+    return {
+      avoidPalette: ['icy blue', 'blue-gray', 'stark white'],
+      recommendedPalette: ['cream', 'camel', 'olive', 'warm brown', 'terracotta'],
+    };
+  }
+
+  if (undertone === 'cool') {
+    return {
+      avoidPalette: ['mustard', 'orange', 'yellow beige'],
+      recommendedPalette: ['white', 'navy', 'charcoal', 'cool pink', 'blue'],
+    };
+  }
+
+  return {
+    avoidPalette: ['overly neon tones'],
+    recommendedPalette: ['soft white', 'taupe', 'denim blue', 'sage', 'balanced neutrals'],
+  };
+}
+
+function hasAny(text: string, needles: string[]) {
+  return needles.some((needle) => text.includes(needle));
+}

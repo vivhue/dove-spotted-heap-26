@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { BodyMeasurements, ScreenId } from '@/models/closet';
+import { AvatarChoice, BodyMeasurements, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
-import { AppScreen } from '@/views/components/app-chrome';
+import { AppScreen, initialForUsername, ProfileAvatarMark } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
@@ -18,28 +18,50 @@ const measurementFields: {
   { field: 'inseam', label: 'Inseam' },
 ];
 
+const avatarOptions: { label: string; value: AvatarChoice }[] = [
+  { label: 'Hanger', value: 'hanger' },
+  { label: 'Shirt', value: 'shirt' },
+  { label: 'Dress', value: 'dress' },
+  { label: 'Shorts', value: 'shorts' },
+  { label: 'Pants', value: 'pants' },
+  { label: 'Initial', value: 'initial' },
+];
+
 type Props = {
   measurements: BodyMeasurements;
   onAuthenticated?: () => void;
   onMeasurementChange: (field: keyof BodyMeasurements, value: string) => void;
   onNavigate: (screen: ScreenId) => void;
+  savedTrips: SavedTrip[];
 };
 
 type AuthMode = 'login' | 'signup';
 type ProfileTab = 'looks' | 'trips';
+type LooksSort = 'newest' | 'oldest';
+type LooksViewMode = 'grid' | 'list';
 
-export function AccountScreen({ measurements, onAuthenticated, onMeasurementChange, onNavigate }: Props) {
-  const { closetItems, currentUser, logIn, logOut, signUp, wishlistItems } = useClosetStore();
+export function AccountScreen({ measurements, onAuthenticated, onMeasurementChange, onNavigate, savedTrips }: Props) {
+  const { closetItems, currentUser, logIn, logOut, signUp, updateAccountAvatar, wishlistItems } = useClosetStore();
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [hasLookbook, setHasLookbook] = useState(false);
+  const [expandedTripIds, setExpandedTripIds] = useState<string[]>([]);
+  const [isLooksSearchOpen, setIsLooksSearchOpen] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [isWornLooksOnly, setIsWornLooksOnly] = useState(false);
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [looksSearch, setLooksSearch] = useState('');
+  const [looksSort, setLooksSort] = useState<LooksSort>('newest');
+  const [looksViewMode, setLooksViewMode] = useState<LooksViewMode>('grid');
   const [profileTab, setProfileTab] = useState<ProfileTab>('looks');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedGender, setSelectedGender] = useState<'female' | 'male' | null>(null);
   const [authMessage, setAuthMessage] = useState('');
   const itemCount = closetItems.length + wishlistItems.length;
 
   function submitAuth() {
-    const result = authMode === 'signup' ? signUp(username, password) : logIn(username, password);
+    const result = authMode === 'signup' ? signUp(username, password, selectedGender ?? undefined) : logIn(username, password);
 
     setAuthMessage(result.message);
 
@@ -90,6 +112,27 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
                   value={password}
                 />
               </View>
+              {authMode === 'signup' && (
+                <View style={styles.authField}>
+                  <Text style={styles.authLabel}>Profile</Text>
+                  <View style={styles.genderOptions}>
+                    {(['female', 'male'] as const).map((gender) => {
+                      const selected = selectedGender === gender;
+
+                      return (
+                        <Pressable
+                          key={gender}
+                          style={[styles.genderOption, selected && styles.genderOptionSelected]}
+                          onPress={() => setSelectedGender(gender)}>
+                          <Text style={[styles.genderOptionText, selected && styles.genderOptionTextSelected]}>
+                            {gender === 'female' ? 'Female' : 'Male'}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
             </View>
 
             {authMessage ? <Text style={styles.authMessage}>{authMessage}</Text> : null}
@@ -115,7 +158,15 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
   }
 
   return (
-    <AppScreen activeTab="account" onNavigate={onNavigate} title="Profile">
+    <AppScreen
+      activeTab="account"
+      avatarMenuActions={[
+        { label: 'Edit profile', onPress: () => setIsEditingProfile(true) },
+        { label: 'Share profile', onPress: () => undefined },
+        { label: 'Log out', onPress: logOut },
+      ]}
+      onNavigate={onNavigate}
+      title="Profile">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.settingsRow}>
           <View style={styles.spacer} />
@@ -126,9 +177,15 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
 
         <View style={styles.profileRow}>
           <View style={styles.avatarLarge}>
-            <ClosetIcon category="shirt" color={closetTheme.camel} accent={closetTheme.blush} size={68} />
+            <ProfileAvatarMark
+              avatar={currentUser.avatar ?? 'shirt'}
+              color={closetTheme.camel}
+              accent={closetTheme.blush}
+              initial={initialForUsername(currentUser.username)}
+              size={68}
+            />
             <View style={styles.avatarBadge}>
-              <LineIcon name="u" color={closetTheme.cream} />
+              <Text style={styles.avatarBadgeInitial}>{initialForUsername(currentUser.username)}</Text>
             </View>
           </View>
 
@@ -145,32 +202,39 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
         <Text style={styles.followText}>0 followers   0 following</Text>
         <Text style={styles.memberText}>{formatMemberSince(currentUser.createdAt)}</Text>
 
-        <View style={styles.actionRow}>
-          <Pressable style={styles.actionButton} onPress={() => setIsEditingProfile((isEditing) => !isEditing)}>
-            <Text style={styles.actionText}>Edit profile</Text>
-          </Pressable>
-          <Pressable style={styles.actionButton}>
-            <Text style={styles.actionText}>Share profile</Text>
-          </Pressable>
-          <Pressable style={styles.iconAction}>
-            <LineIcon name="+" color={closetTheme.ink} />
-          </Pressable>
-        </View>
-
-        <Pressable style={styles.logoutButton} onPress={logOut}>
-          <Text style={styles.logoutText}>Log out</Text>
-        </Pressable>
-
-        <Pressable style={styles.completion}>
-          <View>
-            <Text style={styles.completionTitle}>Your profile is almost complete</Text>
-            <Text style={styles.completionText}>Add a photo to finish setting up your account</Text>
-          </View>
-          <LineIcon name="›" color={closetTheme.ink} />
-        </Pressable>
-
         {isEditingProfile && (
           <View style={styles.editProfilePanel}>
+            <View style={styles.avatarPicker}>
+              <View style={styles.bodyHeader}>
+                <Text style={styles.bodyTitle}>Avatar</Text>
+                <Text style={styles.bodyUnit}>choose</Text>
+              </View>
+              <View style={styles.avatarOptions}>
+                {avatarOptions.map((option) => {
+                  const selected = (currentUser.avatar ?? 'shirt') === option.value;
+
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={[styles.avatarOption, selected && styles.avatarOptionSelected]}
+                      onPress={() => updateAccountAvatar(option.value)}>
+                      <View style={[styles.avatarOptionIcon, selected && styles.avatarOptionIconSelected]}>
+                        <ProfileAvatarMark
+                          avatar={option.value}
+                          color={selected ? closetTheme.cream : closetTheme.ink}
+                          accent={selected ? closetTheme.camel : closetTheme.blush}
+                          initial={initialForUsername(currentUser.username)}
+                          size={28}
+                        />
+                      </View>
+                      <Text style={[styles.avatarOptionText, selected && styles.avatarOptionTextSelected]}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
             <View style={styles.bodyProfile}>
               <View style={styles.bodyHeader}>
                 <Text style={styles.bodyTitle}>Body profile</Text>
@@ -218,21 +282,84 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
             </Pressable>
 
             <View style={styles.filterRow}>
-              <Text style={styles.filterText}>Newest⌄</Text>
+              <View style={styles.sortWrap}>
+                <Pressable style={styles.sortButton} onPress={() => setIsSortMenuOpen((isOpen) => !isOpen)}>
+                  <Text style={styles.filterText}>{looksSort === 'newest' ? 'Newest' : 'Oldest'}</Text>
+                  <Text style={styles.sortChevron}>⌄</Text>
+                </Pressable>
+                {isSortMenuOpen && (
+                  <View style={styles.sortMenu}>
+                    {(['newest', 'oldest'] as LooksSort[]).map((sort) => (
+                      <Pressable
+                        key={sort}
+                        style={[styles.sortMenuItem, looksSort === sort && styles.sortMenuItemSelected]}
+                        onPress={() => {
+                          setLooksSort(sort);
+                          setIsSortMenuOpen(false);
+                        }}>
+                        <Text style={[styles.sortMenuText, looksSort === sort && styles.sortMenuTextSelected]}>
+                          {sort === 'newest' ? 'Newest first' : 'Oldest first'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
               <View style={styles.filterActions}>
-                <LineIcon name="⌕" color={closetTheme.ink} />
-                <LineIcon name="☷" color={closetTheme.ink} />
-                <Text style={styles.selectText}>Select</Text>
+                <Pressable style={styles.iconControl} onPress={() => setIsLooksSearchOpen((isOpen) => !isOpen)}>
+                  <Text style={[styles.filterIcon, isLooksSearchOpen && styles.filterIconActive]}>⌕</Text>
+                </Pressable>
+                <Pressable style={styles.iconControl} onPress={() => setLooksViewMode((mode) => (mode === 'grid' ? 'list' : 'grid'))}>
+                  <Text style={styles.filterIcon}>{looksViewMode === 'grid' ? '☷' : '☰'}</Text>
+                </Pressable>
+                <Pressable style={styles.selectControl} onPress={() => setIsSelectMode((isSelecting) => !isSelecting)}>
+                  <Text style={[styles.selectText, isSelectMode && styles.selectTextActive]}>
+                    {isSelectMode ? 'Done' : 'Select'}
+                  </Text>
+                </Pressable>
               </View>
             </View>
 
+            {isLooksSearchOpen && (
+              <TextInput
+                autoCapitalize="none"
+                onChangeText={setLooksSearch}
+                placeholder="Search looks"
+                placeholderTextColor={closetTheme.muted}
+                style={styles.looksSearchInput}
+                value={looksSearch}
+              />
+            )}
+
             <View style={styles.pills}>
-              <Pressable style={styles.pill}>
-                <Text style={styles.pillText}>+ Add Lookbook</Text>
+              <Pressable
+                style={[styles.pill, hasLookbook && styles.pillSelected]}
+                onPress={() => setHasLookbook((hasCreated) => !hasCreated)}>
+                <Text style={[styles.pillText, hasLookbook && styles.pillTextSelected]}>
+                  {hasLookbook ? 'Lookbook Added' : '+ Add Lookbook'}
+                </Text>
               </Pressable>
-              <Pressable style={styles.pill}>
-                <Text style={styles.pillText}>Worn Looks</Text>
+              <Pressable
+                style={[styles.pill, isWornLooksOnly && styles.pillSelected]}
+                onPress={() => setIsWornLooksOnly((isOnly) => !isOnly)}>
+                <Text style={[styles.pillText, isWornLooksOnly && styles.pillTextSelected]}>
+                  {isWornLooksOnly ? 'All Looks' : 'Worn Looks'}
+                </Text>
               </Pressable>
+            </View>
+
+            <View style={styles.looksStatePanel}>
+              <Text style={styles.looksStateText}>
+                {looksViewMode === 'grid' ? 'Grid view' : 'List view'}
+                {' · '}
+                {isSelectMode ? 'Select mode on' : 'Browsing'}
+              </Text>
+              {looksSearch || isWornLooksOnly ? (
+                <Text style={styles.looksStateMeta}>
+                  Showing {isWornLooksOnly ? 'worn looks' : 'all looks'}
+                  {looksSearch ? ` matching "${looksSearch}"` : ''}.
+                </Text>
+              ) : null}
             </View>
           </>
         ) : (
@@ -241,10 +368,27 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
               <LineIcon name="+" color={closetTheme.ink} />
               <Text style={styles.addLookText}>Add trip</Text>
             </Pressable>
-            <View style={styles.tripEmpty}>
-              <Text style={styles.tripEmptyTitle}>No trips planned yet</Text>
-              <Text style={styles.tripEmptyText}>Create packing lists and outfit plans for upcoming travel.</Text>
-            </View>
+            {savedTrips.length > 0 ? (
+              savedTrips.map((trip) => (
+                <SavedTripCard
+                  key={trip.id}
+                  expanded={expandedTripIds.includes(trip.id)}
+                  onToggle={() =>
+                    setExpandedTripIds((currentIds) =>
+                      currentIds.includes(trip.id)
+                        ? currentIds.filter((id) => id !== trip.id)
+                        : [...currentIds, trip.id]
+                    )
+                  }
+                  trip={trip}
+                />
+              ))
+            ) : (
+              <View style={styles.tripEmpty}>
+                <Text style={styles.tripEmptyTitle}>No trips planned yet</Text>
+                <Text style={styles.tripEmptyText}>Create packing lists and outfit plans for upcoming travel.</Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -270,6 +414,93 @@ function Stat({ label, value }: { label: string; value: string }) {
     <View style={styles.stat}>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function SavedTripCard({
+  expanded,
+  onToggle,
+  trip,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  trip: SavedTrip;
+}) {
+  const previewItems = trip.packedItems.slice(0, 3);
+  const lookCount = trip.looks.length;
+  const visibleLooks = (expanded ? trip.looks : trip.looks.slice(0, 1)).map((look) => ({
+    ...look,
+    items: look.itemIds
+      .map((itemId) => trip.packedItems.find((item) => item.id === itemId))
+      .filter((item): item is WardrobeItem => Boolean(item)),
+  }));
+
+  return (
+    <View style={styles.savedTripCard}>
+      <View style={styles.savedTripHeader}>
+        <View>
+          <Text style={styles.savedTripTitle}>{trip.title}</Text>
+          <Text style={styles.savedTripDate}>{trip.dateRange}</Text>
+          <Text style={styles.savedTripMeta}>
+            {lookCount} look{lookCount === 1 ? '' : 's'} · {trip.packedItems.length} packed
+          </Text>
+        </View>
+        <Pressable accessibilityLabel={expanded ? 'Hide trip outfits' : 'Show trip outfits'} style={styles.savedTripOpen} onPress={onToggle}>
+          <LineIcon name={expanded ? '↖' : '↗'} color={closetTheme.ink} />
+        </Pressable>
+      </View>
+
+      {visibleLooks.length > 0 ? (
+        <View style={styles.savedLooks}>
+          {visibleLooks.map((look, index) => (
+            <View key={look.id} style={styles.savedLookBlock}>
+              <Text style={styles.savedLookTitle}>{look.title || `Look ${index + 1}`}</Text>
+              <View style={styles.savedTripPreview}>
+                {look.items.length > 0 ? (
+                  look.items.map((item) => <PackedPreviewItem key={`${look.id}-${item.id}`} item={item} />)
+                ) : (
+                  <Text style={styles.tripEmptyText}>No clothes added to this look yet</Text>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={[styles.savedLookBlock, styles.savedLookBlockSolo]}>
+          <Text style={styles.savedLookTitle}>Packed clothes</Text>
+          <View style={styles.savedTripPreview}>
+            {previewItems.length > 0 ? (
+              previewItems.map((item) => <PackedPreviewItem key={item.id} item={item} />)
+            ) : (
+              <Text style={styles.tripEmptyText}>No packed clothes yet</Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      {trip.looks.length > visibleLooks.length && (
+        <Pressable onPress={onToggle}>
+          <Text style={styles.savedTripMore}>
+            +{trip.looks.length - visibleLooks.length} more look{trip.looks.length - visibleLooks.length === 1 ? '' : 's'}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function PackedPreviewItem({ item }: { item: WardrobeItem }) {
+  return (
+    <View style={styles.packedPreviewItem}>
+      {item.imageUrl ? (
+        <Image source={{ uri: item.imageUrl }} style={styles.packedPreviewImage} resizeMode="contain" />
+      ) : (
+        <ClosetIcon category={item.category} size={34} />
+      )}
+      <Text numberOfLines={1} style={styles.packedPreviewLabel}>
+        {item.name}
+      </Text>
     </View>
   );
 }
@@ -345,6 +576,33 @@ const styles = StyleSheet.create({
     minHeight: 34,
     padding: 0,
   },
+  genderOptions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  genderOption: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 6,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 36,
+  },
+  genderOptionSelected: {
+    backgroundColor: closetTheme.ink,
+    borderColor: closetTheme.ink,
+  },
+  genderOptionText: {
+    color: closetTheme.muted,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  genderOptionTextSelected: {
+    color: closetTheme.cream,
+  },
   authMessage: {
     color: closetTheme.blush,
     fontSize: 13,
@@ -385,34 +643,40 @@ const styles = StyleSheet.create({
   profileRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 22,
-    marginTop: 38,
+    gap: 14,
+    marginTop: 16,
+    zIndex: 3,
   },
   avatarLarge: {
     alignItems: 'center',
     backgroundColor: closetTheme.ink,
-    borderRadius: 58,
-    height: 116,
+    borderRadius: 52,
+    height: 104,
     justifyContent: 'center',
     position: 'relative',
-    width: 116,
+    width: 104,
   },
   avatarBadge: {
     alignItems: 'center',
     backgroundColor: closetTheme.navy,
     borderColor: closetTheme.cream,
-    borderRadius: 23,
+    borderRadius: 21,
     borderWidth: 3,
     bottom: 0,
-    height: 46,
+    height: 42,
     justifyContent: 'center',
     position: 'absolute',
     right: -4,
-    width: 46,
+    width: 42,
+  },
+  avatarBadgeInitial: {
+    color: closetTheme.cream,
+    fontSize: 18,
+    fontWeight: '900',
   },
   profileMeta: {
     flex: 1,
-    gap: 22,
+    gap: 10,
   },
   name: {
     color: closetTheme.ink,
@@ -440,7 +704,7 @@ const styles = StyleSheet.create({
     color: closetTheme.ink,
     fontSize: 17,
     fontWeight: '800',
-    marginTop: 24,
+    marginTop: 12,
   },
   memberText: {
     color: closetTheme.muted,
@@ -448,74 +712,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 4,
   },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 26,
-  },
-  actionButton: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 3,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  actionText: {
-    color: closetTheme.ink,
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  logoutButton: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.creamDeep,
-    borderRadius: 3,
-    justifyContent: 'center',
-    marginTop: 10,
-    minHeight: 48,
-  },
-  logoutText: {
-    color: closetTheme.ink,
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  iconAction: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 3,
-    borderWidth: 1,
-    justifyContent: 'center',
-    width: 52,
-  },
-  completion: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 4,
-    borderWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 18,
-    padding: 16,
-  },
-  completionTitle: {
-    color: closetTheme.ink,
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  completionText: {
-    color: closetTheme.muted,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 3,
-  },
   tabs: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 28,
+    marginTop: 20,
   },
   tabText: {
     color: closetTheme.muted,
@@ -540,6 +740,52 @@ const styles = StyleSheet.create({
   editProfilePanel: {
     gap: 10,
     marginTop: 18,
+  },
+  avatarPicker: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 14,
+  },
+  avatarOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  avatarOption: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.cream,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexGrow: 1,
+    gap: 6,
+    minWidth: 76,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+  },
+  avatarOptionSelected: {
+    backgroundColor: closetTheme.ink,
+    borderColor: closetTheme.ink,
+  },
+  avatarOptionIcon: {
+    alignItems: 'center',
+    height: 30,
+    justifyContent: 'center',
+    width: 30,
+  },
+  avatarOptionIconSelected: {
+    opacity: 1,
+  },
+  avatarOptionText: {
+    color: closetTheme.ink,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  avatarOptionTextSelected: {
+    color: closetTheme.cream,
   },
   doneEditingButton: {
     alignItems: 'center',
@@ -643,26 +889,203 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 5,
   },
+  savedTripCard: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 14,
+  },
+  savedTripHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  savedTripTitle: {
+    color: closetTheme.ink,
+    fontFamily: 'serif',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  savedTripDate: {
+    color: closetTheme.muted,
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 3,
+  },
+  savedTripMeta: {
+    color: closetTheme.camelDeep,
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  savedTripOpen: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.creamDeep,
+    borderRadius: 20,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  savedTripPreview: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  savedLooks: {
+    gap: 12,
+    marginTop: 14,
+  },
+  savedLookBlock: {
+    backgroundColor: closetTheme.cream,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 10,
+  },
+  savedLookBlockSolo: {
+    marginTop: 14,
+  },
+  savedLookTitle: {
+    color: closetTheme.ink,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  savedTripMore: {
+    color: closetTheme.camelDeep,
+    fontSize: 12,
+    fontWeight: '900',
+    marginTop: 10,
+    textAlign: 'right',
+  },
+  packedPreviewItem: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 6,
+    borderWidth: 1,
+    height: 106,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    padding: 6,
+    width: 86,
+  },
+  packedPreviewImage: {
+    height: 72,
+    width: 74,
+  },
+  packedPreviewLabel: {
+    color: closetTheme.ink,
+    fontSize: 10,
+    fontWeight: '800',
+    marginTop: 5,
+    maxWidth: 72,
+    textAlign: 'center',
+  },
   filterRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 24,
+    position: 'relative',
+    zIndex: 3,
+  },
+  sortWrap: {
+    position: 'relative',
+    width: 132,
+    zIndex: 4,
+  },
+  sortButton: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    height: 34,
+  },
+  sortChevron: {
+    color: closetTheme.ink,
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 18,
+    marginLeft: 2,
   },
   filterText: {
     color: closetTheme.ink,
     fontSize: 15,
     fontWeight: '800',
   },
+  sortMenu: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    left: 0,
+    overflow: 'hidden',
+    position: 'absolute',
+    top: 36,
+    width: 132,
+    zIndex: 5,
+  },
+  sortMenuItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  sortMenuItemSelected: {
+    backgroundColor: closetTheme.creamDeep,
+  },
+  sortMenuText: {
+    color: closetTheme.ink,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  sortMenuTextSelected: {
+    color: closetTheme.camelDeep,
+  },
   filterActions: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 18,
+    gap: 14,
+  },
+  iconControl: {
+    alignItems: 'center',
+    height: 34,
+    justifyContent: 'center',
+    width: 34,
+  },
+  filterIcon: {
+    color: closetTheme.ink,
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  filterIconActive: {
+    color: closetTheme.camelDeep,
+  },
+  selectControl: {
+    alignItems: 'center',
+    height: 34,
+    justifyContent: 'center',
+    minWidth: 58,
   },
   selectText: {
     color: closetTheme.ink,
     fontSize: 15,
     fontWeight: '800',
+  },
+  selectTextActive: {
+    color: closetTheme.camelDeep,
+  },
+  looksSearchInput: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: closetTheme.ink,
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 12,
+    minHeight: 44,
+    paddingHorizontal: 14,
   },
   pills: {
     flexDirection: 'row',
@@ -676,9 +1099,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  pillSelected: {
+    backgroundColor: closetTheme.ink,
+  },
   pillText: {
     color: closetTheme.ink,
     fontSize: 14,
     fontWeight: '900',
+  },
+  pillTextSelected: {
+    color: closetTheme.cream,
+  },
+  looksStatePanel: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 14,
+    padding: 12,
+  },
+  looksStateText: {
+    color: closetTheme.ink,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  looksStateMeta: {
+    color: closetTheme.muted,
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 4,
   },
 });

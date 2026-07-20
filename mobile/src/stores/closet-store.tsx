@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { CategoryId, ClosetAccount, WardrobeItem } from '@/models/closet';
+import { AvatarChoice, CategoryId, ClosetAccount, WardrobeItem } from '@/models/closet';
 import { getGarments } from '@/services/closet-api';
 
 export type SelectedOutfit = Record<CategoryId, string | null>;
@@ -23,7 +23,8 @@ type ClosetStoreValue = {
   selectedOutfit: SelectedOutfit;
   selfieImageUrl: string;
   setSelfieImageUrl: (url: string) => void;
-  signUp: (username: string, password: string) => AuthResult;
+  signUp: (username: string, password: string, gender: ClosetAccount['gender']) => AuthResult;
+  updateAccountAvatar: (avatar: AvatarChoice) => void;
   toggleWornItem: (item: WardrobeItem) => void;
   wishlistItems: WardrobeItem[];
 };
@@ -234,8 +235,12 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
       selectedOutfit,
       selfieImageUrl,
       setSelfieImageUrl,
-      signUp: (username, password) => {
+      signUp: (username, password, gender) => {
         const cleanedUsername = normalizeUsername(username);
+
+        if (!gender) {
+          return { ok: false, message: 'Choose male or female so recommendations fit better.' };
+        }
 
         if (cleanedUsername.length < 3) {
           return { ok: false, message: 'Use at least 3 characters for your username.' };
@@ -250,7 +255,9 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
         }
 
         const nextAccount: ClosetAccount = {
+          avatar: 'shirt',
           createdAt: new Date().toISOString(),
+          gender,
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           password,
           username: cleanedUsername,
@@ -260,6 +267,17 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
         setCurrentUserId(nextAccount.id);
 
         return { ok: true, message: `Account created for ${nextAccount.username}.` };
+      },
+      updateAccountAvatar: (avatar) => {
+        if (!currentUserId) {
+          return;
+        }
+
+        setAccounts((currentAccounts) =>
+          currentAccounts.map((account) =>
+            account.id === currentUserId ? { ...account, avatar } : account
+          )
+        );
       },
       toggleWornItem: (item) => {
         setSelectedOutfit((currentOutfit) => ({

@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CategoryId, ScreenId, WardrobeItem } from '@/models/closet';
+import { CategoryId, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
 import { closetTheme } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
@@ -18,24 +18,58 @@ type TripLook = {
 };
 
 const categoryOrder: CategoryId[] = ['shirt', 'dress', 'shorts', 'pants'];
+const tripDestinations = [
+  'Singapore',
+  'Vietnam',
+  'Bangkok, Thailand',
+  'Seoul, South Korea',
+  'Tokyo, Japan',
+  'Bali, Indonesia',
+  'Paris, France',
+  'London, United Kingdom',
+  'New York, United States',
+  'Melbourne, Australia',
+  'Hong Kong',
+  'Taipei, Taiwan',
+];
+const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const { closetItems } = useClosetStore();
+export function TripPlannerScreen({
+  onNavigate,
+  onTripSaved,
+}: {
+  onNavigate: (screen: ScreenId) => void;
+  onTripSaved: (trip: SavedTrip) => void;
+}) {
+  const { closetItems, currentUser } = useClosetStore();
   const planeFloat = useRef(new Animated.Value(0)).current;
   const [step, setStep] = useState<TripStep>('destination');
   const [destination, setDestination] = useState('');
   const [dateRange, setDateRange] = useState('');
+  const [destinationSuggestionsOpen, setDestinationSuggestionsOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(2026, 6, 1));
+  const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
+  const [tripEndDate, setTripEndDate] = useState<Date | null>(null);
   const [luggageType, setLuggageType] = useState<LuggageType>('Carry on');
   const [activities, setActivities] = useState('');
   const [resultsTab, setResultsTab] = useState<ResultsTab>('packing');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showPreparedToast, setShowPreparedToast] = useState(false);
   const [packingItems, setPackingItems] = useState<WardrobeItem[]>([]);
   const [suggestedItems, setSuggestedItems] = useState<WardrobeItem[]>([]);
   const [looks, setLooks] = useState<TripLook[]>([]);
+  const [addedLookIds, setAddedLookIds] = useState<string[]>([]);
   const tripTitle = destination.trim() || 'Your trip';
   const tripDates = dateRange.trim() || 'Dates not set';
   const progressWidth = isGenerating ? '74%' : '100%';
   const packedCategories = useMemo(() => countByCategory(packingItems), [packingItems]);
+  const destinationSuggestions = useMemo(() => {
+    const query = destination.trim().toLowerCase();
+
+    return tripDestinations.filter((place) => !query || place.toLowerCase().includes(query));
+  }, [destination]);
+  const calendarDays = useMemo(() => buildCalendarDays(calendarMonth), [calendarMonth]);
 
   useEffect(() => {
     Animated.loop(
@@ -53,6 +87,16 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
       ])
     ).start();
   }, [planeFloat]);
+
+  useEffect(() => {
+    if (!showPreparedToast) {
+      return;
+    }
+
+    const timer = setTimeout(() => setShowPreparedToast(false), 5000);
+
+    return () => clearTimeout(timer);
+  }, [showPreparedToast]);
 
   function goBack() {
     if (step === 'destination') {
@@ -72,42 +116,121 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
   function nextFromActivities() {
     setStep('results');
     setIsGenerating(true);
-    const generated = generateTripPlan(closetItems, activities, luggageType, packingItems);
+    setShowPreparedToast(false);
+    if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+      globalThis.localStorage.setItem('bove-closet-trip-reminder', '1');
+    }
+    const mustHaveItems = packingItems;
+    const generated = generateTripPlan(closetItems, activities, luggageType, mustHaveItems, currentUser?.gender);
 
     setSuggestedItems([]);
     setLooks([]);
     setTimeout(() => {
-      setPackingItems(generated.packingItems);
-      setSuggestedItems(generated.suggestedItems);
+      setPackingItems(mustHaveItems);
+      setSuggestedItems(uniqueItems([...generated.packingItems, ...generated.suggestedItems]).filter(
+        (item) => !mustHaveItems.some((packed) => packed.id === item.id)
+      ));
       setLooks(generated.looks);
+      setAddedLookIds([]);
+      saveTripSnapshot(mustHaveItems, [], generated.looks);
       setIsGenerating(false);
+      setShowPreparedToast(true);
     }, 850);
   }
 
+  function saveTripSnapshot(nextPackingItems: WardrobeItem[], nextAddedLookIds: string[], planLooks = looks) {
+    onTripSaved({
+      dateRange: tripDates,
+      id: `${tripTitle}-${tripDates}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      looks: planLooks
+        .filter((look) => nextAddedLookIds.includes(look.id))
+        .map((look) => ({
+          id: look.id,
+          itemIds: look.items.map((item) => item.id),
+          title: look.title,
+        })),
+      packedItems: nextPackingItems,
+      title: tripTitle,
+    });
+  }
+
   function addSuggestedItem(item: WardrobeItem) {
-    setPackingItems((currentItems) => [item, ...currentItems.filter((current) => current.id !== item.id)]);
+    setPackingItems((currentItems) => {
+      const nextItems = [item, ...currentItems.filter((current) => current.id !== item.id)];
+
+      saveTripSnapshot(nextItems, addedLookIds);
+
+      return nextItems;
+    });
     setSuggestedItems((currentItems) => currentItems.filter((current) => current.id !== item.id));
   }
 
   function removePackingItem(item: WardrobeItem) {
-    setPackingItems((currentItems) => currentItems.filter((current) => current.id !== item.id));
+    setPackingItems((currentItems) => {
+      const nextItems = currentItems.filter((current) => current.id !== item.id);
+
+      saveTripSnapshot(nextItems, addedLookIds);
+
+      return nextItems;
+    });
     setSuggestedItems((currentItems) => [item, ...currentItems.filter((current) => current.id !== item.id)]);
   }
 
   function toggleLook(look: TripLook) {
-    const allPacked = look.items.every((item) => packingItems.some((packed) => packed.id === item.id));
+    const added = addedLookIds.includes(look.id);
 
-    if (allPacked) {
-      setPackingItems((currentItems) =>
-        currentItems.filter((item) => !look.items.some((lookItem) => lookItem.id === item.id))
-      );
+    if (added) {
+      const nextLookIds = addedLookIds.filter((id) => id !== look.id);
+      const remainingLookItemIds = looks
+        .filter((currentLook) => nextLookIds.includes(currentLook.id))
+        .flatMap((currentLook) => currentLook.items.map((item) => item.id));
+
+      setAddedLookIds(nextLookIds);
+      setPackingItems((currentItems) => {
+        const nextItems = currentItems.filter((item) => {
+          const belongsToRemovedLook = look.items.some((lookItem) => lookItem.id === item.id);
+
+          return !belongsToRemovedLook || remainingLookItemIds.includes(item.id);
+        });
+
+        saveTripSnapshot(nextItems, nextLookIds);
+
+        return nextItems;
+      });
       return;
     }
 
-    setPackingItems((currentItems) => [
-      ...look.items.filter((item) => !currentItems.some((current) => current.id === item.id)),
-      ...currentItems,
-    ]);
+    const nextLookIds = [...addedLookIds, look.id];
+
+    setAddedLookIds(nextLookIds);
+    setPackingItems((currentItems) => {
+      const nextItems = [
+        ...look.items.filter((item) => !currentItems.some((current) => current.id === item.id)),
+        ...currentItems,
+      ];
+
+      saveTripSnapshot(nextItems, nextLookIds);
+
+      return nextItems;
+    });
+  }
+
+  function chooseDestination(place: string) {
+    setDestination(place);
+    setDestinationSuggestionsOpen(false);
+  }
+
+  function chooseTripDate(date: Date) {
+    if (!tripStartDate || tripEndDate || date < tripStartDate) {
+      setTripStartDate(date);
+      setTripEndDate(null);
+      setDateRange(formatTripDate(date));
+      return;
+    }
+
+    setTripEndDate(date);
+    setDateRange(`${formatTripDate(tripStartDate)} - ${formatTripDate(date)}`);
+    setCalendarOpen(false);
   }
 
   if (step === 'destination') {
@@ -133,29 +256,83 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
           <View style={styles.inputRow}>
             <TextInput
               autoCapitalize="words"
-              onChangeText={setDestination}
+              onChangeText={(text) => {
+                setDestination(text);
+                setDestinationSuggestionsOpen(true);
+                setCalendarOpen(false);
+              }}
+              onFocus={() => {
+                setDestinationSuggestionsOpen(true);
+                setCalendarOpen(false);
+              }}
               placeholder="Search by city, postal code, or landmark"
-              placeholderTextColor="#9D9D9D"
+              placeholderTextColor={closetTheme.muted}
               style={styles.tripInput}
               value={destination}
             />
-            <LineIcon name="⌕" color="#888888" />
+            <LineIcon name="⌕" color={closetTheme.muted} />
           </View>
+          {destinationSuggestionsOpen && destinationSuggestions.length > 0 && (
+            <ScrollView style={styles.destinationDropdown} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+              {destinationSuggestions.map((place) => (
+                <Pressable key={place} style={styles.destinationOption} onPress={() => chooseDestination(place)}>
+                  <Text style={styles.destinationOptionText}>{place}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
           <View style={styles.inputDivider} />
-          <View style={styles.inputRow}>
-            <TextInput
-              onChangeText={setDateRange}
-              placeholder="Select date"
-              placeholderTextColor="#9D9D9D"
-              style={styles.tripInput}
-              value={dateRange}
-            />
-            <LineIcon name="□" color="#888888" />
-          </View>
+          <Pressable
+            style={styles.inputRow}
+            onPress={() => {
+              setCalendarOpen((isOpen) => !isOpen);
+              setDestinationSuggestionsOpen(false);
+            }}>
+            <Text style={[styles.dateValue, !dateRange && styles.datePlaceholder]}>{dateRange || 'Select date'}</Text>
+            <LineIcon name="□" color={closetTheme.muted} />
+          </Pressable>
         </View>
 
+        {calendarOpen && (
+          <ScrollView style={styles.calendarCard} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+            <View style={styles.calendarHeader}>
+              <Pressable style={styles.calendarNavButton} onPress={() => setCalendarMonth(shiftMonth(calendarMonth, -1))}>
+                <LineIcon name="‹" color={closetTheme.ink} />
+              </Pressable>
+              <Text style={styles.calendarMonthText}>{formatCalendarMonth(calendarMonth)}</Text>
+              <Pressable style={styles.calendarNavButton} onPress={() => setCalendarMonth(shiftMonth(calendarMonth, 1))}>
+                <LineIcon name="›" color={closetTheme.ink} />
+              </Pressable>
+            </View>
+            <View style={styles.calendarGrid}>
+              {weekdays.map((weekday, index) => (
+                <Text key={`${weekday}-${index}`} style={styles.calendarWeekday}>{weekday}</Text>
+              ))}
+              {calendarDays.map((day) => {
+                const selected = isSameCalendarDate(day.date, tripStartDate) || isSameCalendarDate(day.date, tripEndDate);
+                const inRange = isDateInRange(day.date, tripStartDate, tripEndDate);
+
+                return (
+                  <Pressable
+                    key={day.key}
+                    style={[
+                      styles.calendarDay,
+                      !day.inCurrentMonth && styles.calendarDayMuted,
+                      inRange && styles.calendarDayInRange,
+                      selected && styles.calendarDaySelected,
+                    ]}
+                    onPress={() => chooseTripDate(day.date)}>
+                    <Text style={[styles.calendarDayText, selected && styles.calendarDayTextSelected]}>{day.date.getDate()}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.calendarHint}>{tripStartDate && !tripEndDate ? 'Select an end date' : 'Select start and end dates'}</Text>
+          </ScrollView>
+        )}
+
         <Pressable style={styles.addDestination}>
-          <LineIcon name="+" color="#000000" />
+          <LineIcon name="+" color={closetTheme.ink} />
           <Text style={styles.addDestinationText}>Add another destination</Text>
         </Pressable>
 
@@ -168,7 +345,7 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
     return (
       <TripShell onBack={goBack} onClose={closePlanner} stepLabel="II">
         <Text style={styles.title}>Pack your bag</Text>
-        <Text style={styles.mutedSubtitle}>Choose what type of luggage you're bringing and Bove will adapt to your space</Text>
+        <Text style={styles.subtitle}>Choose what type of luggage you're bringing and Bove will adapt to your space</Text>
 
         <View style={styles.optionList}>
           {(['Carry on', 'Checked bag', 'Carry on + Checked bag'] as LuggageType[]).map((option) => {
@@ -177,7 +354,7 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
             return (
               <Pressable key={option} style={styles.optionRow} onPress={() => setLuggageType(option)}>
                 <View style={[styles.radio, selected && styles.radioSelected]}>
-                  {selected && <LineIcon name="✓" color="#FFFFFF" />}
+                  {selected && <LineIcon name="✓" color={closetTheme.cream} />}
                 </View>
                 <Text style={styles.optionText}>{option}</Text>
               </Pressable>
@@ -186,14 +363,14 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
         </View>
 
         <Text style={styles.sectionTitle}>Packing list</Text>
-        <Text style={styles.mutedSubtitle}>Select must-have items for your trip. Bove will suggest the rest.</Text>
+        <Text style={styles.subtitle}>Select must-have items for your trip. Bove will suggest the rest.</Text>
         <Pressable
           style={styles.blackPill}
           onPress={() => {
             const mustHaves = closetItems.slice(0, 3);
             setPackingItems(mustHaves);
           }}>
-          <LineIcon name="+" color="#FFFFFF" />
+          <LineIcon name="+" color={closetTheme.cream} />
           <Text style={styles.blackPillText}>Add from closet</Text>
         </Pressable>
 
@@ -240,19 +417,20 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
     <SafeAreaView style={styles.resultsSafe}>
       <View style={styles.resultsTop}>
         <Pressable style={styles.circleButton} onPress={goBack}>
-          <LineIcon name="‹" color="#000000" />
+          <LineIcon name="‹" color={closetTheme.ink} />
         </Pressable>
         <View style={styles.resultActions}>
-          <LineIcon name="⇧" color="#000000" />
-          <LineIcon name="…" color="#000000" />
+          <Pressable accessibilityLabel="Back to profile" style={styles.resultActionButton} onPress={closePlanner}>
+            <LineIcon name="→" color={closetTheme.ink} />
+          </Pressable>
         </View>
       </View>
 
-      {isGenerating ? null : (
+      {showPreparedToast && !isGenerating ? (
         <View style={styles.toast}>
           <Text style={styles.toastText}>Bove has prepared your packing list. Take a look below.</Text>
         </View>
-      )}
+      ) : null}
 
       <View style={styles.tripHeader}>
         <Text style={styles.tripTitle}>{tripTitle}</Text>
@@ -285,7 +463,7 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
           <>
             {packingItems.length === 0 && !isGenerating && (
               <Pressable style={styles.blackWideButton} onPress={() => setStep('bag')}>
-                <LineIcon name="+" color="#FFFFFF" />
+                <LineIcon name="+" color={closetTheme.cream} />
                 <Text style={styles.blackWideText}>Add to packing list</Text>
               </Pressable>
             )}
@@ -319,7 +497,7 @@ export function TripPlannerScreen({ onNavigate }: { onNavigate: (screen: ScreenI
         ) : (
           <View style={styles.looksList}>
             {looks.map((look) => {
-              const added = look.items.every((item) => packingItems.some((packed) => packed.id === item.id));
+              const added = addedLookIds.includes(look.id);
 
               return (
                 <View key={look.id} style={styles.lookCard}>
@@ -430,10 +608,11 @@ function generateTripPlan(
   items: WardrobeItem[],
   activities: string,
   luggageType: LuggageType,
-  mustHaveItems: WardrobeItem[]
+  mustHaveItems: WardrobeItem[],
+  gender?: 'female' | 'male'
 ) {
   const maxItems = luggageType === 'Carry on' ? 5 : luggageType === 'Checked bag' ? 8 : 10;
-  const rankedItems = [...items].sort((left, right) => scoreTripItem(right, activities) - scoreTripItem(left, activities));
+  const rankedItems = [...items].sort((left, right) => scoreTripItem(right, activities, gender) - scoreTripItem(left, activities, gender));
   const seedItems = categoryOrder
     .map((category) => rankedItems.find((item) => item.category === category))
     .filter((item): item is WardrobeItem => Boolean(item));
@@ -485,7 +664,7 @@ function uniqueItems(items: Array<WardrobeItem | undefined>) {
   });
 }
 
-function scoreTripItem(item: WardrobeItem, activities: string) {
+function scoreTripItem(item: WardrobeItem, activities: string, gender?: 'female' | 'male') {
   const text = [item.name, item.category, item.subcategory, item.primaryColor, item.pattern, ...(item.tags ?? [])]
     .filter(Boolean)
     .join(' ')
@@ -493,12 +672,14 @@ function scoreTripItem(item: WardrobeItem, activities: string) {
   const activityText = activities.toLowerCase();
   let score = 0;
 
-  if (item.category === 'shirt' || item.category === 'pants') score += 6;
-  if (item.category === 'dress' || item.category === 'shorts') score += 5;
-  if (activityText.includes('beach') && hasAny(text, ['linen', 'short', 'dress', 'tank'])) score += 10;
-  if (activityText.includes('hike') && hasAny(text, ['pants', 'short'])) score += 10;
-  if (activityText.includes('dinner') && hasAny(text, ['dress', 'shirt', 'black', 'silk'])) score += 10;
-  if (activityText.includes('work') && hasAny(text, ['shirt', 'trouser', 'pants'])) score += 10;
+  if (item.category === 'shirt' || item.category === 'pants' || item.category === 'shorts') score += 6;
+  if (item.category === 'dress') score += 5;
+  if (gender === 'male' && hasAny(text, ['shirt', 'tee', 'polo', 'trouser', 'pants', 'jeans', 'loafer', 'sneaker', 'jacket'])) score += 5;
+  if (gender === 'female' && hasAny(text, ['blouse', 'top', 'skirt', 'dress', 'camisole', 'wide leg', 'heels', 'flats', 'bag'])) score += 5;
+  if (activityText.includes('beach') && hasAny(text, ['linen', 'short', 'sandal', 'tank', 'skirt'])) score += 10;
+  if (activityText.includes('hike') && hasAny(text, ['sneaker', 'boot', 'jacket', 'pants'])) score += 10;
+  if (activityText.includes('dinner') && hasAny(text, ['dress', 'shirt', 'black', 'silk', 'loafer', 'boot'])) score += 10;
+  if (activityText.includes('work') && hasAny(text, ['blazer', 'shirt', 'trouser', 'loafer'])) score += 10;
 
   return score;
 }
@@ -513,41 +694,102 @@ function countByCategory(items: WardrobeItem[]) {
 
 function labelForCategory(category: CategoryId) {
   const labels: Record<CategoryId, string> = {
-    shirt: 'Shirt',
-    dress: 'Dress',
-    shorts: 'Shorts',
+    dress: 'Dresses',
     pants: 'Pants',
+    shirt: 'Shirts',
+    shorts: 'Shorts',
   };
 
   return labels[category];
 }
 
 function estimateTripDays(dateRange: string) {
-  const match = dateRange.match(/\d+/g);
+  const [startText, endText] = dateRange.split(' - ');
 
-  if (!match || match.length < 2) {
+  if (!startText || !endText) {
     return 3;
   }
 
-  const startDay = Number(match[0]);
-  const endDay = Number(match[1]);
+  const startDate = new Date(startText);
+  const endDate = new Date(endText);
 
-  return Number.isFinite(startDay) && Number.isFinite(endDay) && endDay >= startDay
-    ? endDay - startDay + 1
-    : 3;
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate < startDate) {
+    return 3;
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  return Math.round((endDate.getTime() - startDate.getTime()) / dayMs) + 1;
 }
 
 function hasAny(text: string, needles: string[]) {
   return needles.some((needle) => text.includes(needle));
 }
 
+function buildCalendarDays(monthDate: Date) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPreviousMonth = new Date(year, month, 0).getDate();
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const dayNumber = index - startOffset + 1;
+    let date: Date;
+
+    if (dayNumber < 1) {
+      date = new Date(year, month - 1, daysInPreviousMonth + dayNumber);
+    } else if (dayNumber > daysInMonth) {
+      date = new Date(year, month + 1, dayNumber - daysInMonth);
+    } else {
+      date = new Date(year, month, dayNumber);
+    }
+
+    return {
+      date,
+      inCurrentMonth: date.getMonth() === month,
+      key: date.toISOString(),
+    };
+  });
+}
+
+function shiftMonth(date: Date, amount: number) {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
+function formatCalendarMonth(date: Date) {
+  return date.toLocaleString('en', { month: 'long', year: 'numeric' });
+}
+
+function formatTripDate(date: Date) {
+  return date.toLocaleString('en', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function isSameCalendarDate(left: Date, right: Date | null) {
+  return Boolean(
+    right &&
+      left.getFullYear() === right.getFullYear() &&
+      left.getMonth() === right.getMonth() &&
+      left.getDate() === right.getDate()
+  );
+}
+
+function isDateInRange(date: Date, start: Date | null, end: Date | null) {
+  if (!start || !end) {
+    return false;
+  }
+
+  return date > start && date < end;
+}
+
 const styles = StyleSheet.create({
   safe: {
-    backgroundColor: '#F3F3F3',
+    backgroundColor: closetTheme.cream,
     flex: 1,
   },
   resultsSafe: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.cream,
     flex: 1,
   },
   tripNav: {
@@ -566,13 +808,15 @@ const styles = StyleSheet.create({
   },
   circleButton: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
     borderRadius: 28,
     height: 56,
     justifyContent: 'center',
-    shadowColor: '#C8C8D8',
+    shadowColor: closetTheme.ink,
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.34,
+    shadowOpacity: 0.08,
     shadowRadius: 18,
     width: 56,
   },
@@ -581,27 +825,28 @@ const styles = StyleSheet.create({
     width: 56,
   },
   stepLabel: {
-    color: '#777777',
+    color: closetTheme.muted,
     fontSize: 24,
     fontWeight: '900',
   },
   shellContent: {
     flex: 1,
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
   },
   title: {
-    color: '#000000',
-    fontSize: 30,
-    fontWeight: '800',
-    marginTop: 44,
+    color: closetTheme.ink,
+    fontFamily: 'serif',
+    fontSize: 28,
+    fontWeight: '700',
+    marginTop: 28,
     textAlign: 'center',
   },
   subtitle: {
-    color: '#000000',
-    fontSize: 20,
-    fontWeight: '500',
-    lineHeight: 30,
-    marginTop: 30,
+    color: closetTheme.ink,
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 24,
+    marginTop: 18,
     textAlign: 'center',
   },
   mutedSubtitle: {
@@ -614,16 +859,16 @@ const styles = StyleSheet.create({
   },
   planeStage: {
     alignItems: 'center',
-    height: 270,
+    height: 150,
     justifyContent: 'center',
   },
   plane: {
-    color: '#BFC1C2',
-    fontSize: 118,
-    opacity: 0.56,
+    color: closetTheme.camel,
+    fontSize: 82,
+    opacity: 0.44,
   },
   planeTrail: {
-    backgroundColor: '#D7D9DA',
+    backgroundColor: closetTheme.line,
     height: 2,
     opacity: 0.3,
     position: 'absolute',
@@ -631,109 +876,215 @@ const styles = StyleSheet.create({
     width: 190,
   },
   formBlock: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   inputRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    minHeight: 72,
-    paddingHorizontal: 22,
+    minHeight: 58,
+    paddingHorizontal: 18,
   },
   inputDivider: {
-    backgroundColor: '#EEEEEE',
+    backgroundColor: closetTheme.line,
     height: 1,
   },
   tripInput: {
-    color: '#111111',
+    color: closetTheme.ink,
     flex: 1,
-    fontSize: 17,
-    fontWeight: '500',
-    minHeight: 64,
+    fontSize: 15,
+    fontWeight: '800',
+    minHeight: 52,
+  },
+  destinationDropdown: {
+    backgroundColor: closetTheme.cream,
+    borderTopColor: closetTheme.line,
+    borderTopWidth: 1,
+    maxHeight: 126,
+  },
+  destinationOption: {
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+  },
+  destinationOptionText: {
+    color: closetTheme.ink,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  dateValue: {
+    color: closetTheme.ink,
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  datePlaceholder: {
+    color: closetTheme.muted,
+    fontWeight: '800',
+  },
+  calendarCard: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 10,
+    maxHeight: 230,
+    padding: 12,
+  },
+  calendarHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  calendarNavButton: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.creamDeep,
+    borderRadius: 14,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  calendarMonthText: {
+    color: closetTheme.ink,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarWeekday: {
+    color: closetTheme.muted,
+    fontSize: 11,
+    fontWeight: '900',
+    marginBottom: 4,
+    textAlign: 'center',
+    width: '14.285%',
+  },
+  calendarDay: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 28,
+    justifyContent: 'center',
+    marginVertical: 1,
+    width: '14.285%',
+  },
+  calendarDayMuted: {
+    opacity: 0.34,
+  },
+  calendarDayInRange: {
+    backgroundColor: closetTheme.creamDeep,
+  },
+  calendarDaySelected: {
+    backgroundColor: closetTheme.ink,
+  },
+  calendarDayText: {
+    color: closetTheme.ink,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  calendarDayTextSelected: {
+    color: closetTheme.cream,
+  },
+  calendarHint: {
+    color: closetTheme.muted,
+    fontSize: 11,
+    fontWeight: '800',
+    marginTop: 6,
+    textAlign: 'center',
   },
   addDestination: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 12,
     justifyContent: 'center',
-    marginTop: 42,
+    marginTop: 18,
   },
   addDestinationText: {
-    color: '#000000',
-    fontSize: 18,
-    fontWeight: '700',
+    color: closetTheme.ink,
+    fontSize: 16,
+    fontWeight: '900',
   },
   footerButton: {
     alignItems: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: closetTheme.ink,
     borderRadius: 28,
-    bottom: 26,
-    height: 58,
+    bottom: 18,
+    height: 52,
     justifyContent: 'center',
     left: 20,
     position: 'absolute',
     right: 20,
   },
   footerButtonDisabled: {
-    backgroundColor: '#838383',
+    backgroundColor: closetTheme.muted,
   },
   footerButtonText: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '500',
+    color: closetTheme.cream,
+    fontSize: 18,
+    fontWeight: '900',
   },
   optionList: {
-    backgroundColor: '#FFFFFF',
-    marginTop: 44,
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 26,
+    overflow: 'hidden',
   },
   optionRow: {
     alignItems: 'center',
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: closetTheme.line,
     borderBottomWidth: 1,
     flexDirection: 'row',
-    gap: 18,
-    minHeight: 74,
-    paddingHorizontal: 22,
+    gap: 14,
+    minHeight: 58,
+    paddingHorizontal: 18,
   },
   radio: {
     alignItems: 'center',
-    borderColor: '#D2D2D2',
-    borderRadius: 16,
+    borderColor: closetTheme.line,
+    borderRadius: 13,
     borderWidth: 2,
-    height: 32,
+    height: 26,
     justifyContent: 'center',
-    width: 32,
+    width: 26,
   },
   radioSelected: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
+    backgroundColor: closetTheme.ink,
+    borderColor: closetTheme.ink,
   },
   optionText: {
-    color: '#000000',
-    fontSize: 20,
-    fontWeight: '700',
+    color: closetTheme.ink,
+    fontSize: 17,
+    fontWeight: '900',
   },
   sectionTitle: {
-    color: '#000000',
-    fontSize: 30,
+    color: closetTheme.ink,
+    fontFamily: 'serif',
+    fontSize: 26,
     fontWeight: '700',
-    marginTop: 48,
+    marginTop: 30,
     textAlign: 'center',
   },
   blackPill: {
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#000000',
-    borderRadius: 24,
+    backgroundColor: closetTheme.ink,
+    borderRadius: 22,
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 26,
-    paddingHorizontal: 26,
-    paddingVertical: 14,
+    gap: 10,
+    marginTop: 18,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
   },
   blackPillText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    color: closetTheme.cream,
+    fontSize: 16,
+    fontWeight: '900',
   },
   optionalText: {
     color: '#9E9E9E',
@@ -770,100 +1121,111 @@ const styles = StyleSheet.create({
   },
   resultActions: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
     borderRadius: 28,
     flexDirection: 'row',
-    gap: 22,
     height: 56,
     justifyContent: 'center',
-    paddingHorizontal: 22,
-    shadowColor: '#C8C8D8',
+    shadowColor: closetTheme.ink,
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.34,
+    shadowOpacity: 0.08,
     shadowRadius: 18,
+    width: 72,
+  },
+  resultActionButton: {
+    alignItems: 'center',
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
   },
   toast: {
-    backgroundColor: '#2F2F2F',
-    borderRadius: 28,
+    backgroundColor: closetTheme.ink,
+    borderRadius: 24,
     left: 20,
     paddingHorizontal: 26,
-    paddingVertical: 18,
+    paddingVertical: 16,
     position: 'absolute',
     right: 20,
     top: 96,
     zIndex: 3,
   },
   toastText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 28,
+    color: closetTheme.cream,
+    fontSize: 16,
+    fontWeight: '900',
+    lineHeight: 24,
   },
   tripHeader: {
-    backgroundColor: '#F4F4F4',
-    marginTop: 20,
+    backgroundColor: closetTheme.creamDeep,
+    borderBottomColor: closetTheme.line,
+    borderBottomWidth: 1,
+    marginTop: 14,
     paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingVertical: 16,
   },
   tripTitle: {
-    color: '#000000',
-    fontSize: 28,
-    fontWeight: '800',
+    color: closetTheme.ink,
+    fontFamily: 'serif',
+    fontSize: 26,
+    fontWeight: '700',
   },
   tripDates: {
-    color: '#6C6C6C',
-    fontSize: 18,
-    fontWeight: '700',
+    color: closetTheme.muted,
+    fontSize: 15,
+    fontWeight: '800',
     marginTop: 4,
   },
   progressTrack: {
-    backgroundColor: '#E0E3EA',
-    height: 10,
-    marginTop: 34,
+    backgroundColor: closetTheme.line,
+    height: 8,
+    marginTop: 24,
   },
   progressFill: {
-    backgroundColor: '#3047FF',
-    height: 10,
+    backgroundColor: closetTheme.camel,
+    height: 8,
   },
   generatingText: {
-    color: '#9A9A9A',
-    fontSize: 18,
-    fontWeight: '600',
-    lineHeight: 26,
-    marginTop: 18,
+    color: closetTheme.muted,
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 22,
+    marginTop: 14,
     textAlign: 'center',
   },
   resultsTabs: {
     alignItems: 'center',
-    borderBottomColor: '#EEEEEE',
+    backgroundColor: closetTheme.cream,
+    borderBottomColor: closetTheme.line,
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-around',
   },
   resultsTabText: {
-    color: '#777777',
-    fontSize: 22,
-    fontWeight: '800',
-    minWidth: 150,
-    paddingBottom: 14,
-    paddingTop: 18,
+    color: closetTheme.muted,
+    fontSize: 18,
+    fontWeight: '900',
+    minWidth: 130,
+    paddingBottom: 12,
+    paddingTop: 14,
     textAlign: 'center',
   },
   resultsTabSelected: {
-    borderBottomColor: '#000000',
+    borderBottomColor: closetTheme.ink,
     borderBottomWidth: 3,
-    color: '#000000',
+    color: closetTheme.ink,
   },
   countText: {
-    color: '#929292',
+    color: closetTheme.muted,
   },
   resultsContent: {
-    paddingBottom: 36,
+    paddingBottom: 34,
   },
   blackWideButton: {
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: closetTheme.ink,
     borderRadius: 28,
     flexDirection: 'row',
     gap: 14,
@@ -873,9 +1235,9 @@ const styles = StyleSheet.create({
     width: '92%',
   },
   blackWideText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
+    color: closetTheme.cream,
+    fontSize: 17,
+    fontWeight: '900',
   },
   categoryChips: {
     flexDirection: 'row',
@@ -884,15 +1246,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   categoryChip: {
-    backgroundColor: '#F1F1F1',
+    backgroundColor: closetTheme.creamDeep,
     borderRadius: 24,
     paddingHorizontal: 18,
     paddingVertical: 12,
   },
   categoryChipText: {
-    color: '#000000',
-    fontSize: 17,
-    fontWeight: '700',
+    color: closetTheme.ink,
+    fontSize: 15,
+    fontWeight: '900',
   },
   itemGrid: {
     flexDirection: 'row',
@@ -903,18 +1265,20 @@ const styles = StyleSheet.create({
   },
   tripItemImageWrap: {
     alignItems: 'center',
-    backgroundColor: '#F3F3F3',
-    height: 172,
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
+    height: 156,
     justifyContent: 'center',
     position: 'relative',
   },
   tripItemImage: {
-    height: 150,
+    height: 136,
     width: '88%',
   },
   itemAction: {
     alignItems: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: closetTheme.ink,
     borderRadius: 17,
     height: 34,
     justifyContent: 'center',
@@ -924,22 +1288,23 @@ const styles = StyleSheet.create({
     width: 34,
   },
   tripItemName: {
-    color: '#000000',
-    fontSize: 17,
+    color: closetTheme.ink,
+    fontSize: 15,
     fontWeight: '800',
     marginHorizontal: 14,
     marginTop: 12,
   },
   tripItemMeta: {
-    color: '#777777',
-    fontSize: 14,
+    color: closetTheme.muted,
+    fontSize: 13,
     marginHorizontal: 14,
     marginTop: 4,
   },
   suggestedTitle: {
-    color: '#000000',
-    fontSize: 25,
-    fontWeight: '800',
+    color: closetTheme.ink,
+    fontFamily: 'serif',
+    fontSize: 23,
+    fontWeight: '700',
     marginHorizontal: 20,
     marginTop: 42,
     marginBottom: 18,
@@ -949,7 +1314,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   lookCard: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
     borderRadius: 10,
     padding: 14,
   },
@@ -959,26 +1326,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   lookTitle: {
-    color: '#000000',
-    fontSize: 18,
-    fontWeight: '800',
+    color: closetTheme.ink,
+    fontSize: 16,
+    fontWeight: '900',
   },
   lookToggle: {
-    backgroundColor: '#000000',
+    backgroundColor: closetTheme.ink,
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   lookToggleAdded: {
-    backgroundColor: '#E2E2E2',
+    backgroundColor: closetTheme.creamDeep,
   },
   lookToggleText: {
-    color: '#FFFFFF',
+    color: closetTheme.cream,
     fontSize: 12,
     fontWeight: '900',
   },
   lookToggleTextAdded: {
-    color: '#000000',
+    color: closetTheme.ink,
   },
   lookItems: {
     flexDirection: 'row',
@@ -987,7 +1354,7 @@ const styles = StyleSheet.create({
   },
   lookItemMini: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: closetTheme.cream,
     borderRadius: 8,
     height: 58,
     justifyContent: 'center',

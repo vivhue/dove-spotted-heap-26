@@ -1,15 +1,22 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import net from "node:net";
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const isWindows = process.platform === "win32";
+const npmCommand = "npm";
 const backendPort = Number(process.env.PORT || 5173);
+const backendArgs = [
+  ...(existsSync(".env") ? ["--env-file=.env"] : []),
+  "--experimental-strip-types",
+  "server.ts",
+];
 
 const processes = [
   {
     name: "backend",
     color: "\x1b[36m",
     command: process.execPath,
-    args: ["--env-file=.env", "--experimental-strip-types", "server.ts"],
+    args: backendArgs,
     cwd: process.cwd(),
   },
   {
@@ -19,7 +26,7 @@ const processes = [
     args: ["--prefix", "mobile", "run", "start"],
     cwd: process.cwd(),
     inheritStdio: true,
-    shell: process.platform === "win32",
+    useWindowsShell: true,
   },
 ];
 
@@ -57,16 +64,35 @@ function shutdown(signal) {
 await ensurePortAvailable(backendPort);
 
 for (const config of processes) {
-  const child = spawn(config.command, config.args, {
-    cwd: config.cwd,
-    env: process.env,
-    shell: Boolean(config.shell),
-    stdio: config.inheritStdio ? "inherit" : ["inherit", "pipe", "pipe"],
-    windowsHide: false,
-  });
+  const command = normalizeCommand(config);
+  let child;
+
+  try {
+    child = spawn(command.command, command.args, {
+      cwd: config.cwd,
+      env: process.env,
+      stdio: config.inheritStdio ? "inherit" : ["inherit", "pipe", "pipe"],
+      windowsHide: false,
+    });
+  } catch (error) {
+    process.stderr.write(`${config.color}[${config.name}]${reset} failed to start: ${error.message}\n`);
+    shutdown("SIGTERM");
+    process.exitCode = 1;
+    break;
+  }
 
   children.push(child);
   prefixOutput(config, process.stdout, `started: ${config.command} ${config.args.join(" ")}`);
+
+  child.on("error", (error) => {
+    if (shuttingDown) {
+      return;
+    }
+
+    process.stderr.write(`${config.color}[${config.name}]${reset} failed to start: ${error.message}\n`);
+    shutdown("SIGTERM");
+    process.exitCode = 1;
+  });
 
   if (child.stdout) {
     child.stdout.on("data", (data) => prefixOutput(config, process.stdout, data));
@@ -90,6 +116,17 @@ for (const config of processes) {
 
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+function normalizeCommand(config) {
+  if (!isWindows || !config.useWindowsShell) {
+    return { command: config.command, args: config.args };
+  }
+
+  return {
+    command: "cmd.exe",
+    args: ["/d", "/c", config.command, ...config.args],
+  };
+}
 
 function ensurePortAvailable(port) {
   return new Promise((resolve) => {
