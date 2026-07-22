@@ -2,7 +2,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useSplashAnimation } from '@/controllers/use-splash-animation';
 import { ScreenId } from '@/models/closet';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon } from '@/views/components/closet-icons';
 
 export function SplashScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
@@ -100,46 +100,44 @@ function HangerMark({
   bodySway: Animated.AnimatedInterpolation<number>;
 }) {
   return (
-    <View style={styles.logoTile}>
-      <View style={styles.hanger}>
-        {hookBlocks.map((block) => (
+    <View style={styles.hanger}>
+      {hookBlocks.map((block) => (
+        <View
+          key={`hook-${block.x}-${block.y}-${block.w ?? 1}`}
+          style={[
+            styles.pixelBlock,
+            {
+              height: hangerPixelSize,
+              left: block.x * hangerPixelSize,
+              top: block.y * hangerPixelSize,
+              width: (block.w ?? 1) * hangerPixelSize,
+            },
+          ]}
+        />
+      ))}
+      <Animated.View
+        style={[
+          styles.hangerBody,
+          {
+            transform: [{ translateY: -66 }, { translateX: bodySway }, { rotate: bodyRotate }, { translateY: 66 }],
+          },
+        ]}>
+        {bodyBlocks.map((block) => (
           <View
-            key={`hook-${block.x}-${block.y}-${block.w ?? 1}`}
+            key={`body-${block.x}-${block.y}-${block.w ?? 1}`}
             style={[
               styles.pixelBlock,
               {
                 height: hangerPixelSize,
                 left: block.x * hangerPixelSize,
+                opacity: block.opacity ?? 1,
                 top: block.y * hangerPixelSize,
                 width: (block.w ?? 1) * hangerPixelSize,
               },
             ]}
           />
         ))}
-        <Animated.View
-          style={[
-            styles.hangerBody,
-            {
-              transform: [{ translateY: -66 }, { translateX: bodySway }, { rotate: bodyRotate }, { translateY: 66 }],
-            },
-          ]}>
-          {bodyBlocks.map((block) => (
-            <View
-              key={`body-${block.x}-${block.y}-${block.w ?? 1}`}
-              style={[
-                styles.pixelBlock,
-                {
-                  height: hangerPixelSize,
-                  left: block.x * hangerPixelSize,
-                  opacity: block.opacity ?? 1,
-                  top: block.y * hangerPixelSize,
-                  width: (block.w ?? 1) * hangerPixelSize,
-                },
-              ]}
-            />
-          ))}
-        </Animated.View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -322,7 +320,7 @@ const styles = StyleSheet.create({
     width: 6,
   },
   planet: {
-    backgroundColor: '#2D2538',
+    backgroundColor: closetTheme.navy,
     borderRadius: 210,
     bottom: -135,
     height: 420,
@@ -338,15 +336,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-  },
-  logoTile: {
-    alignItems: 'center',
-    height: 182,
-    justifyContent: 'center',
-    width: 252,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
   },
   hanger: {
     height: 156,
@@ -367,15 +359,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   word: {
-    color: closetTheme.camel,
-    fontFamily: 'serif',
+    color: closetTheme.cream,
+    ...closetTypography.text,
     fontSize: 42,
     fontWeight: '600',
     marginTop: 18,
     textAlign: 'center',
   },
   tagline: {
-    color: '#9890A8',
+    color: closetTheme.cream,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 2,
@@ -384,7 +376,7 @@ const styles = StyleSheet.create({
   },
   tapHint: {
     bottom: 58,
-    color: '#9B94AB',
+    color: closetTheme.cream,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.4,

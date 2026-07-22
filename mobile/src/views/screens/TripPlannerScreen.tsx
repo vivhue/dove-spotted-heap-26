@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryId, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 type TripStep = 'destination' | 'bag' | 'activities' | 'results';
@@ -33,6 +33,7 @@ const tripDestinations = [
   'Taipei, Taiwan',
 ];
 const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const tripReminderKey = 'bove-closet-trip-reminder';
 
 export function TripPlannerScreen({
   onNavigate,
@@ -110,6 +111,7 @@ export function TripPlannerScreen({
   }
 
   function closePlanner() {
+    clearTripReminder();
     onNavigate('account');
   }
 
@@ -117,9 +119,7 @@ export function TripPlannerScreen({
     setStep('results');
     setIsGenerating(true);
     setShowPreparedToast(false);
-    if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
-      globalThis.localStorage.setItem('bove-closet-trip-reminder', '1');
-    }
+    saveTripReminder();
     const mustHaveItems = packingItems;
     const generated = generateTripPlan(closetItems, activities, luggageType, mustHaveItems, currentUser?.gender);
 
@@ -684,6 +684,18 @@ function scoreTripItem(item: WardrobeItem, activities: string, gender?: 'female'
   return score;
 }
 
+function saveTripReminder() {
+  if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+    globalThis.localStorage.setItem(tripReminderKey, '1');
+  }
+}
+
+function clearTripReminder() {
+  if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+    globalThis.localStorage.removeItem(tripReminderKey);
+  }
+}
+
 function countByCategory(items: WardrobeItem[]) {
   return items.reduce<Record<string, number>>((counts, item) => {
     const label = labelForCategory(item.category);
@@ -835,7 +847,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 28,
     fontWeight: '700',
     marginTop: 28,
@@ -1064,7 +1076,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 26,
     fontWeight: '700',
     marginTop: 30,
@@ -1167,7 +1179,7 @@ const styles = StyleSheet.create({
   },
   tripTitle: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 26,
     fontWeight: '700',
   },
@@ -1302,7 +1314,7 @@ const styles = StyleSheet.create({
   },
   suggestedTitle: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 23,
     fontWeight: '700',
     marginHorizontal: 20,

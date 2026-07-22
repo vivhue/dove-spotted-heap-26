@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { calendarLooks, ScreenId } from '@/models/closet';
 import { AppScreen } from '@/views/components/app-chrome';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 const days: Array<number | null> = [
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   },
   month: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 20,
     fontWeight: '700',
   },

@@ -11,7 +11,8 @@ import { LineIcon } from '@/views/components/closet-icons';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
 export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const { closetItems, currentUser } = useClosetStore();
+  const { closetItems, currentUser, wishlistItems } = useClosetStore();
+  const tryOnItems = [...closetItems, ...wishlistItems];
   const [avatarUrl, setAvatarUrl] = useState('');
   const [displayPhotoUrl, setDisplayPhotoUrl] = useState('');
   const [selectedGarmentId, setSelectedGarmentId] = useState<string | null>(null);
@@ -179,7 +180,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
 
         <Text style={styles.sectionLabel}>Select a garment</Text>
         <View style={styles.grid}>
-          {closetItems.map((item) => (
+          {tryOnItems.map((item) => (
             <View key={item.id} style={styles.cardWrap}>
               <WardrobeCard
                 isWorn={selectedGarmentId === item.id}

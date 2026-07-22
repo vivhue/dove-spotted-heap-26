@@ -15,7 +15,7 @@ import {
 import type { SelectedOutfit } from '@/stores/closet-store';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 
 type ChatMessage = {
@@ -97,6 +97,7 @@ export function DiscoverScreen({
   const [isThinking, setIsThinking] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const visibleMessages = messages.filter((message) => message.id !== 'bot-intro');
+  const isChatActive = visibleMessages.length > 0 || draft.trim().length > 0 || isThinking;
   const displayName = currentUser?.username || 'there';
   const greeting = greetingForTime(new Date());
   const selectedClosetItems = closetItems.filter((item) => selectedClosetItemIds.includes(item.id));
@@ -172,7 +173,7 @@ export function DiscoverScreen({
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
   }
 
-  function useOutfit(outfit: Partial<SelectedOutfit>) {
+  function applySuggestedOutfit(outfit: Partial<SelectedOutfit>) {
     applyOutfit(outfit);
     onNavigate('try-on');
   }
@@ -316,10 +317,12 @@ export function DiscoverScreen({
           <LineIcon name="×" color={closetTheme.ink} />
         </Pressable>
 
-        <View style={styles.chatHero}>
-          <Text style={styles.heroGreeting}>{greeting}, {displayName}</Text>
-          <Text style={styles.heroQuestion}>How can I style you?</Text>
-        </View>
+        {!isChatActive && (
+          <View style={styles.chatHero}>
+            <Text style={styles.heroGreeting}>{greeting}, {displayName}</Text>
+            <Text style={styles.heroQuestion}>How can I style you?</Text>
+          </View>
+        )}
 
         <ScrollView ref={scrollRef} contentContainerStyle={styles.chatLog} showsVerticalScrollIndicator={false}>
           {visibleMessages.map((message) => {
@@ -339,7 +342,7 @@ export function DiscoverScreen({
                   </View>
                 )}
                 {hasOutfit && (
-                  <Pressable style={styles.useOutfitButton} onPress={() => useOutfit(message.outfit ?? {})}>
+                  <Pressable style={styles.useOutfitButton} onPress={() => applySuggestedOutfit(message.outfit ?? {})}>
                     <Text style={styles.useOutfitText}>Try this outfit</Text>
                   </Pressable>
                 )}
@@ -390,8 +393,14 @@ export function DiscoverScreen({
 
         <View style={styles.chatComposer}>
           <TextInput
+            blurOnSubmit={false}
             editable={!isThinking}
             multiline
+            onKeyPress={({ nativeEvent }) => {
+              if (nativeEvent.key === 'Enter') {
+                sendMessage();
+              }
+            }}
             placeholder={
               currentUser
                 ? isVoiceActive
@@ -405,6 +414,7 @@ export function DiscoverScreen({
             onChangeText={setDraft}
             onSubmitEditing={() => sendMessage()}
             returnKeyType="send"
+            submitBehavior="submit"
           />
           <View style={styles.composerActions}>
             <Pressable style={[styles.composerIconButton, attachedImageUri && styles.composerIconButtonActive]} onPress={pickReferenceImage}>
@@ -541,7 +551,7 @@ const styles = StyleSheet.create({
   },
   heroGreeting: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 23,
     fontWeight: '700',
     lineHeight: 30,
@@ -550,7 +560,7 @@ const styles = StyleSheet.create({
   },
   heroQuestion: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 28,
     fontWeight: '700',
     lineHeight: 36,
@@ -623,8 +633,10 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   suggestionChip: {
-    backgroundColor: closetTheme.creamDeep,
+    backgroundColor: closetTheme.white,
     borderRadius: 14,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
     paddingHorizontal: 13,
     paddingVertical: 8,
   },
@@ -712,18 +724,23 @@ const styles = StyleSheet.create({
   },
   composerIconButton: {
     alignItems: 'center',
-    backgroundColor: closetTheme.cream,
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
     borderRadius: 20,
     height: 40,
     justifyContent: 'center',
     width: 40,
   },
   composerIconButtonActive: {
-    backgroundColor: closetTheme.camel,
+    backgroundColor: closetTheme.blueMist,
+    borderColor: closetTheme.camelDeep,
   },
   modePill: {
     alignItems: 'center',
-    backgroundColor: closetTheme.cream,
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderWidth: 1,
     borderRadius: 20,
     flex: 1,
     flexDirection: 'row',
@@ -794,7 +811,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   sheetScrim: {
-    backgroundColor: 'rgba(47, 35, 25, 0.38)',
+    backgroundColor: 'rgba(47, 95, 143, 0.28)',
     bottom: 0,
     left: 0,
     position: 'absolute',

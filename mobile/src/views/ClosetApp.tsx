@@ -1,4 +1,5 @@
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { useClosetApp } from '@/controllers/use-closet-app';
 import { useClosetStore } from '@/stores/closet-store';
@@ -16,6 +17,9 @@ import { WardrobeScreen } from '@/views/screens/WardrobeScreen';
 
 export function ClosetApp() {
   const { currentUser } = useClosetStore();
+  const landingSwipe = useRef(new Animated.Value(0)).current;
+  const [transitionScreen, setTransitionScreen] = useState<'home' | 'account' | null>(null);
+  const [isLeavingSplash, setIsLeavingSplash] = useState(false);
   const {
     activeCategory,
     goTo,
@@ -30,46 +34,92 @@ export function ClosetApp() {
   const shownScreen = needsAccount ? 'account' : screen;
 
   function openAfterLanding() {
-    goTo(currentUser ? 'home' : 'account');
+    const nextScreen = currentUser ? 'home' : 'account';
+
+    if (isLeavingSplash) {
+      return;
+    }
+
+    setTransitionScreen(nextScreen);
+    setIsLeavingSplash(true);
+    landingSwipe.setValue(0);
+    Animated.timing(landingSwipe, {
+      duration: 520,
+      toValue: 1,
+      useNativeDriver: true,
+    }).start(() => {
+      goTo(nextScreen);
+      setTransitionScreen(null);
+      setIsLeavingSplash(false);
+      landingSwipe.setValue(0);
+    });
   }
 
   function openDashboardAfterAuth() {
     goTo('home');
   }
 
-  const content = (
+  function renderScreen(screenId: typeof shownScreen) {
+    return (
+      <>
+        {screenId === 'splash' && <SplashScreen onNavigate={openAfterLanding} />}
+        {screenId === 'home' && (
+          <HomeScreen
+            activeCategory={activeCategory}
+            onCategoryChange={setActiveCategory}
+            onNavigate={goTo}
+          />
+        )}
+        {screenId === 'dashboard' && (
+          <DashboardScreen
+            activeCategory={activeCategory}
+            onCategoryChange={setActiveCategory}
+            onNavigate={goTo}
+          />
+        )}
+        {screenId === 'closet' && <WardrobeScreen mode="closet" onNavigate={goTo} />}
+        {screenId === 'wishlist' && <WardrobeScreen mode="wishlist" onNavigate={goTo} />}
+        {screenId === 'add' && <AddItemScreen onNavigate={goTo} />}
+        {screenId === 'try-on' && <TryOnScreen onNavigate={goTo} />}
+        {screenId === 'trip-planner' && <TripPlannerScreen onNavigate={goTo} onTripSaved={saveTrip} />}
+        {screenId === 'account' && (
+          <AccountScreen
+            measurements={measurements}
+            onAuthenticated={openDashboardAfterAuth}
+            onMeasurementChange={updateMeasurement}
+            onNavigate={goTo}
+            savedTrips={savedTrips}
+          />
+        )}
+        {screenId === 'discover' && <DiscoverScreen measurements={measurements} onNavigate={goTo} />}
+        {screenId === 'calendar' && <CalendarScreen onNavigate={goTo} />}
+      </>
+    );
+  }
+
+  const content = isLeavingSplash && transitionScreen ? (
+    <View style={styles.transitionStage}>
+      <View style={styles.transitionBase}>{renderScreen(transitionScreen)}</View>
+      <Animated.View
+        style={[
+          styles.transitionOverlay,
+          {
+            transform: [
+              {
+                translateX: landingSwipe.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -430],
+                }),
+              },
+            ],
+          },
+        ]}>
+        <SplashScreen onNavigate={openAfterLanding} />
+      </Animated.View>
+    </View>
+  ) : (
     <>
-      {shownScreen === 'splash' && <SplashScreen onNavigate={openAfterLanding} />}
-      {shownScreen === 'home' && (
-        <HomeScreen
-          activeCategory={activeCategory}
-          onCategoryChange={setActiveCategory}
-          onNavigate={goTo}
-        />
-      )}
-      {shownScreen === 'dashboard' && (
-        <DashboardScreen
-          activeCategory={activeCategory}
-          onCategoryChange={setActiveCategory}
-          onNavigate={goTo}
-        />
-      )}
-      {shownScreen === 'closet' && <WardrobeScreen mode="closet" onNavigate={goTo} />}
-      {shownScreen === 'wishlist' && <WardrobeScreen mode="wishlist" onNavigate={goTo} />}
-      {shownScreen === 'add' && <AddItemScreen onNavigate={goTo} />}
-      {shownScreen === 'try-on' && <TryOnScreen onNavigate={goTo} />}
-      {shownScreen === 'trip-planner' && <TripPlannerScreen onNavigate={goTo} onTripSaved={saveTrip} />}
-      {shownScreen === 'account' && (
-        <AccountScreen
-          measurements={measurements}
-          onAuthenticated={openDashboardAfterAuth}
-          onMeasurementChange={updateMeasurement}
-          onNavigate={goTo}
-          savedTrips={savedTrips}
-        />
-      )}
-      {shownScreen === 'discover' && <DiscoverScreen measurements={measurements} onNavigate={goTo} />}
-      {shownScreen === 'calendar' && <CalendarScreen onNavigate={goTo} />}
+      {renderScreen(shownScreen)}
     </>
   );
 
@@ -109,16 +159,38 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
+  transitionStage: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  transitionBase: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  transitionOverlay: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 18, height: 0 },
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
+    top: 0,
+  },
   webRoot: {
     alignItems: 'center',
-    backgroundColor: '#16131C',
+    backgroundColor: closetTheme.night,
     flex: 1,
     gap: 18,
     justifyContent: 'center',
     padding: 40,
   },
   lab: {
-    color: '#C9BDB0',
+    color: closetTheme.cream,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 2,
@@ -137,10 +209,10 @@ const styles = StyleSheet.create({
   },
   webPhoneShadow: {
     boxShadow:
-      '0 0 0 1px rgba(255,255,255,.08), inset 0 0 0 1px rgba(255,255,255,.08), 0 32px 70px -24px rgba(0,0,0,.82), 0 12px 26px -18px rgba(201,154,107,.45)',
+      '0 0 0 1px rgba(255,255,255,.1), inset 0 0 0 1px rgba(255,255,255,.08), 0 32px 70px -24px rgba(0,0,0,.82), 0 12px 26px -18px rgba(214,177,126,.5)',
   } as never,
   sideButton: {
-    backgroundColor: '#09070D',
+    backgroundColor: '#07101D',
     borderRadius: 4,
     position: 'absolute',
     width: 5,
@@ -162,8 +234,8 @@ const styles = StyleSheet.create({
     top: 190,
   },
   deviceBody: {
-    backgroundColor: '#0C0A10',
-    borderColor: '#1E1A25',
+    backgroundColor: '#07101D',
+    borderColor: '#1B2E48',
     borderRadius: 58,
     borderWidth: 1,
     height: '100%',
@@ -193,7 +265,7 @@ const styles = StyleSheet.create({
   dynamicIsland: {
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#0c0a10',
+    backgroundColor: '#070D18',
     borderRadius: 18,
     flexDirection: 'row',
     gap: 9,
@@ -205,14 +277,14 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   speaker: {
-    backgroundColor: '#191620',
+    backgroundColor: '#172033',
     borderRadius: 3,
     height: 5,
     width: 42,
   },
   camera: {
-    backgroundColor: '#111827',
-    borderColor: '#202A42',
+    backgroundColor: '#14243A',
+    borderColor: '#294464',
     borderRadius: 5,
     borderWidth: 1,
     height: 10,

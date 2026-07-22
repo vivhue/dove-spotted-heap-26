@@ -47,6 +47,74 @@ export type ClosetChatReply = {
 };
 
 const categoryOrder: CategoryId[] = ['shirt', 'dress', 'shorts', 'pants'];
+const fashionTrends2026 = [
+  {
+    name: 'Polka dots for clean/minimal outfits',
+    keywords: ['polka', 'dot', 'spotted', 'spot print'],
+    vibe: 'Minimalist, clean, and a little playful. Keep the base neutral so the dots feel intentional instead of loud.',
+    styling: 'Try a polka-dot top or dress with black, white, beige, or denim. If you want it quieter, make the dots the only pattern.',
+  },
+  {
+    name: 'Capris and pedal pushers',
+    keywords: ['capri', 'pedal pusher', 'cropped pant', 'cropped trouser'],
+    vibe: 'Very 2026 cool-girl: simple, slightly retro, and easy to dress up or down.',
+    styling: 'Style capris with a fitted tank, button-down, ballet flats, sandals, or a small statement bag.',
+  },
+  {
+    name: 'Breezy button-downs',
+    keywords: ['button down', 'button-down', 'shirt', 'linen shirt', 'stripe'],
+    vibe: 'Clean, relaxed, and polished without trying too hard.',
+    styling: 'Wear open over a tank, tucked into relaxed pants, or layered with shorts for a school/campus-friendly fit.',
+  },
+  {
+    name: 'Midi skirts and soft movement',
+    keywords: ['midi', 'skirt', 'silk', 'flowy', 'slip skirt'],
+    vibe: 'Soft, feminine, and wearable for both casual and dressed-up plans.',
+    styling: 'Pair with a simple tee or tank for daytime, or a fitted top and sandals for dinner.',
+  },
+  {
+    name: 'Eyelet and lace textures',
+    keywords: ['eyelet', 'lace', 'embroidered', 'broderie'],
+    vibe: 'Romantic but still fresh when balanced with simple basics.',
+    styling: 'Keep the rest plain: a tank, straight pants, denim, or clean sandals so the texture can stand out.',
+  },
+  {
+    name: 'Sporty influence',
+    keywords: ['sporty', 'jersey', 'track', 'soccer', 'athletic', 'polo'],
+    vibe: 'Casual, youthful, and practical. Good if you want a fit that feels current but comfortable.',
+    styling: 'Try a jersey, polo, track pant, or sporty layer with one cleaner piece so it does not look like gym wear.',
+  },
+  {
+    name: 'Statement sandals and flip-flops',
+    keywords: ['flip flop', 'flip-flop', 'sandal', 'strappy', 'toe ring'],
+    vibe: 'Summer 2026 is making easy sandals look intentional.',
+    styling: 'Use them with linen pants, capris, midi skirts, or a simple dress. Cleaner materials make them look more polished.',
+  },
+  {
+    name: 'Balloon pants',
+    keywords: ['balloon', 'barrel', 'harem', 'voluminous'],
+    vibe: 'A more directional pant shape: relaxed but still fashion-aware.',
+    styling: 'Balance the volume with a fitted or cropped top. For school, keep colors simple so the shape does the work.',
+  },
+  {
+    name: 'Small statement details',
+    keywords: ['brooch', 'scarf', 'fringe', 'teal', 'turquoise', 'statement'],
+    vibe: 'Easy way to make basic outfits feel updated without changing the whole look.',
+    styling: 'Add a scarf, brooch, teal accent, fringe detail, or bold accessory to a simple base outfit.',
+  },
+  {
+    name: 'Soft sky-blue and mint accents',
+    keywords: ['sky blue', 'baby blue', 'powder blue', 'mint', 'aqua'],
+    vibe: 'Fresh and clean without feeling too loud.',
+    styling: 'Use the color as one accent: shoes, bag, top, cardigan, or nails with an otherwise neutral outfit.',
+  },
+  {
+    name: 'Board shorts and surfer ease',
+    keywords: ['board short', 'surfer', 'long short', 'bermuda'],
+    vibe: 'Relaxed, practical, and a bit sporty. Good when you want casual but still intentional.',
+    styling: 'Pair longer shorts with a fitted tank, crisp shirt, simple sandals, or a cleaner bag to keep the outfit balanced.',
+  },
+] as const;
 
 // The wardrobe used to carry broad 'tops'/'bottoms' buckets. Try-on only accepts
 // the four categories above, so the fit heuristics below ask these instead.
@@ -69,8 +137,22 @@ export async function getClosetChatReply({
     return { text: 'Create an account first, then I can answer using your own closet.' };
   }
 
+  if (isGreeting(lower)) {
+    return {
+      text: `Hi ${currentUser.username}. What are we dressing for today - school, work, a date, errands, or just a cute everyday fit?`,
+    };
+  }
+
+  if (asksOpenEndedStyleHelp(lower)) {
+    return {
+      text: closetItems.length
+        ? 'I got you. What is the occasion and mood: casual, polished, comfy, dressed-up, or something more bold? I can pull from your closet once I know the vibe.'
+        : 'I got you. What is the occasion and mood: casual, polished, comfy, dressed-up, or something more bold? Add a few closet items and I can make it more personal.',
+    };
+  }
+
   if (!isClosetQuestion(lower)) {
-    return { text: 'I can help with outfits, your wardrobe, shopping, and style. Ask me what to wear or what you own most of.' };
+    return { text: 'I can help. Are you planning an outfit for a specific occasion, or do you want me to suggest a general vibe from your closet?' };
   }
 
   if (asksAboutSpending(lower)) {
@@ -109,6 +191,10 @@ export async function getClosetChatReply({
 
   if (asksShoppingGapQuestion(lower)) {
     return { text: shoppingGapReply(closetItems, bodyProfile) };
+  }
+
+  if (asksTrendQuestion(lower)) {
+    return { text: trendReply(closetItems, wishlistItems, lower) };
   }
 
   if (asksForSummary(lower)) {
@@ -150,6 +236,16 @@ function isClosetQuestion(lower: string) {
     'undertone',
     'palette',
     'pattern',
+    'polka',
+    'capri',
+    'pedal pusher',
+    'button down',
+    'button-down',
+    'eyelet',
+    'lace',
+    'balloon pants',
+    'barrel pants',
+    'board shorts',
     'proportion',
     'body',
     'shape',
@@ -196,12 +292,39 @@ function asksForOutfit(lower: string) {
   return hasAny(lower, ['what should i wear', 'outfit', 'wear today', 'date', 'interview', 'school', 'work', 'rain', 'hot', 'cold']);
 }
 
+function isGreeting(lower: string) {
+  return /^(hi|hello|hey|heyy|hii|yo|sup)\b[!.\s]*$/i.test(lower.trim());
+}
+
+function asksOpenEndedStyleHelp(lower: string) {
+  return hasAny(lower, [
+    'idk what to wear',
+    'idk how i should dress',
+    'how should i dress',
+    'how do i dress',
+    'what should i wear',
+    'help me dress',
+    'help me style',
+    'dress up',
+    'no idea what to wear',
+    'dont know what to wear',
+    "don't know what to wear",
+  ]);
+}
+
 function asksShoppingQuestion(lower: string) {
   return hasAny(lower, ['buy', 'shop', 'similar', 'duplicate', 'wishlist']);
 }
 
 function asksShoppingGapQuestion(lower: string) {
   return hasAny(lower, ['what should i buy', 'missing', 'wardrobe gap', 'gap', 'complete my closet', 'round things out', 'need in my closet']);
+}
+
+function asksTrendQuestion(lower: string) {
+  return (
+    hasAny(lower, ['trend', 'trending', 'viral', '2026', 'current fashion', 'in style', 'popular right now', 'aesthetic']) ||
+    fashionTrends2026.some((trend) => hasAny(lower, trend.keywords))
+  );
 }
 
 function asksBodyProportionQuestion(lower: string) {
@@ -243,11 +366,13 @@ async function getOutfitReply(
   styleProfile?: StyleProfile,
   gender?: ClosetAccount['gender']
 ): Promise<ClosetChatReply> {
-  if (items.length === 0) {
-    return { text: 'Your closet is empty for this account, so I need you to add clothes before I can suggest an outfit you own.' };
-  }
-
   const lower = message.toLowerCase();
+
+  if (items.length === 0) {
+    return {
+      text: generalOutfitReply(lower),
+    };
+  }
 
   if (hasAny(lower, ['today', 'weather', 'rain', 'hot', 'cold'])) {
     try {
@@ -561,17 +686,86 @@ function legLengthNote(profile: BodyProfile, items: WardrobeItem[]) {
 
 function styleGuidanceReply(items: WardrobeItem[], lower: string) {
   if (items.length === 0) {
-    return 'Here is an idea to explore: start with a simple capsule of a neutral top, relaxed bottoms, and one statement layer.';
+    return 'Tell me the occasion first - school, work, date, errands, dinner, or just everyday? Then I can suggest a fit direction instead of guessing.';
   }
 
   const categoryCounts = countBy(items, (item) => labelForCategory(item.category));
   const topCategory = Object.entries(categoryCounts).sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'pieces';
 
   if (hasAny(lower, ['trend', 'trending'])) {
-    return `General style idea: try soft tailoring, sporty flats, or tonal layering. Based on your closet, you can start by styling one of your ${topCategory.toLowerCase()} in a cleaner, more intentional silhouette.`;
+    return trendReply(items, [], lower);
   }
 
-  return `Based on your closet, you have the most depth in ${topCategory.toLowerCase()}. An idea to explore is mixing that with one sharper piece, like a structured jacket or cleaner shoe.`;
+  return `You have the most depth in ${topCategory.toLowerCase()}. What occasion are you dressing for? I can make it casual, polished, comfy, or more statement depending on the vibe.`;
+}
+
+function trendReply(closetItems: WardrobeItem[], wishlistItems: WardrobeItem[], lower: string) {
+  const matchedTrend = findRequestedTrend(lower);
+
+  if (matchedTrend) {
+    const matchingItems = findTrendItems(closetItems, matchedTrend.keywords);
+    const matchingWishlistItems = findTrendItems(wishlistItems, matchedTrend.keywords);
+    const closetNote = matchingItems.length
+      ? `From your closet, I would start with ${matchingItems.slice(0, 2).map(formatOwnedItem).join(' or ')}.`
+      : 'I do not see a saved item for this trend yet, but you can still use it as a shopping or upload reference.';
+    const wishlistNote = matchingWishlistItems.length
+      ? `You also have ${matchingWishlistItems.slice(0, 2).map(formatOwnedItem).join(' or ')} in your wishlist, which fits this direction.`
+      : '';
+
+    return `${matchedTrend.name}: ${matchedTrend.vibe} ${matchedTrend.styling} ${closetNote} ${wishlistNote} Do you want to blend it into a clean everyday fit, or make it more standout?`.replace(/\s+/g, ' ');
+  }
+
+  const trendNames = fashionTrends2026
+    .slice(0, 6)
+    .map((trend) => trend.name)
+    .join(', ');
+
+  return `For 2026, I would track these: ${trendNames}. Tell me which vibe you want - clean/minimal, sporty, romantic, bold, or school-friendly - and I can turn it into an outfit formula.`;
+}
+
+function findRequestedTrend(lower: string) {
+  const wantsCleanMinimal = hasAny(lower, ['minimal', 'minimalist', 'clean', 'simple']);
+
+  return (
+    fashionTrends2026.find((trend) => hasAny(lower, trend.keywords)) ??
+    (wantsCleanMinimal ? fashionTrends2026[0] : undefined)
+  );
+}
+
+function findTrendItems(items: WardrobeItem[], keywords: readonly string[]) {
+  return items.filter((item) => hasAny(searchableText(item), [...keywords]));
+}
+
+function generalOutfitReply(lower: string) {
+  if (hasAny(lower, ['school', 'class', 'campus', 'uni', 'university', 'college'])) {
+    return [
+      'For school, a safe general formula is a clean top with relaxed jeans or straight pants, then sneakers or flats so it still feels practical.',
+      'If you want to blend in, keep the colors neutral and the silhouette simple.',
+      'If you want to stand out, add one statement piece, like a brighter top, layered jacket, interesting bag, or accessories.',
+      'Do you want your school fit to feel comfy, polished, cute, or more standout?',
+    ].join(' ');
+  }
+
+  if (hasAny(lower, ['work', 'interview', 'presentation'])) {
+    return [
+      'For a more polished setting, I would start with a neat top, straight pants or a simple skirt, and one structured layer.',
+      'Keep colors quieter if you want to look professional, or add one stronger color/detail if you want more personality.',
+      'Is this for work, an interview, or a presentation?',
+    ].join(' ');
+  }
+
+  if (hasAny(lower, ['date', 'dinner', 'party'])) {
+    return [
+      'For going out, I would choose one focal point: either a nicer top, a dress, or a statement layer, then keep the rest easy.',
+      'Do you want the outfit to feel soft and cute, confident, or low-key?',
+    ].join(' ');
+  }
+
+  return [
+    'I can still suggest a general direction even before you upload closet items.',
+    'A reliable base is a clean top, comfortable bottoms, and one piece that sets the mood, like a jacket, bag, shoe, or accessory.',
+    'Do you want to blend in, stand out, look polished, or stay comfy?',
+  ].join(' ');
 }
 
 function countBy(items: WardrobeItem[], getKey: (item: WardrobeItem) => string) {
@@ -626,6 +820,6 @@ function titleCase(value: string) {
     .join(' ') || 'Unknown';
 }
 
-function hasAny(text: string, needles: string[]) {
+function hasAny(text: string, needles: readonly string[]) {
   return needles.some((needle) => text.includes(needle));
 }
