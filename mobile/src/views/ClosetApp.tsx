@@ -1,5 +1,4 @@
-import { useRef, useState } from 'react';
-import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { useClosetApp } from '@/controllers/use-closet-app';
 import { useClosetStore } from '@/stores/closet-store';
@@ -17,9 +16,6 @@ import { WardrobeScreen } from '@/views/screens/WardrobeScreen';
 
 export function ClosetApp() {
   const { currentUser } = useClosetStore();
-  const landingSwipe = useRef(new Animated.Value(0)).current;
-  const [transitionScreen, setTransitionScreen] = useState<'home' | 'account' | null>(null);
-  const [isLeavingSplash, setIsLeavingSplash] = useState(false);
   const {
     activeCategory,
     goTo,
@@ -35,24 +31,7 @@ export function ClosetApp() {
 
   function openAfterLanding() {
     const nextScreen = currentUser ? 'home' : 'account';
-
-    if (isLeavingSplash) {
-      return;
-    }
-
-    setTransitionScreen(nextScreen);
-    setIsLeavingSplash(true);
-    landingSwipe.setValue(0);
-    Animated.timing(landingSwipe, {
-      duration: 520,
-      toValue: 1,
-      useNativeDriver: true,
-    }).start(() => {
-      goTo(nextScreen);
-      setTransitionScreen(null);
-      setIsLeavingSplash(false);
-      landingSwipe.setValue(0);
-    });
+    goTo(nextScreen);
   }
 
   function openDashboardAfterAuth() {
@@ -97,31 +76,7 @@ export function ClosetApp() {
     );
   }
 
-  const content = isLeavingSplash && transitionScreen ? (
-    <View style={styles.transitionStage}>
-      <View style={styles.transitionBase}>{renderScreen(transitionScreen)}</View>
-      <Animated.View
-        style={[
-          styles.transitionOverlay,
-          {
-            transform: [
-              {
-                translateX: landingSwipe.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -430],
-                }),
-              },
-            ],
-          },
-        ]}>
-        <SplashScreen onNavigate={openAfterLanding} />
-      </Animated.View>
-    </View>
-  ) : (
-    <>
-      {renderScreen(shownScreen)}
-    </>
-  );
+  const content = renderScreen(shownScreen);
 
   if (Platform.OS === 'web') {
     return (
@@ -158,28 +113,6 @@ export function ClosetApp() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-  },
-  transitionStage: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  transitionBase: {
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-  transitionOverlay: {
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    shadowColor: '#000000',
-    shadowOffset: { width: 18, height: 0 },
-    shadowOpacity: 0.24,
-    shadowRadius: 24,
-    top: 0,
   },
   webRoot: {
     alignItems: 'center',

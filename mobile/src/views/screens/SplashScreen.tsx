@@ -1,386 +1,92 @@
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useSplashAnimation } from '@/controllers/use-splash-animation';
 import { ScreenId } from '@/models/closet';
-import { closetTheme, closetTypography } from '@/views/components/closet-theme';
-import { ClosetIcon } from '@/views/components/closet-icons';
 
 export function SplashScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const { float, intro } = useSplashAnimation();
-  const driftUp = float.interpolate({ inputRange: [0, 1], outputRange: [0, -16] });
-  const driftDown = float.interpolate({ inputRange: [0, 1], outputRange: [0, 12] });
-  const fadeItems = intro.interpolate({ inputRange: [0.2, 0.55], outputRange: [0, 1], extrapolate: 'clamp' });
-  const hangerOpacity = intro.interpolate({ inputRange: [0, 0.24], outputRange: [0, 1], extrapolate: 'clamp' });
-  const hangerTranslate = intro.interpolate({
-    inputRange: [0, 0.45, 0.65, 0.82, 1],
-    outputRange: [-90, 10, -6, 3, 0],
-  });
-  const hangerScale = intro.interpolate({
-    inputRange: [0, 0.45, 0.65, 0.82, 1],
-    outputRange: [0.4, 1.08, 0.97, 1.02, 1],
-  });
-  const hangerRotate = intro.interpolate({
-    inputRange: [0, 0.45, 0.65, 0.82, 1],
-    outputRange: ['-10deg', '6deg', '-3deg', '2deg', '0deg'],
-  });
-  const wordOpacity = intro.interpolate({ inputRange: [0.45, 0.7], outputRange: [0, 1], extrapolate: 'clamp' });
-  const taglineOpacity = intro.interpolate({ inputRange: [0.6, 0.84], outputRange: [0, 1], extrapolate: 'clamp' });
-  const tapOpacity = intro.interpolate({ inputRange: [0.78, 1], outputRange: [0, 1], extrapolate: 'clamp' });
-  const wordLift = intro.interpolate({ inputRange: [0.45, 0.7], outputRange: [10, 0], extrapolate: 'clamp' });
-  const tapPulse = float.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] });
-  const hangerBodySway = float.interpolate({ inputRange: [0, 1], outputRange: [-4, 4] });
-  const hangerBodyRotate = float.interpolate({ inputRange: [0, 1], outputRange: ['-1.4deg', '1.4deg'] });
+  const { intro } = useSplashAnimation();
+  const doorProgress = useRef(new Animated.Value(0)).current;
+  const opening = useRef(false);
+  const [isOpening, setIsOpening] = useState(false);
+  const wardrobeOpacity = intro.interpolate({ inputRange: [0, 0.3], outputRange: [0, 1], extrapolate: 'clamp' });
+  const leftDoorRotation = doorProgress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-76deg'] });
+  const rightDoorRotation = doorProgress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '76deg'] });
+  const interiorOpacity = doorProgress.interpolate({ inputRange: [0, 0.38, 1], outputRange: [0.2, 0.5, 1] });
+
+  function openWardrobe() {
+    if (opening.current) return;
+
+    opening.current = true;
+    setIsOpening(true);
+    Animated.timing(doorProgress, {
+      duration: 1050,
+      toValue: 1,
+      useNativeDriver: true,
+    }).start(() => onNavigate('home'));
+  }
 
   return (
-    <Pressable style={styles.screen} onPress={() => onNavigate('home')}>
-      <View pointerEvents="none" style={styles.starOne} />
-      <View pointerEvents="none" style={styles.starTwo} />
-      <View pointerEvents="none" style={styles.starThree} />
-      <View pointerEvents="none" style={styles.starFour} />
-      <View pointerEvents="none" style={styles.starFive} />
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.floatItem, styles.floatShirt, { opacity: fadeItems, transform: [{ translateY: driftUp }] }]}>
-        <ClosetIcon category="shirt" color="#7D92B8" size={48} />
-      </Animated.View>
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.floatItem, styles.floatShoe, { opacity: fadeItems, transform: [{ translateY: driftDown }] }]}>
-        <ClosetIcon category="pants" color={closetTheme.blush} size={42} />
-      </Animated.View>
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.floatItem, styles.floatBag, { opacity: fadeItems, transform: [{ translateY: driftUp }] }]}>
-        <ClosetIcon category="dress" color={closetTheme.sage} size={42} />
-      </Animated.View>
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.floatItem, styles.floatTag, { opacity: fadeItems, transform: [{ translateY: driftDown }] }]}>
-        <View style={styles.tagIcon}>
-          <View style={styles.tagHole} />
+    <Pressable accessibilityRole="button" accessibilityLabel="Open wardrobe" style={styles.screen} onPress={openWardrobe}>
+      <Animated.View style={[styles.hero, { opacity: wardrobeOpacity }]}>
+        <Text style={styles.kicker}>WELCOME TO</Text>
+        <Text style={styles.wordmark}>bove closet</Text>
+        <View style={styles.wardrobeScene}>
+          <View style={styles.wardrobeFrame}>
+            <Animated.View style={[styles.interior, { opacity: interiorOpacity }]}>
+              <View style={styles.rail} />
+              <View style={[styles.hanger, styles.hangerOne]}><View style={styles.hook} /><View style={[styles.garment, styles.blueGarment]} /></View>
+              <View style={[styles.hanger, styles.hangerTwo]}><View style={styles.hook} /><View style={[styles.garment, styles.darkGarment]} /></View>
+              <View style={styles.shelf} />
+              <View style={[styles.shoe, styles.shoeOne]} />
+              <View style={[styles.shoe, styles.shoeTwo]} />
+            </Animated.View>
+          </View>
+          <Image pointerEvents="none" source={require('../../../assets/images/wardrobe-shell-brown-base.png')} style={styles.referenceImage} />
+          <Animated.Image
+            pointerEvents="none"
+            source={require('../../../assets/images/wardrobe-left-door.png')}
+            style={[styles.referenceDoor, styles.referenceLeftDoor, { transform: [{ perspective: 900 }, { rotateY: leftDoorRotation }] }]}
+          />
+          <Animated.Image
+            pointerEvents="none"
+            source={require('../../../assets/images/wardrobe-right-door.png')}
+            style={[styles.referenceDoor, styles.referenceRightDoor, { transform: [{ perspective: 900 }, { rotateY: rightDoorRotation }] }]}
+          />
         </View>
       </Animated.View>
-      <View pointerEvents="none" style={styles.planet} />
-      <Animated.View pointerEvents="none" style={styles.hero}>
-        <Animated.View
-          style={[
-            styles.hangerWrap,
-            {
-              opacity: hangerOpacity,
-              transform: [
-                { translateY: hangerTranslate },
-                { scale: hangerScale },
-                { rotate: hangerRotate },
-              ],
-            },
-          ]}>
-          <HangerMark bodyRotate={hangerBodyRotate} bodySway={hangerBodySway} />
-        </Animated.View>
-        <Animated.Text style={[styles.word, { opacity: wordOpacity, transform: [{ translateY: wordLift }] }]}>
-          bove closet
-        </Animated.Text>
-        <Animated.Text style={[styles.tagline, { opacity: taglineOpacity }]}>
-          your wardrobe, worn smarter
-        </Animated.Text>
-      </Animated.View>
-      <Animated.Text
-        pointerEvents="none"
-        style={[styles.tapHint, { opacity: Animated.multiply(tapOpacity, tapPulse) }]}>
-        tap to open
-      </Animated.Text>
+      <Text style={styles.hint}>{isOpening ? 'opening your wardrobe...' : 'tap the handles to open'}</Text>
     </Pressable>
   );
 }
 
-function HangerMark({
-  bodyRotate,
-  bodySway,
-}: {
-  bodyRotate: Animated.AnimatedInterpolation<string>;
-  bodySway: Animated.AnimatedInterpolation<number>;
-}) {
-  return (
-    <View style={styles.hanger}>
-      {hookBlocks.map((block) => (
-        <View
-          key={`hook-${block.x}-${block.y}-${block.w ?? 1}`}
-          style={[
-            styles.pixelBlock,
-            {
-              height: hangerPixelSize,
-              left: block.x * hangerPixelSize,
-              top: block.y * hangerPixelSize,
-              width: (block.w ?? 1) * hangerPixelSize,
-            },
-          ]}
-        />
-      ))}
-      <Animated.View
-        style={[
-          styles.hangerBody,
-          {
-            transform: [{ translateY: -66 }, { translateX: bodySway }, { rotate: bodyRotate }, { translateY: 66 }],
-          },
-        ]}>
-        {bodyBlocks.map((block) => (
-          <View
-            key={`body-${block.x}-${block.y}-${block.w ?? 1}`}
-            style={[
-              styles.pixelBlock,
-              {
-                height: hangerPixelSize,
-                left: block.x * hangerPixelSize,
-                opacity: block.opacity ?? 1,
-                top: block.y * hangerPixelSize,
-                width: (block.w ?? 1) * hangerPixelSize,
-              },
-            ]}
-          />
-        ))}
-      </Animated.View>
-    </View>
-  );
-}
-
-const hangerPixelSize = 6;
-
-const hookBlocks: { w?: number; x: number; y: number }[] = [
-  { x: 17, y: 0, w: 5 },
-  { x: 17, y: 1 },
-  { x: 21, y: 1 },
-  { x: 17, y: 2 },
-  { x: 21, y: 2 },
-  { x: 16, y: 3 },
-  { x: 17, y: 3 },
-  { x: 16, y: 4 },
-  { x: 17, y: 4 },
-  { x: 17, y: 5 },
-  { x: 17, y: 6 },
-];
-
-const bodyBlocks: { opacity?: number; w?: number; x: number; y: number }[] = [
-  { x: 15, y: 7, w: 7 },
-  { x: 14, y: 8, w: 9 },
-  { x: 14, y: 9, w: 3 },
-  { x: 20, y: 9, w: 3 },
-  { x: 15, y: 10 },
-  { x: 21, y: 10 },
-  { x: 14, y: 11 },
-  { x: 15, y: 11 },
-  { x: 21, y: 11 },
-  { x: 22, y: 11 },
-  { x: 13, y: 12 },
-  { x: 14, y: 12 },
-  { x: 22, y: 12 },
-  { x: 23, y: 12 },
-  { x: 12, y: 13 },
-  { x: 13, y: 13 },
-  { x: 23, y: 13 },
-  { x: 24, y: 13 },
-  { x: 11, y: 14 },
-  { x: 12, y: 14 },
-  { x: 24, y: 14 },
-  { x: 25, y: 14 },
-  { x: 10, y: 15 },
-  { x: 11, y: 15 },
-  { x: 25, y: 15 },
-  { x: 26, y: 15 },
-  { x: 9, y: 16 },
-  { x: 10, y: 16 },
-  { x: 26, y: 16 },
-  { x: 27, y: 16 },
-  { x: 8, y: 17 },
-  { x: 9, y: 17 },
-  { x: 27, y: 17 },
-  { x: 28, y: 17 },
-  { x: 7, y: 18 },
-  { x: 8, y: 18 },
-  { x: 28, y: 18 },
-  { x: 29, y: 18 },
-  { x: 6, y: 19 },
-  { x: 7, y: 19 },
-  { x: 29, y: 19 },
-  { x: 30, y: 19 },
-  { x: 5, y: 20 },
-  { x: 6, y: 20 },
-  { x: 30, y: 20 },
-  { x: 31, y: 20 },
-  { x: 4, y: 21 },
-  { x: 5, y: 21 },
-  { x: 31, y: 21 },
-  { x: 32, y: 21 },
-  { x: 3, y: 22 },
-  { x: 4, y: 22 },
-  { x: 32, y: 22 },
-  { x: 33, y: 22 },
-  { x: 2, y: 23, w: 34, opacity: 0.88 },
-  { x: 1, y: 24, w: 36, opacity: 0.62 },
-  { x: 0, y: 23, w: 3 },
-  { x: 35, y: 23, w: 3 },
-  { x: 0, y: 24 },
-  { x: 37, y: 24 },
-  { x: 0, y: 25 },
-  { x: 37, y: 25 },
-];
+const wood = '#7A3100';
+const woodDark = '#4B1D00';
+const woodLight = '#9A4100';
 
 const styles = StyleSheet.create({
-  screen: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.night,
-    flex: 1,
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  starOne: {
-    backgroundColor: closetTheme.white,
-    borderRadius: 2,
-    height: 4,
-    left: '18%',
-    opacity: 0.75,
-    position: 'absolute',
-    top: '15%',
-    width: 4,
-  },
-  starTwo: {
-    backgroundColor: closetTheme.white,
-    borderRadius: 2,
-    height: 3,
-    opacity: 0.55,
-    position: 'absolute',
-    right: '22%',
-    top: '24%',
-    width: 3,
-  },
-  starThree: {
-    backgroundColor: closetTheme.white,
-    borderRadius: 2,
-    height: 3,
-    left: '62%',
-    opacity: 0.65,
-    position: 'absolute',
-    top: '36%',
-    width: 3,
-  },
-  starFour: {
-    backgroundColor: closetTheme.white,
-    borderRadius: 1,
-    height: 2,
-    left: '50%',
-    opacity: 0.5,
-    position: 'absolute',
-    top: '11%',
-    width: 2,
-  },
-  starFive: {
-    backgroundColor: closetTheme.white,
-    borderRadius: 2,
-    height: 4,
-    left: '12%',
-    opacity: 0.45,
-    position: 'absolute',
-    top: '31%',
-    width: 4,
-  },
-  floatItem: {
-    position: 'absolute',
-  },
-  floatShirt: {
-    left: '12%',
-    top: '21%',
-  },
-  floatShoe: {
-    right: '13%',
-    top: '17%',
-  },
-  floatBag: {
-    right: '8%',
-    top: '43%',
-  },
-  floatTag: {
-    left: '10%',
-    top: '47%',
-  },
-  tagIcon: {
-    backgroundColor: closetTheme.camel,
-    borderBottomLeftRadius: 6,
-    borderBottomRightRadius: 12,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    height: 30,
-    transform: [{ rotate: '-15deg' }],
-    width: 24,
-  },
-  tagHole: {
-    backgroundColor: closetTheme.night,
-    borderRadius: 3,
-    height: 6,
-    left: 6,
-    position: 'absolute',
-    top: 6,
-    width: 6,
-  },
-  planet: {
-    backgroundColor: closetTheme.navy,
-    borderRadius: 210,
-    bottom: -135,
-    height: 420,
-    opacity: 0.82,
-    position: 'absolute',
-    width: 420,
-  },
-  hero: {
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  hangerWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-  },
-  hanger: {
-    height: 156,
-    position: 'relative',
-    width: 228,
-  },
-  hangerBody: {
-    height: 156,
-    left: 0,
-    position: 'absolute',
-    top: 0,
-    width: 228,
-  },
-  pixelBlock: {
-    backgroundColor: closetTheme.camel,
-    borderColor: 'rgba(247, 241, 231, 0.28)',
-    borderWidth: 1,
-    position: 'absolute',
-  },
-  word: {
-    color: closetTheme.cream,
-    ...closetTypography.text,
-    fontSize: 42,
-    fontWeight: '600',
-    marginTop: 18,
-    textAlign: 'center',
-  },
-  tagline: {
-    color: closetTheme.cream,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 2,
-    marginTop: 8,
-    textTransform: 'uppercase',
-  },
-  tapHint: {
-    bottom: 58,
-    color: closetTheme.cream,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    position: 'absolute',
-    textTransform: 'uppercase',
-  },
+  screen: { alignItems: 'center', backgroundColor: '#FFFFFF', flex: 1, justifyContent: 'center', overflow: 'hidden' },
+  hero: { alignItems: 'center', marginTop: -34 },
+  kicker: { color: woodLight, fontSize: 10, fontWeight: '900', letterSpacing: 2.8 },
+  wordmark: { color: woodDark, fontSize: 38, fontWeight: '800', letterSpacing: -1, marginBottom: 24, marginTop: 5 },
+  wardrobeScene: { height: 416, overflow: 'hidden', position: 'relative', width: 316 },
+  referenceImage: { height: 416, left: -50, position: 'absolute', top: 0, width: 416, zIndex: 3 },
+  referenceDoor: { height: 265, position: 'absolute', top: 91, width: 124, zIndex: 4 },
+  referenceLeftDoor: { left: 28, transformOrigin: 'left center' as never },
+  referenceRightDoor: { left: 164, transformOrigin: 'right center' as never },
+  wardrobeFrame: { backgroundColor: woodDark, borderColor: wood, borderWidth: 12, height: 286, left: 24, overflow: 'visible', position: 'absolute', right: 24, top: 106 },
+  interior: { backgroundColor: '#321300', bottom: 0, left: 0, overflow: 'hidden', position: 'absolute', right: 0, top: 0 },
+  rail: { backgroundColor: '#C58B55', height: 7, left: 28, position: 'absolute', right: 28, top: 47 },
+  hanger: { alignItems: 'center', position: 'absolute', top: 48 },
+  hangerOne: { left: 48 },
+  hangerTwo: { left: 119 },
+  hook: { borderColor: '#E8D1B8', borderLeftWidth: 4, borderTopWidth: 4, height: 16, width: 14 },
+  garment: { height: 106, marginTop: 3, width: 42 },
+  blueGarment: { backgroundColor: '#5370B4' },
+  darkGarment: { backgroundColor: '#313131' },
+  shelf: { backgroundColor: wood, bottom: 54, height: 9, left: 17, position: 'absolute', right: 17 },
+  shoe: { backgroundColor: '#6B5951', bottom: 25, height: 19, position: 'absolute', width: 62 },
+  shoeOne: { left: 38 },
+  shoeTwo: { right: 28 },
+  hint: { bottom: 58, color: woodLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.4, position: 'absolute', textTransform: 'uppercase' },
 });
