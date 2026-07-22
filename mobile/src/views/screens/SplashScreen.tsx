@@ -42,7 +42,7 @@ export function SplashScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =>
               <View style={[styles.shoe, styles.shoeTwo]} />
             </Animated.View>
           </View>
-          <Image pointerEvents="none" source={require('../../../assets/images/wardrobe-shell.png')} style={styles.referenceImage} />
+          <Image pointerEvents="none" source={require('../../../assets/images/wardrobe-shell-brown-base.png')} style={styles.referenceImage} />
           <Animated.Image
             pointerEvents="none"
             source={require('../../../assets/images/wardrobe-left-door.png')}
