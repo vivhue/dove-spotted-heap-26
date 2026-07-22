@@ -2,46 +2,124 @@
   {
     "id": "presentation",
     "title": "Presentations",
-    "keywords": ["presentation", "presentations", "pitch", "seminar", "talk"],
+    "keywords": [
+      "presentation",
+      "presentations",
+      "pitch",
+      "seminar",
+      "talk"
+    ],
     "priority": "formal",
-    "mustHave": ["tops", "bottoms", "shoes"],
-    "avoid": ["loud prints", "overly casual shoes"],
-    "styleNotes": ["Polished", "structured", "clean"]
+    "mustHave": [
+      "shirt",
+      "pants"
+    ],
+    "avoid": [
+      "loud prints",
+      "overly casual shoes"
+    ],
+    "styleNotes": [
+      "Polished",
+      "structured",
+      "clean"
+    ]
   },
   {
     "id": "interview",
     "title": "Interview",
-    "keywords": ["interview", "job interview", "office", "meeting"],
+    "keywords": [
+      "interview",
+      "job interview",
+      "office",
+      "meeting"
+    ],
     "priority": "formal",
-    "mustHave": ["tops", "bottoms", "shoes"],
-    "avoid": ["ripped denim", "flashy graphics"],
-    "styleNotes": ["Confident", "neutral", "low-noise"]
+    "mustHave": [
+      "shirt",
+      "pants"
+    ],
+    "avoid": [
+      "ripped denim",
+      "flashy graphics"
+    ],
+    "styleNotes": [
+      "Confident",
+      "neutral",
+      "low-noise"
+    ]
   },
   {
     "id": "casual",
     "title": "Casual",
-    "keywords": ["casual", "weekend", "brunch", "coffee", "travel"],
+    "keywords": [
+      "casual",
+      "weekend",
+      "brunch",
+      "coffee",
+      "travel"
+    ],
     "priority": "relaxed",
-    "mustHave": ["tops", "bottoms", "shoes"],
-    "avoid": ["stiff tailoring unless balanced"],
-    "styleNotes": ["Comfortable", "easy", "put together"]
+    "mustHave": [
+      "shirt",
+      "shorts"
+    ],
+    "avoid": [
+      "stiff tailoring unless balanced"
+    ],
+    "styleNotes": [
+      "Comfortable",
+      "easy",
+      "put together"
+    ]
   },
   {
     "id": "formal-event",
     "title": "Formal Event",
-    "keywords": ["formal event", "wedding", "cocktail", "evening"],
+    "keywords": [
+      "formal event",
+      "wedding",
+      "cocktail",
+      "evening"
+    ],
     "priority": "formal",
-    "mustHave": ["tops", "bottoms", "shoes"],
-    "avoid": ["sleepwear", "loungewear", "very casual sneakers"],
-    "styleNotes": ["Elegant", "clean lines", "occasion-appropriate"]
+    "mustHave": [
+      "dress",
+      "shirt",
+      "pants"
+    ],
+    "avoid": [
+      "sleepwear",
+      "loungewear",
+      "very casual sneakers"
+    ],
+    "styleNotes": [
+      "Elegant",
+      "clean lines",
+      "occasion-appropriate"
+    ]
   },
   {
     "id": "sleepwear",
     "title": "Sleepwear",
-    "keywords": ["sleep", "sleepwear", "bed", "pajama", "pajamas", "lounge", "loungewear"],
+    "keywords": [
+      "sleep",
+      "sleepwear",
+      "bed",
+      "pajama",
+      "pajamas",
+      "lounge",
+      "loungewear"
+    ],
     "priority": "relaxed",
     "mustHave": [],
-    "avoid": ["stiff fabrics", "tight waistbands"],
-    "styleNotes": ["Soft", "breathable", "comfortable"]
+    "avoid": [
+      "stiff fabrics",
+      "tight waistbands"
+    ],
+    "styleNotes": [
+      "Soft",
+      "breathable",
+      "comfortable"
+    ]
   }
 ]

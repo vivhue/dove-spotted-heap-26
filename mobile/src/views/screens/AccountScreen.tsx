@@ -4,7 +4,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { AvatarChoice, BodyMeasurements, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen, initialForUsername, ProfileAvatarMark } from '@/views/components/app-chrome';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 const measurementFields: {
@@ -21,8 +21,9 @@ const measurementFields: {
 const avatarOptions: { label: string; value: AvatarChoice }[] = [
   { label: 'Hanger', value: 'hanger' },
   { label: 'Shirt', value: 'shirt' },
-  { label: 'Bag', value: 'bag' },
-  { label: 'Shoe', value: 'shoe' },
+  { label: 'Dress', value: 'dress' },
+  { label: 'Shorts', value: 'shorts' },
+  { label: 'Pants', value: 'pants' },
   { label: 'Initial', value: 'initial' },
 ];
 
@@ -76,7 +77,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.authPanel}>
             <View style={styles.authAvatar}>
-              <ClosetIcon category="tops" color={closetTheme.camel} accent={closetTheme.blush} size={74} />
+              <ClosetIcon category="shirt" color={closetTheme.camel} accent={closetTheme.blush} size={74} />
             </View>
             <Text style={styles.authTitle}>{authMode === 'signup' ? 'Create your account' : 'Log in'}</Text>
             <Text style={styles.authSubtitle}>
@@ -93,7 +94,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
                   autoCorrect={false}
                   onChangeText={setUsername}
                   placeholder="choose a username"
-                  placeholderTextColor="#B9AB94"
+                  placeholderTextColor={closetTheme.muted}
                   style={styles.authInput}
                   value={username}
                 />
@@ -105,7 +106,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
                   autoCorrect={false}
                   onChangeText={setPassword}
                   placeholder="at least 6 characters"
-                  placeholderTextColor="#B9AB94"
+                  placeholderTextColor={closetTheme.muted}
                   secureTextEntry
                   style={styles.authInput}
                   value={password}
@@ -249,7 +250,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
                       maxLength={5}
                       onChangeText={(value) => onMeasurementChange(field, value)}
                       placeholder="0"
-                      placeholderTextColor="#B9AB94"
+                      placeholderTextColor={closetTheme.muted}
                       selectTextOnFocus
                       style={styles.measurementInput}
                       value={measurements[field]}
@@ -902,7 +903,7 @@ const styles = StyleSheet.create({
   },
   savedTripTitle: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 24,
     fontWeight: '700',
   },

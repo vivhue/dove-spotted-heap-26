@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvatarChoice, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 type ScreenProps = {
@@ -39,10 +39,10 @@ export function AppScreen({
   showStatus = true,
   title,
 }: ScreenProps) {
-  const { currentUser } = useClosetStore();
+  const { closetItems, currentUser } = useClosetStore();
   const userInitial = initialForUsername(currentUser?.username);
   const userAvatar = currentUser?.avatar ?? 'shirt';
-  const defaultNotifications = useAppNotifications(currentUser?.username);
+  const defaultNotifications = useAppNotifications(currentUser?.username, closetItems.length);
   const shownNotifications = notifications ?? defaultNotifications;
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -134,7 +134,7 @@ export function AvatarButton({
 
 export function NotificationButton({
   onPress,
-  unread = true,
+  unread = false,
 }: {
   onPress?: () => void;
   unread?: boolean;
@@ -147,7 +147,7 @@ export function NotificationButton({
   );
 }
 
-export function useAppNotifications(username?: string | null) {
+export function useAppNotifications(username?: string | null, closetItemCount = 0) {
   const [previousSeenAt] = useState(() => readLastSeenAt(username));
 
   useEffect(() => {
@@ -158,7 +158,7 @@ export function useAppNotifications(username?: string | null) {
     globalThis.localStorage.setItem(lastSeenKey(username), new Date().toISOString());
   }, [username]);
 
-  return useMemo(() => buildNotifications(previousSeenAt), [previousSeenAt]);
+  return useMemo(() => buildNotifications(previousSeenAt, closetItemCount), [closetItemCount, previousSeenAt]);
 }
 
 export function BottomNav({
@@ -208,7 +208,7 @@ export function initialForUsername(username?: string | null) {
   return username?.trim().charAt(0).toUpperCase() || 'U';
 }
 
-function NotificationMenu({ notifications }: { notifications: AppNotification[] }) {
+export function NotificationMenu({ notifications }: { notifications: AppNotification[] }) {
   return (
     <View style={styles.notificationMenu}>
       {notifications.length > 0 ? (
@@ -228,24 +228,23 @@ function NotificationMenu({ notifications }: { notifications: AppNotification[] 
   );
 }
 
-function buildNotifications(previousSeenAt: string) {
+function buildNotifications(previousSeenAt: string, closetItemCount: number) {
   const today = new Date();
   const notifications: AppNotification[] = [];
-  const isStartOfWeek = today.getDay() === 0 || today.getDay() === 1;
-
-  if (isStartOfWeek) {
-    notifications.push({
-      id: 'weekly-outfit-plan',
-      text: 'Plan a few looks now so your week starts easier.',
-      title: 'Plan your week outfits',
-    });
-  }
 
   if (canUseLocalStorage() && globalThis.localStorage.getItem('bove-closet-trip-reminder') === '1') {
     notifications.push({
       id: 'trip-planning',
-      text: 'Add activities or review your packed looks before you travel.',
+      text: 'You started a trip plan. Continue choosing outfits and packing pieces before you travel.',
       title: 'Continue trip planning',
+    });
+  }
+
+  if (closetItemCount > 0 && shouldShowOutfitReminder(today)) {
+    notifications.push({
+      id: `daily-outfit-${formatDateKey(today)}`,
+      text: 'Pick a look from your digital closet for today before the day gets busy.',
+      title: 'Choose today\'s outfit',
     });
   }
 
@@ -256,13 +255,23 @@ function buildNotifications(previousSeenAt: string) {
     if (!Number.isNaN(lastSeenDate.getTime()) && today.getTime() - lastSeenDate.getTime() >= weekMs) {
       notifications.unshift({
         id: 'hiatus-return',
-        text: 'Your closet missed you. Check what still works for your week.',
+        text: 'It has been a while. Review your closet and refresh what you want to wear this week.',
         title: 'Welcome back',
       });
     }
   }
 
   return notifications;
+}
+
+function shouldShowOutfitReminder(date: Date) {
+  const hour = date.getHours();
+
+  return hour >= 6 && hour < 12;
+}
+
+function formatDateKey(date: Date) {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
 function readLastSeenAt(username?: string | null) {
@@ -302,9 +311,8 @@ export function ProfileAvatarMark({
     return <MiniHanger color={color} size={size} />;
   }
 
-  const category = avatar === 'bag' ? 'bags' : avatar === 'shoe' ? 'shoes' : 'tops';
-
-  return <ClosetIcon category={category} color={color} accent={accent} size={size} />;
+  // Every remaining AvatarChoice is a garment category ClosetIcon can draw.
+  return <ClosetIcon category={avatar} color={color} accent={accent} size={size} />;
 }
 
 function NavAddIcon() {
@@ -332,6 +340,7 @@ function NavClosetIcon() {
 function BellIcon() {
   return (
     <View style={styles.bellIcon}>
+      <View style={styles.bellCap} />
       <View style={styles.bellDome} />
       <View style={styles.bellBase} />
       <View style={styles.bellClapper} />
@@ -413,7 +422,7 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 28,
     fontWeight: '700',
   },
@@ -424,7 +433,7 @@ const styles = StyleSheet.create({
   },
   notificationButton: {
     alignItems: 'center',
-    backgroundColor: closetTheme.white,
+    backgroundColor: closetTheme.blueWash,
     borderColor: closetTheme.line,
     borderRadius: 18,
     borderWidth: 1,
@@ -449,11 +458,16 @@ const styles = StyleSheet.create({
     borderColor: closetTheme.line,
     borderRadius: 8,
     borderWidth: 1,
+    elevation: 80,
     position: 'absolute',
     right: 22,
+    shadowColor: closetTheme.ink,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
     top: 58,
     width: 230,
-    zIndex: 30,
+    zIndex: 1000,
   },
   notificationMenuItem: {
     borderBottomColor: closetTheme.line,
@@ -475,36 +489,51 @@ const styles = StyleSheet.create({
   },
   bellIcon: {
     alignItems: 'center',
-    height: 22,
+    height: 24,
     justifyContent: 'center',
     position: 'relative',
-    width: 22,
+    width: 24,
+  },
+  bellCap: {
+    borderColor: closetTheme.ink,
+    borderTopLeftRadius: 7,
+    borderTopRightRadius: 7,
+    borderWidth: 3,
+    borderBottomWidth: 0,
+    height: 8,
+    position: 'absolute',
+    top: 2,
+    width: 12,
   },
   bellDome: {
     borderColor: closetTheme.ink,
-    borderRadius: 8,
+    borderTopLeftRadius: 11,
+    borderTopRightRadius: 11,
     borderWidth: 3,
     borderBottomWidth: 0,
-    height: 13,
+    height: 16,
     position: 'absolute',
-    top: 3,
-    width: 14,
+    top: 6,
+    width: 20,
   },
   bellBase: {
     backgroundColor: closetTheme.ink,
-    borderRadius: 2,
+    borderRadius: 3,
     height: 3,
     position: 'absolute',
-    top: 15,
-    width: 18,
+    top: 19,
+    width: 22,
   },
   bellClapper: {
-    backgroundColor: closetTheme.ink,
-    borderRadius: 2,
-    height: 4,
+    borderBottomLeftRadius: 7,
+    borderBottomRightRadius: 7,
+    borderColor: closetTheme.ink,
+    borderWidth: 3,
+    borderTopWidth: 0,
+    height: 7,
     position: 'absolute',
-    top: 18,
-    width: 4,
+    top: 20,
+    width: 11,
   },
   avatar: {
     alignItems: 'center',
@@ -638,7 +667,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   navButtonActive: {
-    backgroundColor: closetTheme.creamDeep,
+    backgroundColor: closetTheme.blueWash,
   },
   navAddButton: {
     borderRadius: 34,
@@ -672,7 +701,7 @@ const styles = StyleSheet.create({
   },
   navAddCircle: {
     alignItems: 'center',
-    backgroundColor: closetTheme.ink,
+    backgroundColor: closetTheme.navy,
     borderRadius: 28,
     height: 56,
     justifyContent: 'center',
@@ -701,7 +730,7 @@ const styles = StyleSheet.create({
   },
   navClosetDoor: {
     alignItems: 'center',
-    backgroundColor: closetTheme.ink,
+    backgroundColor: closetTheme.navy,
     flex: 1,
     justifyContent: 'center',
   },
@@ -732,8 +761,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   chipSelected: {
-    backgroundColor: closetTheme.ink,
-    borderColor: closetTheme.ink,
+    backgroundColor: closetTheme.navy,
+    borderColor: closetTheme.navy,
   },
   chipText: {
     color: closetTheme.muted,

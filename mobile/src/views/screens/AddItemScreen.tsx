@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
-import { ScreenId } from '@/models/closet';
-import { createClosetItem } from '@/services/closet-api';
+import { browseCategories, CategoryId, ScreenId } from '@/models/closet';
+import { createGarment } from '@/services/closet-api';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 
 export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const [selectedTag, setSelectedTag] = useState('Tops');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('shirt');
   const [destination, setDestination] = useState<'Closet' | 'Wishlist'>('Closet');
   const [status, setStatus] = useState('Choose how to add your item.');
   const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
@@ -62,11 +62,11 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
 
     try {
       setIsSaving(true);
-      setStatus('Cleaning, classifying, and saving...');
-      const item = await createClosetItem({
+      setStatus('Removing background and saving...');
+      const item = await createGarment({
+        category: selectedCategory,
         destination: destination === 'Closet' ? 'closet' : 'wishlist',
         image: selectedImage,
-        tag: selectedTag === '+ Add' ? 'Custom' : selectedTag,
         userId: currentUser.id,
       });
 
@@ -100,19 +100,14 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
         {selectedImage && <Image source={{ uri: selectedImage.uri }} style={styles.preview} resizeMode="contain" />}
         <Text style={styles.statusText}>{status}</Text>
 
-        <Text style={styles.sectionLabel}>Tags</Text>
+        <Text style={styles.sectionLabel}>Category (required)</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {['Tops', 'Bottoms', 'Shoes', '+ Add'].map((tag) => (
+          {browseCategories.map((category) => (
             <Pressable
-              key={tag}
-              onPress={() => {
-                setSelectedTag(tag);
-                if (tag === '+ Add') {
-                  setStatus('Custom tag input coming next.');
-                }
-              }}
-              style={[styles.chip, selectedTag === tag && styles.chipSelected]}>
-              <Text style={[styles.chipText, selectedTag === tag && styles.chipTextSelected]}>{tag}</Text>
+              key={category.id}
+              onPress={() => setSelectedCategory(category.id)}
+              style={[styles.chip, selectedCategory === category.id && styles.chipSelected]}>
+              <Text style={[styles.chipText, selectedCategory === category.id && styles.chipTextSelected]}>{category.label}</Text>
             </Pressable>
           ))}
         </ScrollView>

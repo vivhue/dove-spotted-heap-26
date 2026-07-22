@@ -40,7 +40,7 @@ type ForecastResponse = {
   };
 };
 
-const categoryOrder: CategoryId[] = ['tops', 'bottoms', 'outerwear', 'shoes', 'accessories'];
+const categoryOrder: CategoryId[] = ['shirt', 'dress', 'shorts', 'pants'];
 const weatherCacheMaxAgeMs = 20 * 60 * 1000;
 const weatherStorageKey = 'bove:last-weather';
 type CachedWeather = { fetchedAt: number; locationKey: string; weather: WeatherSummary };
@@ -188,9 +188,7 @@ export function buildWeatherOutfitRecommendation(
     return nextOutfit;
   }, {});
   const selectedCategories = new Set(selectedItems.map((item) => item.category));
-  const missingCategories = categoryOrder.filter(
-    (category) => !selectedCategories.has(category) && category !== 'accessories'
-  );
+  const missingCategories = categoryOrder.filter((category) => !selectedCategories.has(category));
 
   return {
     advice: weatherAdvice(weather),
@@ -227,29 +225,32 @@ function scoreItem(item: WardrobeItem, weather: WeatherSummary) {
   const temperature = weather.temperatureC;
   let score = 0;
 
-  if (item.category === 'outerwear') {
-    score += temperature <= 12 ? 80 : temperature <= 20 ? 45 : -20;
+  // Shirts cover the torso: long/knit shirts suit the cold, light ones the heat.
+  if (item.category === 'shirt') {
+    if (temperature <= 8) score += hasAny(text, ['sweater', 'knit', 'thermal', 'hoodie', 'wool', 'long']) ? 55 : 15;
+    else if (temperature <= 20) score += hasAny(text, ['long', 'knit', 'hoodie']) ? 35 : 18;
+    else score += hasAny(text, ['tee', 't-shirt', 'tank', 'linen', 'cotton', 'short']) ? 40 : 12;
   }
 
-  if (item.category === 'tops') {
-    if (temperature <= 8) score += hasAny(text, ['sweater', 'knit', 'thermal', 'hoodie', 'wool']) ? 60 : 10;
-    else if (temperature <= 20) score += hasAny(text, ['long', 'shirt', 'knit', 'hoodie']) ? 35 : 12;
-    else score += hasAny(text, ['tee', 't-shirt', 'tank', 'linen', 'cotton', 'short']) ? 38 : 8;
+  // Pants cover the legs: better in the cold, penalised in the heat.
+  if (item.category === 'pants') {
+    if (temperature <= 15) score += hasAny(text, ['jeans', 'trouser', 'pants', 'wool', 'denim']) ? 45 : 20;
+    else if (temperature >= 28) score -= 15;
+    else score += 12;
   }
 
-  if (item.category === 'bottoms') {
-    if (temperature <= 10) score += hasAny(text, ['jeans', 'trouser', 'pants', 'wool', 'denim']) ? 42 : 8;
-    else score += hasAny(text, ['skirt', 'short', 'linen']) ? 28 : 14;
+  // Shorts: strongly favoured when it is hot, penalised when it is cold.
+  if (item.category === 'shorts') {
+    if (temperature >= 24) score += 45;
+    else if (temperature <= 14) score -= 25;
+    else score += 10;
   }
 
-  if (item.category === 'shoes') {
-    if (weather.condition === 'rain' || weather.condition === 'snow') {
-      score += hasAny(text, ['boot', 'leather', 'waterproof', 'sneaker']) ? 45 : 4;
-    } else if (temperature >= 26) {
-      score += hasAny(text, ['sandal', 'loafer', 'sneaker']) ? 30 : 10;
-    } else {
-      score += hasAny(text, ['boot', 'sneaker', 'loafer']) ? 28 : 10;
-    }
+  // Dresses: a warm-weather one-piece; mild-to-hot leaning.
+  if (item.category === 'dress') {
+    if (temperature >= 22) score += hasAny(text, ['linen', 'cotton', 'summer', 'sun']) ? 42 : 30;
+    else if (temperature <= 10) score -= 15;
+    else score += 14;
   }
 
   if (weather.condition === 'rain' || weather.condition === 'storm') {
@@ -329,11 +330,11 @@ function writeCachedWeatherCache(nextCachedWeather: CachedWeather) {
 function weatherAdvice(weather: WeatherSummary) {
   const temperature = weather.temperatureC;
 
-  if (temperature <= -1) return 'Layer up heavily: warm outerwear, covered legs, and boots.';
-  if (temperature <= 8) return 'Wear a proper coat or jacket with warm layers.';
-  if (temperature <= 16) return 'A jacket or knit layer will keep the outfit comfortable.';
-  if (temperature >= 29) return 'Keep it breathable: light tops, airy bottoms, and easy shoes.';
-  if (weather.condition === 'rain' || weather.condition === 'storm') return 'Pick rain-safe layers and shoes.';
+  if (temperature <= -1) return 'Bundle up: a warm long-sleeve shirt and pants.';
+  if (temperature <= 8) return 'Go for a knit or long-sleeve shirt with pants.';
+  if (temperature <= 16) return 'A long-sleeve shirt and pants will stay comfortable.';
+  if (temperature >= 29) return 'Keep it breezy: a light shirt with shorts, or a summer dress.';
+  if (weather.condition === 'rain' || weather.condition === 'storm') return 'Favor pants and covered layers to stay dry.';
 
   return 'Comfortable weather: a balanced outfit should work well.';
 }
@@ -341,7 +342,7 @@ function weatherAdvice(weather: WeatherSummary) {
 function recommendationReason(weather: WeatherSummary) {
   const rainText =
     weather.condition === 'rain' || weather.condition === 'storm'
-      ? ' It may be wet, so rain-safe outerwear or shoes are prioritised.'
+      ? ' It may be wet, so covered layers like pants are prioritised.'
       : '';
 
   return `${weather.locationName} is ${weather.temperatureC}°C with ${weather.conditionLabel.toLowerCase()}.${rainText}`;

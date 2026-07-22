@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryId, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 type TripStep = 'destination' | 'bag' | 'activities' | 'results';
@@ -17,7 +17,7 @@ type TripLook = {
   title: string;
 };
 
-const categoryOrder: CategoryId[] = ['tops', 'bottoms', 'outerwear', 'shoes', 'bags', 'accessories'];
+const categoryOrder: CategoryId[] = ['shirt', 'dress', 'shorts', 'pants'];
 const tripDestinations = [
   'Singapore',
   'Vietnam',
@@ -33,6 +33,7 @@ const tripDestinations = [
   'Taipei, Taiwan',
 ];
 const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const tripReminderKey = 'bove-closet-trip-reminder';
 
 export function TripPlannerScreen({
   onNavigate,
@@ -110,6 +111,7 @@ export function TripPlannerScreen({
   }
 
   function closePlanner() {
+    clearTripReminder();
     onNavigate('account');
   }
 
@@ -117,9 +119,7 @@ export function TripPlannerScreen({
     setStep('results');
     setIsGenerating(true);
     setShowPreparedToast(false);
-    if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
-      globalThis.localStorage.setItem('bove-closet-trip-reminder', '1');
-    }
+    saveTripReminder();
     const mustHaveItems = packingItems;
     const generated = generateTripPlan(closetItems, activities, luggageType, mustHaveItems, currentUser?.gender);
 
@@ -636,11 +636,10 @@ function buildTripLooks(items: WardrobeItem[]) {
     .map((seed, index) => ({
       ...seed,
       items: uniqueItems([
-        pickByCategory(items, 'tops', index),
-        pickByCategory(items, 'bottoms', index),
-        pickByCategory(items, 'outerwear', index),
-        pickByCategory(items, 'shoes', index),
-        pickByCategory(items, 'bags', index),
+        pickByCategory(items, 'shirt', index),
+        pickByCategory(items, 'pants', index),
+        pickByCategory(items, 'shorts', index),
+        pickByCategory(items, 'dress', index),
       ]),
     }))
     .filter((look) => look.items.length > 0);
@@ -673,8 +672,8 @@ function scoreTripItem(item: WardrobeItem, activities: string, gender?: 'female'
   const activityText = activities.toLowerCase();
   let score = 0;
 
-  if (item.category === 'tops' || item.category === 'bottoms' || item.category === 'shoes') score += 6;
-  if (item.category === 'bags') score += 5;
+  if (item.category === 'shirt' || item.category === 'pants' || item.category === 'shorts') score += 6;
+  if (item.category === 'dress') score += 5;
   if (gender === 'male' && hasAny(text, ['shirt', 'tee', 'polo', 'trouser', 'pants', 'jeans', 'loafer', 'sneaker', 'jacket'])) score += 5;
   if (gender === 'female' && hasAny(text, ['blouse', 'top', 'skirt', 'dress', 'camisole', 'wide leg', 'heels', 'flats', 'bag'])) score += 5;
   if (activityText.includes('beach') && hasAny(text, ['linen', 'short', 'sandal', 'tank', 'skirt'])) score += 10;
@@ -683,6 +682,18 @@ function scoreTripItem(item: WardrobeItem, activities: string, gender?: 'female'
   if (activityText.includes('work') && hasAny(text, ['blazer', 'shirt', 'trouser', 'loafer'])) score += 10;
 
   return score;
+}
+
+function saveTripReminder() {
+  if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+    globalThis.localStorage.setItem(tripReminderKey, '1');
+  }
+}
+
+function clearTripReminder() {
+  if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+    globalThis.localStorage.removeItem(tripReminderKey);
+  }
 }
 
 function countByCategory(items: WardrobeItem[]) {
@@ -695,12 +706,10 @@ function countByCategory(items: WardrobeItem[]) {
 
 function labelForCategory(category: CategoryId) {
   const labels: Record<CategoryId, string> = {
-    accessories: 'Accessories',
-    bags: 'Bags',
-    bottoms: 'Bottoms',
-    outerwear: 'Outerwear',
-    shoes: 'Shoes',
-    tops: 'Tops',
+    dress: 'Dresses',
+    pants: 'Pants',
+    shirt: 'Shirts',
+    shorts: 'Shorts',
   };
 
   return labels[category];
@@ -838,7 +847,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 28,
     fontWeight: '700',
     marginTop: 28,
@@ -1067,7 +1076,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 26,
     fontWeight: '700',
     marginTop: 30,
@@ -1170,7 +1179,7 @@ const styles = StyleSheet.create({
   },
   tripTitle: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 26,
     fontWeight: '700',
   },
@@ -1305,7 +1314,7 @@ const styles = StyleSheet.create({
   },
   suggestedTitle: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 23,
     fontWeight: '700',
     marginHorizontal: 20,

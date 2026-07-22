@@ -44,8 +44,10 @@ export function getTrainingContext(query: string): TrainingContext {
   const fallbackCategories = uniqueCategories([
     ...inferCategories(outfitExample?.items ?? []),
     ...(occasion?.mustHave ?? []),
-    'outerwear',
-    'accessories',
+    'shirt',
+    'pants',
+    'dress',
+    'shorts',
   ]);
 
   const basisParts = [];
@@ -143,8 +145,8 @@ function parseQueryHint(lowerQuery: string): {
   if (lowerQuery.includes('more casual') || lowerQuery.includes('casualize')) {
     intent = 'styling';
     occasion = occasionRules.find((entry) => entry.id === 'casual') ?? occasion;
-    categories.push('tops', 'bottoms', 'shoes');
-    fallbackCategories.push('outerwear', 'accessories');
+    categories.push('shirt', 'shorts');
+    fallbackCategories.push('pants', 'dress');
   }
 
   if (
@@ -158,29 +160,29 @@ function parseQueryHint(lowerQuery: string): {
   ) {
     intent = 'styling';
     occasion = occasionRules.find((entry) => entry.id === 'formal-event') ?? occasion;
-    categories.push('tops', 'bottoms', 'shoes', 'outerwear');
-    fallbackCategories.push('accessories');
+    categories.push('shirt', 'pants', 'dress');
+    fallbackCategories.push('shorts');
   }
 
   if (lowerQuery.includes('presentation') || lowerQuery.includes('pitch') || lowerQuery.includes('seminar')) {
     intent = 'styling';
     occasion = occasionRules.find((entry) => entry.id === 'presentation') ?? occasion;
-    categories.push('tops', 'bottoms', 'shoes');
-    fallbackCategories.push('outerwear');
+    categories.push('shirt', 'pants');
+    fallbackCategories.push('dress');
     avoid.push('too much contrast');
   }
 
   if (lowerQuery.includes('interview') || lowerQuery.includes('meeting') || lowerQuery.includes('work')) {
     intent = 'styling';
     occasion = occasionRules.find((entry) => entry.id === 'interview') ?? occasion;
-    categories.push('tops', 'bottoms', 'shoes');
-    fallbackCategories.push('outerwear');
+    categories.push('shirt', 'pants');
+    fallbackCategories.push('dress');
     avoid.push('loud prints');
   }
 
   if (lowerQuery.includes('buy') || lowerQuery.includes('shop') || lowerQuery.includes('purchase')) {
     intent = 'shopping';
-    fallbackCategories.push('outerwear', 'accessories', 'shoes', 'bottoms', 'tops');
+    fallbackCategories.push('shirt', 'pants', 'dress', 'shorts');
   }
 
   return {

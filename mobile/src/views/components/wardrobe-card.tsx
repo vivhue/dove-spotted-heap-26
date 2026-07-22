@@ -50,12 +50,10 @@ export function WardrobeCard({
 
 function labelFromCategory(category: WardrobeItem['category']) {
   const labels: Record<WardrobeItem['category'], string> = {
-    accessories: 'Accessories',
-    bags: 'Bags',
-    bottoms: 'Bottoms',
-    outerwear: 'Outerwear',
-    shoes: 'Shoes',
-    tops: 'Tops',
+    shirt: 'Shirt',
+    dress: 'Dress',
+    shorts: 'Shorts',
+    pants: 'Pants',
   };
 
   return labels[category];

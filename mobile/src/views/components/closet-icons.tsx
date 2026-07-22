@@ -11,46 +11,31 @@ type IconProps = {
 };
 
 export function ClosetIcon({
-  category = 'tops',
+  category = 'shirt',
   color = closetTheme.ink,
   accent = closetTheme.camel,
   size = 34,
 }: IconProps) {
-  if (category === 'bottoms') {
+  if (category === 'pants' || category === 'shorts') {
     return (
       <View style={[styles.iconBox, { width: size, height: size }]}>
         <View style={[styles.waist, { backgroundColor: color }]} />
         <View style={styles.legRow}>
-          <View style={[styles.leg, { backgroundColor: color }]} />
-          <View style={[styles.leg, { backgroundColor: color }]} />
+          <View style={[styles.leg, category === 'shorts' && styles.legShort, { backgroundColor: color }]} />
+          <View style={[styles.leg, category === 'shorts' && styles.legShort, { backgroundColor: color }]} />
         </View>
       </View>
     );
   }
 
-  if (category === 'shoes') {
+  if (category === 'dress') {
     return (
       <View style={[styles.iconBox, { width: size, height: size }]}>
-        <View style={[styles.shoe, { backgroundColor: color }]} />
-        <View style={[styles.shoeBase, { backgroundColor: accent }]} />
-      </View>
-    );
-  }
-
-  if (category === 'bags') {
-    return (
-      <View style={[styles.iconBox, { width: size, height: size }]}>
-        <View style={[styles.bagHandle, { borderColor: color }]} />
-        <View style={[styles.bagBody, { backgroundColor: color }]} />
-      </View>
-    );
-  }
-
-  if (category === 'accessories') {
-    return (
-      <View style={[styles.iconBox, { width: size, height: size }]}>
-        <View style={[styles.chain, { borderColor: accent }]} />
-        <View style={[styles.gem, { backgroundColor: color }]} />
+        <View style={[styles.sleeve, styles.leftSleeve, { backgroundColor: color }]} />
+        <View style={[styles.sleeve, styles.rightSleeve, { backgroundColor: color }]} />
+        <View style={[styles.dressBody, { backgroundColor: color }]}>
+          <View style={[styles.collar, { borderTopColor: accent }]} />
+        </View>
       </View>
     );
   }
@@ -99,6 +84,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
   },
+  dressBody: {
+    width: '58%',
+    height: '74%',
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
   sleeve: {
     position: 'absolute',
     top: '22%',
@@ -140,47 +135,8 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 7,
     borderBottomRightRadius: 7,
   },
-  shoe: {
-    width: '62%',
-    height: '34%',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 8,
-    borderBottomLeftRadius: 8,
-    marginTop: 6,
-    transform: [{ rotate: '-8deg' }],
-  },
-  shoeBase: {
-    width: '72%',
-    height: 5,
-    borderRadius: 5,
-    marginTop: 1,
-  },
-  bagHandle: {
-    width: '44%',
-    height: '30%',
-    borderWidth: 3,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    marginBottom: -1,
-  },
-  bagBody: {
-    width: '68%',
-    height: '52%',
-    borderRadius: 7,
-  },
-  chain: {
-    width: '58%',
-    height: '58%',
-    borderRadius: 24,
-    borderWidth: 4,
-  },
-  gem: {
-    borderRadius: 8,
-    height: '24%',
-    marginTop: -6,
-    transform: [{ rotate: '45deg' }],
-    width: '24%',
+  legShort: {
+    maxHeight: '55%',
   },
   lineIcon: {
     fontSize: 18,

@@ -1,5 +1,0 @@
-mediapipe
-opencv-python
-rembg[cpu]
-numpy
-Pillow

@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { AvatarChoice, CategoryId, ClosetAccount, WardrobeItem } from '@/models/closet';
-import { getClosetItems } from '@/services/closet-api';
+import { getGarments } from '@/services/closet-api';
 
 export type SelectedOutfit = Record<CategoryId, string | null>;
 
@@ -24,8 +24,8 @@ type ClosetStoreValue = {
   selfieImageUrl: string;
   setSelfieImageUrl: (url: string) => void;
   signUp: (username: string, password: string, gender: ClosetAccount['gender']) => AuthResult;
-  toggleWornItem: (item: WardrobeItem) => void;
   updateAccountAvatar: (avatar: AvatarChoice) => void;
+  toggleWornItem: (item: WardrobeItem) => void;
   wishlistItems: WardrobeItem[];
 };
 
@@ -35,12 +35,10 @@ const closetItemsStoragePrefix = 'bove-closet-items';
 const currentUserStorageKey = 'bove-closet-current-user';
 
 const initialSelectedOutfit: SelectedOutfit = {
-  accessories: null,
-  bags: null,
-  bottoms: null,
-  outerwear: null,
-  shoes: null,
-  tops: null,
+  shirt: null,
+  dress: null,
+  shorts: null,
+  pants: null,
 };
 
 function canUseLocalStorage() {
@@ -149,7 +147,7 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
     setItemsError('');
 
     try {
-      const freshItems = await getClosetItems(currentUserId);
+      const freshItems = await getGarments(currentUserId);
       setItems(freshItems);
       saveCachedClosetItems(currentUserId, freshItems);
     } catch (error) {
@@ -240,6 +238,10 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
       signUp: (username, password, gender) => {
         const cleanedUsername = normalizeUsername(username);
 
+        if (!gender) {
+          return { ok: false, message: 'Choose male or female so recommendations fit better.' };
+        }
+
         if (cleanedUsername.length < 3) {
           return { ok: false, message: 'Use at least 3 characters for your username.' };
         }
@@ -248,17 +250,13 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
           return { ok: false, message: 'Use at least 6 characters for your password.' };
         }
 
-        if (!gender) {
-          return { ok: false, message: 'Choose male or female so recommendations fit better.' };
-        }
-
         if (accounts.some((account) => account.username.toLowerCase() === cleanedUsername.toLowerCase())) {
           return { ok: false, message: 'That username is already taken.' };
         }
 
         const nextAccount: ClosetAccount = {
-          createdAt: new Date().toISOString(),
           avatar: 'shirt',
+          createdAt: new Date().toISOString(),
           gender,
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           password,
@@ -270,12 +268,6 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
 
         return { ok: true, message: `Account created for ${nextAccount.username}.` };
       },
-      toggleWornItem: (item) => {
-        setSelectedOutfit((currentOutfit) => ({
-          ...currentOutfit,
-          [item.category]: currentOutfit[item.category] === item.id ? null : item.id,
-        }));
-      },
       updateAccountAvatar: (avatar) => {
         if (!currentUserId) {
           return;
@@ -286,6 +278,12 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
             account.id === currentUserId ? { ...account, avatar } : account
           )
         );
+      },
+      toggleWornItem: (item) => {
+        setSelectedOutfit((currentOutfit) => ({
+          ...currentOutfit,
+          [item.category]: currentOutfit[item.category] === item.id ? null : item.id,
+        }));
       },
       wishlistItems,
     };

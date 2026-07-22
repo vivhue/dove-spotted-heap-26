@@ -17,8 +17,8 @@ import {
   WeatherSummary,
 } from '@/services/weather-recommendation';
 import { useClosetStore } from '@/stores/closet-store';
-import { AppScreen, AvatarButton, initialForUsername, NotificationButton, useAppNotifications } from '@/views/components/app-chrome';
-import { closetTheme } from '@/views/components/closet-theme';
+import { AppScreen, AvatarButton, initialForUsername, NotificationButton, NotificationMenu, useAppNotifications } from '@/views/components/app-chrome';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { CalendarIcon, ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 type Props = {
@@ -40,9 +40,10 @@ export function HomeScreen({
   const [weatherVariant, setWeatherVariant] = useState(0);
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const hasLoadedInitialWeather = useRef(false);
   const { applyOutfit, closetItems, currentUser, selectedOutfit, toggleWornItem } = useClosetStore();
-  const notifications = useAppNotifications(currentUser?.username);
+  const notifications = useAppNotifications(currentUser?.username, closetItems.length);
   const hasUnreadNotification = notifications.some((notification) => !readNotificationIds.includes(notification.id));
   const featuredItems = closetItems;
   const greeting = greetingForTime(currentDate);
@@ -181,7 +182,10 @@ export function HomeScreen({
           <View style={styles.topActions}>
             <NotificationButton
               unread={hasUnreadNotification}
-              onPress={() => setReadNotificationIds(notifications.map((notification) => notification.id))}
+              onPress={() => {
+                setIsNotificationsOpen((isOpen) => !isOpen);
+                setReadNotificationIds(notifications.map((notification) => notification.id));
+              }}
             />
             <AvatarButton
               avatar={currentUser?.avatar ?? 'shirt'}
@@ -189,6 +193,7 @@ export function HomeScreen({
               onPress={() => onNavigate('account')}
             />
           </View>
+          {isNotificationsOpen && <NotificationMenu notifications={notifications} />}
         </View>
 
         <View style={styles.weatherCard}>
@@ -260,7 +265,6 @@ export function HomeScreen({
           <View style={styles.stageBackground} />
           <View style={styles.heroCopy}>
             <Text style={styles.heroTitle}>Try clothes on your real photo</Text>
-            <Text style={styles.heroText}>Pick one item per category, then render the outfit onto your own full-body photo.</Text>
           </View>
           <Pressable style={styles.browseHotspot} onPress={() => onNavigate('try-on')}>
             <LineIcon name="✦" color={closetTheme.camelDeep} />
@@ -382,10 +386,13 @@ const styles = StyleSheet.create({
   },
   topbar: {
     alignItems: 'center',
+    elevation: 60,
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: 22,
     paddingTop: 8,
+    position: 'relative',
+    zIndex: 60,
   },
   weatherText: {
     color: closetTheme.ink,
@@ -393,7 +400,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   weatherSmall: {
-    color: '#9B8D77',
+    color: closetTheme.muted,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -432,33 +439,27 @@ const styles = StyleSheet.create({
     top: 18,
   },
   heroCopy: {
-    gap: 9,
     paddingHorizontal: 42,
+    position: 'absolute',
+    top: 48,
     zIndex: 2,
   },
   heroTitle: {
     color: closetTheme.ink,
-    fontFamily: 'serif',
+    ...closetTypography.text,
     fontSize: 25,
     fontWeight: '700',
     textAlign: 'center',
   },
-  heroText: {
-    color: closetTheme.muted,
-    fontSize: 12,
-    fontWeight: '800',
-    lineHeight: 18,
-    textAlign: 'center',
-  },
   browseHotspot: {
     alignItems: 'center',
-    backgroundColor: 'rgba(43, 33, 24, 0.08)',
-    borderColor: 'rgba(43, 33, 24, 0.1)',
+    backgroundColor: 'rgba(47, 95, 143, 0.12)',
+    borderColor: 'rgba(47, 95, 143, 0.18)',
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 7,
-    bottom: 28,
+    bottom: 42,
     paddingHorizontal: 14,
     paddingVertical: 8,
     position: 'absolute',
@@ -496,6 +497,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 14,
     padding: 12,
+    zIndex: 0,
   },
   weatherCardHeader: {
     alignItems: 'flex-start',
