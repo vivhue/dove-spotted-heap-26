@@ -17,11 +17,18 @@ export const closetTheme = {
   night: '#08172A',
 };
 
+export const closetPaperBackground = {
+  backgroundColor: closetTheme.cream,
+  experimental_backgroundImage:
+    'linear-gradient(rgba(47,95,143,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(47,95,143,0.08) 1px, transparent 1px)',
+  backgroundSize: '16px 16px',
+} as const;
+
 const appFontFamily = Platform.select({
-  android: 'sans-serif',
-  ios: 'System',
-  web: 'Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif',
-  default: 'sans-serif',
+  android: 'monospace',
+  ios: 'Menlo',
+  web: '"Courier New", "Lucida Console", Monaco, ui-monospace, monospace',
+  default: 'monospace',
 });
 
 export const closetTypography = {

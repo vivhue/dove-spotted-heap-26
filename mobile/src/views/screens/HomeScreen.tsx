@@ -1,25 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Image,
+  ImageSourcePropType,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 
-import {
-  browseCategories,
-  CategoryId,
-  currentUserDisplayName,
-  ScreenId,
-  WardrobeItem,
-} from '@/models/closet';
-import {
-  getCachedWeatherRecommendation,
-  getCachedWeatherSummary,
-  getCurrentWeather,
-  getWeatherOutfitRecommendation,
-  WeatherOutfitRecommendation,
-  WeatherSummary,
-} from '@/services/weather-recommendation';
+import { CategoryId, defaultPixelAvatar, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
-import { AppScreen, AvatarButton, initialForUsername, NotificationButton, NotificationMenu, useAppNotifications } from '@/views/components/app-chrome';
-import { closetTheme, closetTypography } from '@/views/components/closet-theme';
-import { CalendarIcon, ClosetIcon, LineIcon } from '@/views/components/closet-icons';
+import { AppScreen } from '@/views/components/app-chrome';
+import { PixelAvatar } from '@/views/components/pixel-avatar';
 
 type Props = {
   activeCategory: CategoryId;
@@ -27,747 +21,824 @@ type Props = {
   onNavigate: (screen: ScreenId) => void;
 };
 
-export function HomeScreen({
-  onCategoryChange,
-  onNavigate,
-}: Props) {
-  const [surpriseIndex, setSurpriseIndex] = useState(0);
-  const [weatherLocation, setWeatherLocation] = useState('Singapore');
-  const [weatherSummary, setWeatherSummary] = useState<WeatherSummary | null>(() => getCachedWeatherSummary('Singapore'));
-  const [weatherRecommendation, setWeatherRecommendation] = useState<WeatherOutfitRecommendation | null>(null);
-  const [weatherError, setWeatherError] = useState('');
-  const [isRecommending, setIsRecommending] = useState(false);
-  const [weatherVariant, setWeatherVariant] = useState(0);
-  const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const hasLoadedInitialWeather = useRef(false);
-  const { applyOutfit, closetItems, currentUser, selectedOutfit, toggleWornItem } = useClosetStore();
-  const notifications = useAppNotifications(currentUser?.username, closetItems.length);
-  const hasUnreadNotification = notifications.some((notification) => !readNotificationIds.includes(notification.id));
-  const featuredItems = closetItems;
-  const greeting = greetingForTime(currentDate);
-  const timeLabel = formatClockTime(currentDate);
-  const shownWeather = weatherRecommendation?.weather ?? weatherSummary;
-  const weatherHeadline = shownWeather
-    ? weatherHeadlineFor(shownWeather)
-    : 'Check today\'s weather';
-  const weatherDisplayItems = useMemo(
-    () => (weatherRecommendation ? weatherRecommendation.selectedItems : closetItems).slice(0, 3),
-    [closetItems, weatherRecommendation]
-  );
-  const categoriesWithItems = useMemo(
-    () =>
-      browseCategories
-        .map((category) => ({
-          ...category,
-          items: closetItems.filter((item) => item.category === category.id),
-        }))
-        .filter((category) => category.items.length > 0),
-    [closetItems]
-  );
+const stylistSpots = [
+  { left: 74, top: 448, zIndex: 16 },
+  { left: 256, top: 506, zIndex: 16 },
+  { left: 134, top: 340, zIndex: 7 },
+  { left: 286, top: 292, zIndex: 18 },
+];
+
+const homeRoomImages: ImageSourcePropType[] = [
+  require('../../../assets/images/home.png'),
+  require('../../../assets/images/home - right.png'),
+  require('../../../assets/images/image 52.png'),
+];
+
+export function HomeScreen({ onNavigate }: Props) {
+  const [avatarPose, setAvatarPose] = useState<'idle' | 'wave'>('idle');
+  const [roomIndex, setRoomIndex] = useState(0);
+  const [stylistSpot, setStylistSpot] = useState(0);
+  const roomOpacity = useRef(new Animated.Value(1)).current;
+  const roomSlideX = useRef(new Animated.Value(0)).current;
+  const { currentUser } = useClosetStore();
+  const pixelAvatar = { ...defaultPixelAvatar, ...(currentUser?.pixelAvatar ?? {}) };
+  const stylistPosition = stylistSpots[stylistSpot % stylistSpots.length];
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentDate(new Date()), 30000);
+    const timer = setInterval(() => {
+      setStylistSpot((spot) => (spot + 1) % stylistSpots.length);
+      setAvatarPose((pose) => (pose === 'idle' ? 'wave' : 'idle'));
+    }, 1700);
 
     return () => clearInterval(timer);
   }, []);
 
-  function surpriseMe() {
-    if (featuredItems.length === 0) {
-      return;
-    }
-
-    const nextIndex = (surpriseIndex + 1) % featuredItems.length;
-    setSurpriseIndex(nextIndex);
-    onCategoryChange(featuredItems[nextIndex].category);
+  function openStylistChat() {
+    onNavigate('discover');
   }
 
-  async function recommendForWeather(nextVariant = weatherVariant, options: { silent?: boolean } = {}) {
-    if (closetItems.length === 0) {
-      setWeatherError('Add a few closet items first, then I can recommend from them.');
+  function openRoomTarget() {
+    if (roomIndex === 1) {
+      onNavigate('try-on');
       return;
     }
 
-    try {
-      if (!options.silent) {
-        setIsRecommending(true);
-      }
-      setWeatherError('');
-      const result = await getWeatherOutfitRecommendation(weatherLocation, closetItems, nextVariant);
-      setWeatherSummary(result.weather);
-      setWeatherRecommendation(result);
-      setWeatherVariant(nextVariant);
-    } catch (error) {
-      if (!options.silent) {
-        setWeatherRecommendation(null);
-      }
-      setWeatherError(error instanceof Error ? error.message : 'Could not get the weather recommendation.');
-    } finally {
-      if (!options.silent) {
-        setIsRecommending(false);
-      }
+    if (roomIndex === 2) {
+      onNavigate('calendar');
+      return;
     }
+
+    onNavigate('closet');
   }
 
-  useEffect(() => {
-    if (hasLoadedInitialWeather.current) {
-      return;
-    }
+  function showRoom(direction: -1 | 1) {
+    roomSlideX.stopAnimation();
+    roomOpacity.stopAnimation();
+    roomSlideX.setValue(direction * 72);
+    roomOpacity.setValue(0.72);
+    setRoomIndex((index) => (index + direction + homeRoomImages.length) % homeRoomImages.length);
 
-    let isActive = true;
-    hasLoadedInitialWeather.current = true;
-    const cached = getCachedWeatherSummary(weatherLocation);
+    Animated.parallel([
+      Animated.timing(roomSlideX, {
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        toValue: 0,
+        useNativeDriver: false,
+      }),
+      Animated.timing(roomOpacity, {
+        duration: 180,
+        easing: Easing.out(Easing.quad),
+        toValue: 1,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }
 
-    if (cached) {
-      setWeatherSummary(cached);
-    }
+  function showPreviousRoom() {
+    showRoom(-1);
+  }
 
-    getCurrentWeather(weatherLocation)
-      .then((weather) => {
-        if (isActive) {
-          setWeatherSummary(weather);
-        }
-      })
-      .catch((error) => {
-        if (isActive) {
-          setWeatherError(error instanceof Error ? error.message : 'Could not load current weather.');
-        }
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [weatherLocation]);
-
-  useEffect(() => {
-    if (closetItems.length === 0 || weatherRecommendation) {
-      return;
-    }
-
-    const cached = getCachedWeatherRecommendation(weatherLocation, closetItems, 0);
-
-    if (cached) {
-      setWeatherSummary(cached.weather);
-      setWeatherRecommendation(cached);
-      return;
-    }
-
-    recommendForWeather(0, { silent: true });
-  }, [closetItems.length, weatherRecommendation, weatherLocation]);
-
-  function wearRecommendedOutfit() {
-    if (!weatherRecommendation) {
-      return;
-    }
-
-    applyOutfit(weatherRecommendation.outfit);
-    const firstItem = weatherRecommendation.selectedItems[0];
-
-    if (firstItem) {
-      onCategoryChange(firstItem.category);
-    }
-
-    onNavigate('try-on');
+  function showNextRoom() {
+    showRoom(1);
   }
 
   return (
-    <AppScreen activeTab="home" onNavigate={onNavigate}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <View style={styles.topbar}>
-          <Pressable style={styles.calendarButton} onPress={() => onNavigate('calendar')}>
-            <CalendarIcon color={closetTheme.ink} size={22} />
-          </Pressable>
-          <View style={styles.spacer} />
-          <View style={styles.topActions}>
-            <NotificationButton
-              unread={hasUnreadNotification}
-              onPress={() => {
-                setIsNotificationsOpen((isOpen) => !isOpen);
-                setReadNotificationIds(notifications.map((notification) => notification.id));
-              }}
-            />
-            <AvatarButton
-              avatar={currentUser?.avatar ?? 'shirt'}
-              initial={initialForUsername(currentUser?.username)}
-              onPress={() => onNavigate('account')}
-            />
-          </View>
-          {isNotificationsOpen && <NotificationMenu notifications={notifications} />}
+    <AppScreen activeTab="home" bottomNavOverlay onNavigate={onNavigate} showStatus={false}>
+      <View style={styles.room}>
+        <Pressable style={styles.roomTapTarget} onPress={openRoomTarget}>
+          <Animated.View style={[styles.roomSlide, { opacity: roomOpacity, transform: [{ translateX: roomSlideX }] }]}>
+            <PixelRoom source={homeRoomImages[roomIndex]} />
+          </Animated.View>
+        </Pressable>
+        <View
+          style={[
+            styles.stylistAvatar,
+            {
+              left: stylistPosition.left,
+              top: stylistPosition.top,
+              zIndex: stylistPosition.zIndex,
+            },
+          ]}>
+          <PixelAvatar config={pixelAvatar} interactive pose={avatarPose} scale={0.42} onPress={openStylistChat} />
         </View>
-
-        <View style={styles.weatherCard}>
-          <View style={styles.weatherCardHeader}>
-            <View style={styles.weatherHeaderCopy}>
-              <Text style={styles.weatherCardLabel}>today&apos;s pick</Text>
-              <Text numberOfLines={2} style={styles.weatherCardTitle}>{weatherHeadline}</Text>
-            </View>
-            <View style={styles.weatherSummary}>
-              <View style={styles.weatherTempRow}>
-                <LineIcon name={weatherIcon(shownWeather?.condition)} color={closetTheme.ink} />
-                <Text style={styles.weatherText}>{shownWeather ? `${shownWeather.temperatureC}°` : '--°'}</Text>
-              </View>
-              <TextInput
-                autoCapitalize="words"
-                placeholder="Location"
-                placeholderTextColor={closetTheme.muted}
-                style={styles.weatherLocationInput}
-                value={weatherLocation}
-                onChangeText={setWeatherLocation}
-                onSubmitEditing={() => recommendForWeather(0)}
-                returnKeyType="go"
-              />
-            </View>
-          </View>
-
-          <Text numberOfLines={2} style={styles.recommendationAdvice}>
-            {weatherRecommendation ? weatherRecommendation.advice : 'Tap recommend to pick real pieces from your closet.'}
-          </Text>
-
-          <View style={styles.recommendedItems}>
-            {weatherDisplayItems.length > 0 ? (
-              weatherDisplayItems.map((item) => <WeatherItemTile key={item.id} item={item} />)
-            ) : (
-              <View style={styles.emptyWeatherTile}>
-                <Text style={styles.emptyWeatherTileText}>Add closet items to see them here</Text>
-              </View>
-            )}
-          </View>
-
-          {weatherError ? <Text style={styles.weatherError}>{weatherError}</Text> : null}
-
-          <View style={styles.weatherActions}>
-            <Pressable
-              disabled={isRecommending}
-              style={({ pressed }) => [styles.weatherButton, pressed && styles.buttonPressed, isRecommending && styles.weatherButtonDisabled]}
-              onPress={() => recommendForWeather(weatherRecommendation ? weatherVariant + 1 : 0)}>
-              {isRecommending ? <ActivityIndicator color={closetTheme.cream} /> : <LineIcon name="↻" color={closetTheme.cream} />}
-              <Text style={styles.weatherButtonText}>{isRecommending ? 'Checking' : weatherRecommendation ? 'Try another' : 'Recommend outfit'}</Text>
-            </Pressable>
-            {weatherRecommendation && (
-              <Pressable style={({ pressed }) => [styles.wearButton, pressed && styles.buttonPressed]} onPress={wearRecommendedOutfit}>
-                <LineIcon name="✓" color={closetTheme.ink} />
-                <Text style={styles.wearButtonText}>Wear this</Text>
-              </Pressable>
-            )}
-          </View>
-
-          {weatherRecommendation?.missingCategories.length ? (
-            <Text style={styles.missingText}>Missing: {weatherRecommendation.missingCategories.join(', ')}</Text>
-          ) : null}
-
-          <Text style={styles.weatherTime}>
-            {greeting}, {currentUserDisplayName} - {timeLabel}
-          </Text>
-        </View>
-
-        <View style={styles.stage}>
-          <View style={styles.stageBackground} />
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroTitle}>Try clothes on your real photo</Text>
-          </View>
-          <Pressable style={styles.browseHotspot} onPress={() => onNavigate('try-on')}>
-            <LineIcon name="✦" color={closetTheme.camelDeep} />
-            <Text style={styles.browseHotspotText}>Open try-on</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.shuffleRow}>
-          <Pressable style={({ pressed }) => [styles.shuffleButton, pressed && styles.buttonPressed]} onPress={surpriseMe}>
-            <LineIcon name="⇄" color={closetTheme.camel} />
-            <Text style={styles.shuffleText}>surprise me</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.categorySections}>
-          {categoriesWithItems.map((category) => (
-            <View key={category.id} style={styles.categorySection}>
-              <View style={styles.categoryHeader}>
-                <Text style={styles.categoryTitle}>{category.label}</Text>
-                <Text style={styles.categoryCount}>{category.items.length}</Text>
-              </View>
-              <View style={styles.itemGrid}>
-                {category.items.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => {
-                      toggleWornItem(item);
-                      onCategoryChange(item.category);
-                    }}
-                    style={({ pressed }) => [
-                      styles.itemTile,
-                      selectedOutfit[item.category] === item.id && styles.itemTileSelected,
-                      pressed && styles.swatchPressed,
-                    ]}>
-                    <View style={styles.itemThumb}>
-                      {item.imageUrl ? (
-                        <Image source={{ uri: item.imageUrl }} style={styles.itemImage} resizeMode="contain" />
-                      ) : (
-                        <ClosetIcon category={item.category} color={item.color} accent={item.accent} size={32} />
-                      )}
-                    </View>
-                    <Text numberOfLines={2} style={styles.itemName}>
-                      {item.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+        {roomIndex === 2 && (
+          <Pressable
+            accessibilityLabel="Open planner"
+            style={styles.calendarHotspot}
+            onPress={() => onNavigate('calendar')}
+          />
+        )}
+        <Pressable accessibilityLabel="Previous home scene" style={[styles.arrowButton, styles.arrowLeft]} onPress={showPreviousRoom}>
+          <PixelArrow direction="left" />
+        </Pressable>
+        <Pressable accessibilityLabel="Next home scene" style={[styles.arrowButton, styles.arrowRight]} onPress={showNextRoom}>
+          <PixelArrow direction="right" />
+        </Pressable>
+      </View>
     </AppScreen>
   );
 }
 
-function WeatherItemTile({ item }: { item: WardrobeItem }) {
+function PixelRoom({ source }: { source: ImageSourcePropType }) {
   return (
-    <View style={styles.recommendedTile}>
-      <View style={styles.recommendedTileImageWrap}>
-        {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={styles.recommendedTileImage} resizeMode="contain" />
-        ) : (
-          <ClosetIcon category={item.category} color={item.color} accent={item.accent} size={30} />
-        )}
-      </View>
-      <Text numberOfLines={2} style={styles.recommendedTileText}>
-        {item.name}
-      </Text>
+    <Image source={source} resizeMode="cover" style={styles.roomImage} />
+  );
+}
+
+function PixelArrow({ direction }: { direction: 'left' | 'right' }) {
+  const blocks = direction === 'left'
+    ? [
+        { x: 2, y: 0 },
+        { x: 1, y: 1 },
+        { x: 0, y: 2 },
+        { x: 1, y: 3 },
+        { x: 2, y: 4 },
+        { x: 3, y: 2 },
+      ]
+    : [
+        { x: 1, y: 0 },
+        { x: 2, y: 1 },
+        { x: 3, y: 2 },
+        { x: 2, y: 3 },
+        { x: 1, y: 4 },
+        { x: 0, y: 2 },
+      ];
+
+  return (
+    <View style={styles.pixelArrow}>
+      {blocks.map((block) => (
+        <View key={`${block.x}-${block.y}`} style={[styles.pixelArrowBlock, { left: block.x * 7, top: block.y * 7 }]} />
+      ))}
     </View>
   );
 }
 
-function weatherIcon(condition?: WeatherOutfitRecommendation['weather']['condition']) {
-  if (condition === 'rain') return '☂';
-  if (condition === 'snow') return '❄';
-  if (condition === 'storm') return '☇';
-  if (condition === 'cloudy' || condition === 'fog') return '☁';
-  return '☁';
+function DoorPanel() {
+  return (
+    <>
+      <View style={styles.doorPanelOuter} />
+      <View style={styles.doorPanelInner} />
+      <View style={styles.woodPixelOne} />
+      <View style={styles.woodPixelTwo} />
+      <View style={styles.woodPixelThree} />
+    </>
+  );
 }
 
-function weatherHeadlineFor(weather: WeatherSummary) {
-  const temperature = weather.temperatureC;
-
-  if (temperature <= 0) return 'Warm layers, it is freezing';
-  if (temperature <= 12) return 'Bundle up, it is cold';
-  if (temperature <= 20) return 'Light layers, it is cool';
-  if (temperature >= 29) return 'Keep it breezy, it is hot';
-  if (weather.condition === 'rain' || weather.condition === 'storm') {
-    return 'Rain-ready pieces today';
-  }
-
-  return 'Light layers, it is warm';
-}
-
-function greetingForTime(date: Date) {
-  const hour = date.getHours();
-
-  if (hour < 12) {
-    return 'Good morning';
-  }
-
-  if (hour < 18) {
-    return 'Good afternoon';
-  }
-
-  return 'Good evening';
-}
-
-function formatClockTime(date: Date) {
-  return date.toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
+const wood = '#7D3300';
+const woodDark = '#3A1600';
+const woodMid = '#A55212';
+const woodLight = '#D19558';
+const gold = '#E4B94B';
+const roomCream = '#F3D59E';
 
 const styles = StyleSheet.create({
-  content: {
-    paddingBottom: 18,
-  },
-  topbar: {
-    alignItems: 'center',
-    elevation: 60,
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 22,
-    paddingTop: 8,
+  room: {
+    backgroundColor: roomCream,
+    flex: 1,
+    minHeight: 690,
+    overflow: 'hidden',
     position: 'relative',
-    zIndex: 60,
   },
-  weatherText: {
-    color: closetTheme.ink,
-    fontSize: 22,
-    fontWeight: '900',
+  roomTapTarget: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
-  weatherSmall: {
-    color: closetTheme.muted,
-    fontSize: 12,
-    fontWeight: '800',
+  roomSlide: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
-  calendarButton: {
+  roomImage: {
+    height: '100%',
+    left: 0,
+    position: 'absolute',
+    top: 0,
+    width: '100%',
+    ...(Platform.OS === 'web'
+      ? {
+          imageRendering: 'pixelated',
+        }
+      : null),
+  },
+  arrowButton: {
     alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 16,
-    borderWidth: 1,
-    height: 44,
+    backgroundColor: '#FFF4DF',
+    borderColor: '#774530',
+    borderRadius: 4,
+    borderWidth: 4,
+    height: 50,
     justifyContent: 'center',
+    marginTop: -25,
+    position: 'absolute',
+    top: '52%',
+    width: 38,
+    zIndex: 40,
+  },
+  arrowLeft: {
+    left: 10,
+  },
+  arrowRight: {
+    right: 10,
+  },
+  calendarHotspot: {
+    height: '22%',
+    left: '14%',
+    position: 'absolute',
+    top: '22%',
+    width: '44%',
+    zIndex: 45,
+  },
+  pixelArrow: {
+    height: 35,
+    position: 'relative',
+    width: 28,
+  },
+  pixelArrowBlock: {
+    backgroundColor: '#774530',
+    height: 7,
+    position: 'absolute',
+    width: 7,
+  },
+  wall: {
+    backgroundColor: '#F4DCA9',
+    height: 296,
+    left: 0,
+    overflow: 'hidden',
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  ceiling: {
+    backgroundColor: '#E7BE75',
+    borderBottomColor: '#C28A49',
+    borderBottomWidth: 4,
+    height: 58,
+    left: -20,
+    position: 'absolute',
+    right: -20,
+    top: 0,
+    transform: [{ skewX: '-28deg' }],
+  },
+  ceilingLineOne: {
+    backgroundColor: '#B97937',
+    height: 3,
+    left: 18,
+    position: 'absolute',
+    right: -12,
+    top: 18,
+    transform: [{ skewX: '-28deg' }],
+  },
+  ceilingLineTwo: {
+    backgroundColor: '#F7E4BC',
+    height: 4,
+    left: -24,
+    position: 'absolute',
+    right: 60,
+    top: 42,
+    transform: [{ skewX: '-28deg' }],
+  },
+  cornerColumn: {
+    backgroundColor: '#E9C58D',
+    borderLeftColor: '#CA955F',
+    borderLeftWidth: 4,
+    height: 250,
+    position: 'absolute',
+    right: 102,
+    top: 46,
+    width: 24,
+  },
+  wallPanelLeft: {
+    borderColor: '#C9955C',
+    borderWidth: 3,
+    height: 96,
+    left: 176,
+    position: 'absolute',
+    top: 92,
+    width: 56,
+  },
+  wallPanelRight: {
+    borderColor: '#D7A96B',
+    borderWidth: 3,
+    height: 104,
+    position: 'absolute',
+    right: 32,
+    top: 76,
+    width: 74,
+  },
+  wallStripe: {
+    backgroundColor: 'rgba(255,255,255,0.24)',
+    height: 290,
+    position: 'absolute',
+    top: 12,
+    transform: [{ skewX: '-22deg' }],
+    width: 3,
+  },
+  window: {
+    borderColor: '#D0A06B',
+    borderWidth: 4,
+    height: 116,
+    position: 'absolute',
+    right: -8,
+    top: 74,
+    width: 84,
+  },
+  windowLightOne: {
+    backgroundColor: 'rgba(255,252,226,0.7)',
+    height: 72,
+    left: 8,
+    position: 'absolute',
+    top: 12,
+    width: 24,
+  },
+  windowLightTwo: {
+    backgroundColor: 'rgba(255,246,190,0.52)',
+    height: 90,
+    position: 'absolute',
+    right: 10,
+    top: 8,
+    width: 18,
+  },
+  windowCrossHorizontal: {
+    backgroundColor: '#D0A06B',
+    height: 4,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 52,
+  },
+  windowCrossVertical: {
+    backgroundColor: '#D0A06B',
+    bottom: 0,
+    left: 38,
+    position: 'absolute',
+    top: 0,
+    width: 4,
+  },
+  lamp: {
+    height: 124,
+    left: 242,
+    position: 'absolute',
+    top: 150,
     width: 44,
   },
-  spacer: {
-    flex: 1,
-  },
-  topActions: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-  },
-  stage: {
-    alignItems: 'center',
-    height: 198,
-    justifyContent: 'center',
-    marginTop: 10,
-    position: 'relative',
-  },
-  stageBackground: {
-    backgroundColor: closetTheme.creamDeep,
-    borderRadius: 28,
-    bottom: 18,
-    left: 28,
+  lampShade: {
+    backgroundColor: '#F1D594',
+    borderColor: '#7D4A28',
+    borderWidth: 3,
+    height: 28,
+    left: 7,
     position: 'absolute',
-    right: 28,
-    top: 18,
-  },
-  heroCopy: {
-    paddingHorizontal: 42,
-    position: 'absolute',
-    top: 48,
+    top: 0,
+    transform: [{ skewX: '-8deg' }],
+    width: 30,
     zIndex: 2,
   },
-  heroTitle: {
-    color: closetTheme.ink,
-    ...closetTypography.text,
-    fontSize: 25,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  browseHotspot: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(47, 95, 143, 0.12)',
-    borderColor: 'rgba(47, 95, 143, 0.18)',
-    borderRadius: 18,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 7,
-    bottom: 42,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  lampGlow: {
+    backgroundColor: 'rgba(255,232,159,0.28)',
+    height: 42,
+    left: 0,
     position: 'absolute',
+    top: 18,
+    transform: [{ skewX: '-10deg' }],
+    width: 44,
+  },
+  lampPole: {
+    backgroundColor: '#5B382A',
+    height: 86,
+    left: 20,
+    position: 'absolute',
+    top: 25,
+    width: 4,
+  },
+  lampBase: {
+    backgroundColor: '#5B382A',
+    height: 5,
+    left: 8,
+    position: 'absolute',
+    top: 108,
+    width: 30,
+  },
+  floor: {
+    backgroundColor: '#A76530',
+    bottom: 0,
+    height: 432,
+    left: -42,
+    overflow: 'hidden',
+    position: 'absolute',
+    right: -42,
+    top: 258,
+    transform: [{ skewY: '-8deg' }],
+  },
+  floorBoard: {
+    backgroundColor: '#6A2D0D',
+    height: 3,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
+  floorSlant: {
+    backgroundColor: '#6F3211',
+    height: 520,
+    position: 'absolute',
+    top: -42,
+    transform: [{ rotateZ: '-22deg' }],
+    width: 3,
+  },
+  floorHighlight: {
+    backgroundColor: 'rgba(238,177,91,0.42)',
+    height: 5,
+    left: 160,
+    position: 'absolute',
+    top: 92,
+    transform: [{ rotateZ: '-19deg' }],
+    width: 210,
+  },
+  tinyPaper: {
+    backgroundColor: '#D4C4B1',
+    height: 18,
+    left: 292,
+    position: 'absolute',
+    top: 210,
+    transform: [{ rotateZ: '-17deg' }],
+    width: 22,
+  },
+  wardrobeShadow: {
+    backgroundColor: 'rgba(45,25,9,0.28)',
+    height: 54,
+    left: 14,
+    position: 'absolute',
+    top: 386,
+    transform: [{ skewX: '-36deg' }],
+    width: 230,
+    zIndex: 2,
+  },
+  rug: {
+    backgroundColor: '#182D63',
+    borderColor: '#08172A',
+    borderWidth: 4,
+    height: 72,
+    left: 8,
+    position: 'absolute',
+    top: 390,
+    transform: [{ skewX: '-28deg' }],
+    width: 136,
+    zIndex: 3,
+  },
+  rugLineOne: {
+    borderColor: '#446AA2',
+    borderWidth: 3,
+    bottom: 14,
+    left: 18,
+    position: 'absolute',
+    right: 18,
+    top: 14,
+  },
+  rugLineTwo: {
+    backgroundColor: '#284E85',
+    height: 3,
+    left: 28,
+    position: 'absolute',
+    top: 34,
+    width: 76,
+  },
+  wardrobe: {
+    height: 360,
+    left: 26,
+    position: 'absolute',
+    top: 112,
+    width: 210,
+    zIndex: 8,
+  },
+  wardrobeTop: {
+    backgroundColor: woodMid,
+    borderColor: woodDark,
+    borderWidth: 4,
+    height: 34,
+    left: 26,
+    position: 'absolute',
+    top: 18,
+    width: 132,
+    zIndex: 6,
+  },
+  wardrobeCrownLeft: {
+    backgroundColor: wood,
+    borderColor: woodDark,
+    borderWidth: 4,
+    height: 62,
+    left: 18,
+    position: 'absolute',
+    top: -6,
+    transform: [{ rotateZ: '-18deg' }],
+    width: 54,
+    zIndex: 7,
+  },
+  wardrobeCrownCenter: {
+    backgroundColor: wood,
+    borderColor: woodDark,
+    borderWidth: 4,
+    height: 76,
+    left: 66,
+    position: 'absolute',
+    top: -18,
+    transform: [{ rotateZ: '8deg' }],
+    width: 72,
+    zIndex: 8,
+  },
+  wardrobeCrownRight: {
+    backgroundColor: wood,
+    borderColor: woodDark,
+    borderWidth: 4,
+    height: 56,
+    left: 128,
+    position: 'absolute',
+    top: 0,
+    transform: [{ rotateZ: '18deg' }],
+    width: 50,
+    zIndex: 7,
+  },
+  wardrobeBody: {
+    backgroundColor: wood,
+    borderColor: woodDark,
+    borderWidth: 5,
+    height: 264,
+    left: 36,
+    position: 'absolute',
+    top: 52,
+    width: 136,
+    zIndex: 5,
+  },
+  innerDark: {
+    backgroundColor: '#1D0C05',
+    bottom: 14,
+    left: 14,
+    position: 'absolute',
+    right: 14,
+    top: 18,
+  },
+  closetRail: {
+    backgroundColor: gold,
+    height: 5,
+    left: 25,
+    position: 'absolute',
+    top: 42,
+    width: 90,
+    zIndex: 3,
+  },
+  coatBrown: {
+    backgroundColor: '#60331D',
+    borderColor: '#170A05',
+    borderWidth: 3,
+    height: 102,
+    left: 20,
+    position: 'absolute',
+    top: 48,
+    transform: [{ skewY: '-8deg' }],
+    width: 28,
     zIndex: 4,
   },
-  browseHotspotText: {
-    color: closetTheme.ink,
-    fontSize: 11,
-    fontWeight: '900',
+  shirtBlue: {
+    backgroundColor: '#B7D4F3',
+    borderColor: '#2C4F7E',
+    borderWidth: 3,
+    height: 112,
+    left: 50,
+    position: 'absolute',
+    top: 44,
+    width: 50,
+    zIndex: 6,
   },
-  shuffleRow: {
-    alignItems: 'center',
-    paddingVertical: 7,
+  shirtCollarLeft: {
+    borderBottomColor: '#F8F4E7',
+    borderBottomWidth: 16,
+    borderLeftColor: 'transparent',
+    borderLeftWidth: 12,
+    height: 0,
+    left: 6,
+    position: 'absolute',
+    top: 0,
+    width: 0,
   },
-  shuffleButton: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.ink,
-    borderRadius: 22,
-    flexDirection: 'row',
-    gap: 7,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  shirtCollarRight: {
+    borderBottomColor: '#F8F4E7',
+    borderBottomWidth: 16,
+    borderRightColor: 'transparent',
+    borderRightWidth: 12,
+    height: 0,
+    position: 'absolute',
+    right: 6,
+    top: 0,
+    width: 0,
   },
-  shuffleText: {
-    color: closetTheme.cream,
-    fontSize: 12,
-    fontWeight: '900',
+  greenTie: {
+    backgroundColor: '#1A6A3C',
+    height: 70,
+    left: 22,
+    position: 'absolute',
+    top: 14,
+    width: 8,
   },
-  weatherCard: {
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 8,
-    marginHorizontal: 20,
-    marginTop: 14,
-    padding: 12,
-    zIndex: 0,
+  coatGray: {
+    backgroundColor: '#333A3A',
+    borderColor: '#15191A',
+    borderWidth: 3,
+    height: 104,
+    left: 96,
+    position: 'absolute',
+    top: 52,
+    transform: [{ skewY: '-8deg' }],
+    width: 24,
+    zIndex: 5,
   },
-  weatherCardHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
+  stackShelf: {
+    backgroundColor: woodLight,
+    borderColor: woodDark,
+    borderWidth: 3,
+    height: 18,
+    left: 18,
+    position: 'absolute',
+    top: 174,
+    width: 98,
+    zIndex: 5,
   },
-  weatherHeaderCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  weatherCardLabel: {
-    color: closetTheme.camelDeep,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  weatherCardTitle: {
-    color: closetTheme.ink,
-    fontSize: 18,
-    fontWeight: '900',
-    lineHeight: 22,
-  },
-  weatherTime: {
-    color: closetTheme.muted,
-    fontSize: 11,
-    fontWeight: '800',
-    lineHeight: 15,
-    textAlign: 'center',
-  },
-  weatherSummary: {
-    alignItems: 'flex-end',
-    minWidth: 84,
-  },
-  weatherTempRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 5,
-  },
-  weatherLocationInput: {
-    color: closetTheme.muted,
-    fontSize: 12,
-    fontWeight: '800',
-    minWidth: 80,
-    padding: 0,
-    textAlign: 'right',
-  },
-  weatherActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  weatherButton: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.ink,
-    borderRadius: 15,
-    flex: 1,
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    minHeight: 42,
-    paddingHorizontal: 12,
-  },
-  weatherButtonDisabled: {
-    opacity: 0.72,
-  },
-  weatherButtonText: {
-    color: closetTheme.cream,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  weatherError: {
-    color: closetTheme.blush,
-    fontSize: 12,
-    fontWeight: '800',
-    lineHeight: 17,
-  },
-  recommendationAdvice: {
-    color: closetTheme.muted,
-    fontSize: 11,
-    fontWeight: '800',
-    lineHeight: 15,
-  },
-  recommendedItems: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  recommendedTile: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.creamDeep,
-    borderRadius: 12,
-    flex: 1,
-    gap: 4,
-    minHeight: 82,
-    paddingHorizontal: 6,
-    paddingVertical: 7,
-  },
-  recommendedTileImageWrap: {
-    alignItems: 'center',
-    height: 38,
-    justifyContent: 'center',
-    width: '100%',
-  },
-  recommendedTileImage: {
-    height: 36,
-    width: '95%',
-  },
-  recommendedTileText: {
-    color: closetTheme.muted,
-    fontSize: 11,
-    fontWeight: '900',
-    lineHeight: 13,
-    minHeight: 26,
-    textAlign: 'center',
-  },
-  emptyWeatherTile: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.creamDeep,
-    borderRadius: 12,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 76,
-    padding: 10,
-  },
-  emptyWeatherTileText: {
-    color: closetTheme.muted,
-    fontSize: 13,
-    fontWeight: '800',
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  missingText: {
-    color: closetTheme.muted,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'capitalize',
-  },
-  wearButton: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.camel,
-    borderRadius: 15,
-    flexDirection: 'row',
-    gap: 7,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  wearButtonText: {
-    color: closetTheme.ink,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  buttonPressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.96 }],
-  },
-  swatches: {
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: 6,
-  },
-  swatch: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: 'transparent',
-    borderRadius: 16,
-    borderWidth: 2,
-    height: 62,
-    justifyContent: 'center',
-    width: 62,
-  },
-  swatchImage: {
-    height: 52,
+  foldedGreen: {
+    backgroundColor: '#315B3E',
+    height: 12,
+    left: 30,
+    position: 'absolute',
+    top: 156,
     width: 52,
+    zIndex: 6,
   },
-  categorySections: {
-    gap: 18,
-    paddingHorizontal: 20,
-    paddingTop: 10,
+  foldedRust: {
+    backgroundColor: '#B75C32',
+    height: 16,
+    left: 36,
+    position: 'absolute',
+    top: 142,
+    width: 50,
+    zIndex: 7,
   },
-  categorySection: {
-    gap: 10,
+  foldedBlue: {
+    backgroundColor: '#244F84',
+    height: 18,
+    left: 72,
+    position: 'absolute',
+    top: 198,
+    width: 48,
+    zIndex: 7,
   },
-  categoryHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  foldedWhite: {
+    backgroundColor: '#F4EFE6',
+    height: 14,
+    left: 94,
+    position: 'absolute',
+    top: 216,
+    width: 34,
+    zIndex: 7,
   },
-  categoryTitle: {
-    color: closetTheme.camelDeep,
-    fontSize: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  categoryCount: {
-    color: closetTheme.muted,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  itemGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  itemTile: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: 'transparent',
-    borderRadius: 16,
+  shoeLeft: {
+    backgroundColor: '#482219',
+    borderColor: '#170A05',
     borderWidth: 2,
-    gap: 7,
-    minHeight: 112,
-    padding: 9,
-    width: '47.8%',
+    borderRadius: 8,
+    bottom: 12,
+    height: 12,
+    left: 30,
+    position: 'absolute',
+    transform: [{ rotateZ: '-12deg' }],
+    width: 34,
+    zIndex: 7,
   },
-  itemTileSelected: {
-    borderColor: closetTheme.camel,
+  shoeRight: {
+    backgroundColor: '#482219',
+    borderColor: '#170A05',
+    borderWidth: 2,
+    borderRadius: 8,
+    bottom: 14,
+    height: 12,
+    left: 62,
+    position: 'absolute',
+    transform: [{ rotateZ: '-7deg' }],
+    width: 34,
+    zIndex: 7,
   },
-  itemThumb: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.creamDeep,
-    borderRadius: 13,
-    height: 62,
-    justifyContent: 'center',
-    width: '100%',
+  leftDoor: {
+    backgroundColor: woodMid,
+    borderColor: woodDark,
+    borderWidth: 4,
+    height: 250,
+    left: -10,
+    position: 'absolute',
+    top: 66,
+    transform: [{ skewY: '-18deg' }],
+    width: 70,
+    zIndex: 9,
   },
-  itemImage: {
-    height: 58,
-    width: '92%',
+  rightDoor: {
+    backgroundColor: woodMid,
+    borderColor: woodDark,
+    borderWidth: 4,
+    height: 250,
+    left: 164,
+    position: 'absolute',
+    top: 68,
+    transform: [{ skewY: '16deg' }],
+    width: 62,
+    zIndex: 10,
   },
-  itemName: {
-    color: closetTheme.ink,
-    fontSize: 11,
-    fontWeight: '900',
-    lineHeight: 14,
-    minHeight: 28,
-    textAlign: 'center',
+  doorPanelOuter: {
+    borderColor: woodLight,
+    borderWidth: 3,
+    bottom: 18,
+    left: 10,
+    position: 'absolute',
+    right: 10,
+    top: 22,
   },
-  swatchSelected: {
-    borderColor: closetTheme.camel,
+  doorPanelInner: {
+    borderColor: '#7A321F',
+    borderWidth: 3,
+    bottom: 58,
+    left: 20,
+    position: 'absolute',
+    right: 18,
+    top: 54,
   },
-  swatchPressed: {
-    opacity: 0.72,
-    transform: [{ scale: 0.96 }],
+  woodPixelOne: {
+    backgroundColor: '#6C2D0C',
+    height: 88,
+    left: 16,
+    position: 'absolute',
+    top: 34,
+    width: 3,
   },
-  catRow: {
-    flexDirection: 'row',
-    gap: 18,
-    paddingBottom: 14,
-    paddingHorizontal: 20,
-    paddingTop: 6,
+  woodPixelTwo: {
+    backgroundColor: '#C17436',
+    height: 64,
+    position: 'absolute',
+    right: 14,
+    top: 40,
+    width: 3,
   },
-  catButton: {
-    borderBottomColor: 'transparent',
-    borderBottomWidth: 2,
-    minHeight: 32,
-    paddingBottom: 7,
-    paddingTop: 4,
+  woodPixelThree: {
+    backgroundColor: '#C17436',
+    bottom: 24,
+    height: 8,
+    position: 'absolute',
+    right: 10,
+    width: 8,
   },
-  catButtonSelected: {
-    borderBottomColor: closetTheme.camelDeep,
+  leftDoorHandle: {
+    backgroundColor: gold,
+    borderColor: '#7B4A09',
+    borderWidth: 2,
+    borderRadius: 7,
+    height: 20,
+    position: 'absolute',
+    right: 2,
+    top: 100,
+    width: 10,
   },
-  catButtonPressed: {
-    opacity: 0.65,
+  rightDoorHandle: {
+    backgroundColor: gold,
+    borderColor: '#7B4A09',
+    borderWidth: 2,
+    borderRadius: 7,
+    height: 18,
+    left: 2,
+    position: 'absolute',
+    top: 104,
+    width: 10,
   },
-  catText: {
-    color: closetTheme.muted,
-    fontSize: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
+  hinge: {
+    backgroundColor: gold,
+    height: 18,
+    position: 'absolute',
+    width: 10,
   },
-  catTextSelected: {
-    color: closetTheme.camelDeep,
+  leftHingeTop: {
+    right: -9,
+    top: 34,
+  },
+  leftHingeBottom: {
+    bottom: 54,
+    right: -9,
+  },
+  rightHingeTop: {
+    left: -9,
+    top: 34,
+  },
+  rightHingeBottom: {
+    bottom: 54,
+    left: -9,
+  },
+  stylistAvatar: {
+    position: 'absolute',
   },
 });

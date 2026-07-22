@@ -3,6 +3,7 @@ import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native
 
 import { useSplashAnimation } from '@/controllers/use-splash-animation';
 import { ScreenId } from '@/models/closet';
+import { closetTypography } from '@/views/components/closet-theme';
 
 export function SplashScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
   const { intro } = useSplashAnimation();
@@ -42,15 +43,15 @@ export function SplashScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =>
               <View style={[styles.shoe, styles.shoeTwo]} />
             </Animated.View>
           </View>
-          <Image pointerEvents="none" source={require('../../../assets/images/wardrobe-shell-brown-base.png')} style={styles.referenceImage} />
+          <View pointerEvents="none" style={styles.referenceImage}>
+            <Image source={require('../../../assets/images/wardrobe-shell-clean.png')} style={styles.referenceImageAsset} />
+          </View>
           <Animated.Image
-            pointerEvents="none"
-            source={require('../../../assets/images/wardrobe-left-door.png')}
+            source={require('../../../assets/images/wardrobe-left-door-clean.png')}
             style={[styles.referenceDoor, styles.referenceLeftDoor, { transform: [{ perspective: 900 }, { rotateY: leftDoorRotation }] }]}
           />
           <Animated.Image
-            pointerEvents="none"
-            source={require('../../../assets/images/wardrobe-right-door.png')}
+            source={require('../../../assets/images/wardrobe-right-door-clean.png')}
             style={[styles.referenceDoor, styles.referenceRightDoor, { transform: [{ perspective: 900 }, { rotateY: rightDoorRotation }] }]}
           />
         </View>
@@ -63,18 +64,82 @@ export function SplashScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =>
 const wood = '#7A3100';
 const woodDark = '#4B1D00';
 const woodLight = '#9A4100';
+const poster = '#E2BE8A';
 
 const styles = StyleSheet.create({
-  screen: { alignItems: 'center', backgroundColor: '#FFFFFF', flex: 1, justifyContent: 'center', overflow: 'hidden' },
-  hero: { alignItems: 'center', marginTop: -34 },
-  kicker: { color: woodLight, fontSize: 10, fontWeight: '900', letterSpacing: 2.8 },
-  wordmark: { color: woodDark, fontSize: 38, fontWeight: '800', letterSpacing: -1, marginBottom: 24, marginTop: 5 },
-  wardrobeScene: { height: 416, overflow: 'hidden', position: 'relative', width: 316 },
-  referenceImage: { height: 416, left: -50, position: 'absolute', top: 0, width: 416, zIndex: 3 },
-  referenceDoor: { height: 265, position: 'absolute', top: 91, width: 124, zIndex: 4 },
-  referenceLeftDoor: { left: 28, transformOrigin: 'left center' as never },
-  referenceRightDoor: { left: 164, transformOrigin: 'right center' as never },
-  wardrobeFrame: { backgroundColor: woodDark, borderColor: wood, borderWidth: 12, height: 286, left: 24, overflow: 'visible', position: 'absolute', right: 24, top: 106 },
+  screen: {
+    alignItems: 'center',
+    backgroundColor: poster,
+    flex: 1,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  hero: {
+    alignItems: 'center',
+    marginTop: -74,
+  },
+  kicker: {
+    color: woodLight,
+    ...closetTypography.text,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 3.8,
+    marginBottom: 5,
+    textTransform: 'uppercase',
+  },
+  wordmark: {
+    color: woodDark,
+    ...closetTypography.text,
+    fontSize: 40,
+    fontWeight: '900',
+    letterSpacing: 0,
+    marginBottom: 18,
+  },
+  wardrobeScene: {
+    height: 430,
+    marginTop: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    width: 318,
+  },
+  referenceImage: {
+    height: 410,
+    left: -46,
+    position: 'absolute',
+    top: 12,
+    width: 410,
+    zIndex: 3,
+  },
+  referenceImageAsset: {
+    height: 410,
+    width: 410,
+  },
+  referenceDoor: {
+    height: 262,
+    position: 'absolute',
+    top: 102,
+    width: 122,
+    zIndex: 4,
+  },
+  referenceLeftDoor: {
+    left: 30,
+    transformOrigin: 'left center' as never,
+  },
+  referenceRightDoor: {
+    left: 164,
+    transformOrigin: 'right center' as never,
+  },
+  wardrobeFrame: {
+    backgroundColor: woodDark,
+    borderColor: wood,
+    borderWidth: 12,
+    height: 286,
+    left: 24,
+    overflow: 'visible',
+    position: 'absolute',
+    right: 24,
+    top: 116,
+  },
   interior: { backgroundColor: '#321300', bottom: 0, left: 0, overflow: 'hidden', position: 'absolute', right: 0, top: 0 },
   rail: { backgroundColor: '#C58B55', height: 7, left: 28, position: 'absolute', right: 28, top: 47 },
   hanger: { alignItems: 'center', position: 'absolute', top: 48 },
@@ -88,5 +153,14 @@ const styles = StyleSheet.create({
   shoe: { backgroundColor: '#6B5951', bottom: 25, height: 19, position: 'absolute', width: 62 },
   shoeOne: { left: 38 },
   shoeTwo: { right: 28 },
-  hint: { bottom: 58, color: woodLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.4, position: 'absolute', textTransform: 'uppercase' },
+  hint: {
+    bottom: 70,
+    color: woodLight,
+    ...closetTypography.text,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2.2,
+    position: 'absolute',
+    textTransform: 'uppercase',
+  },
 });

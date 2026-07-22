@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { AvatarChoice, BodyMeasurements, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
+import { AvatarChoice, BodyMeasurements, defaultPixelAvatar, pixelAvatarOptions, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen, initialForUsername, ProfileAvatarMark } from '@/views/components/app-chrome';
 import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
+import { PixelAvatar } from '@/views/components/pixel-avatar';
 
 const measurementFields: {
   field: keyof BodyMeasurements;
@@ -41,7 +42,7 @@ type LooksSort = 'newest' | 'oldest';
 type LooksViewMode = 'grid' | 'list';
 
 export function AccountScreen({ measurements, onAuthenticated, onMeasurementChange, onNavigate, savedTrips }: Props) {
-  const { closetItems, currentUser, logIn, logOut, signUp, updateAccountAvatar, wishlistItems } = useClosetStore();
+  const { closetItems, currentUser, logIn, logOut, signUp, updateAccountAvatar, updatePixelAvatar, wishlistItems } = useClosetStore();
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [hasLookbook, setHasLookbook] = useState(false);
@@ -59,6 +60,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
   const [selectedGender, setSelectedGender] = useState<'female' | 'male' | null>(null);
   const [authMessage, setAuthMessage] = useState('');
   const itemCount = closetItems.length + wishlistItems.length;
+  const pixelAvatar = { ...defaultPixelAvatar, ...(currentUser?.pixelAvatar ?? {}) };
 
   function submitAuth() {
     const result = authMode === 'signup' ? signUp(username, password, selectedGender ?? undefined) : logIn(username, password);
@@ -177,13 +179,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
 
         <View style={styles.profileRow}>
           <View style={styles.avatarLarge}>
-            <ProfileAvatarMark
-              avatar={currentUser.avatar ?? 'shirt'}
-              color={closetTheme.camel}
-              accent={closetTheme.blush}
-              initial={initialForUsername(currentUser.username)}
-              size={68}
-            />
+            <PixelAvatar config={pixelAvatar} scale={0.58} />
             <View style={styles.avatarBadge}>
               <Text style={styles.avatarBadgeInitial}>{initialForUsername(currentUser.username)}</Text>
             </View>
@@ -206,8 +202,69 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
           <View style={styles.editProfilePanel}>
             <View style={styles.avatarPicker}>
               <View style={styles.bodyHeader}>
-                <Text style={styles.bodyTitle}>Avatar</Text>
-                <Text style={styles.bodyUnit}>choose</Text>
+                <Text style={styles.bodyTitle}>Pixel avatar</Text>
+                <Text style={styles.bodyUnit}>customise</Text>
+              </View>
+              <View style={styles.pixelAvatarPreview}>
+                <PixelAvatar config={pixelAvatar} scale={0.86} />
+              </View>
+              <AvatarControl
+                current={pixelAvatar.hair}
+                label="Hair"
+                options={pixelAvatarOptions.hair}
+                onSelect={(hair) => updatePixelAvatar({ hair })}
+              />
+              <AvatarControl
+                current={pixelAvatar.face}
+                label="Face"
+                options={pixelAvatarOptions.faces}
+                onSelect={(face) => updatePixelAvatar({ face })}
+              />
+              <AvatarControl
+                current={pixelAvatar.eyes}
+                label="Eyes"
+                options={pixelAvatarOptions.eyes}
+                onSelect={(eyes) => updatePixelAvatar({ eyes })}
+              />
+              <AvatarControl
+                current={pixelAvatar.nose}
+                label="Nose"
+                options={pixelAvatarOptions.noses}
+                onSelect={(nose) => updatePixelAvatar({ nose })}
+              />
+              <AvatarControl
+                current={pixelAvatar.mouth}
+                label="Mouth"
+                options={pixelAvatarOptions.mouths}
+                onSelect={(mouth) => updatePixelAvatar({ mouth })}
+              />
+              <AvatarControl
+                current={pixelAvatar.ears}
+                label="Ears"
+                options={pixelAvatarOptions.ears}
+                onSelect={(ears) => updatePixelAvatar({ ears })}
+              />
+              <AvatarControl
+                current={pixelAvatar.body}
+                label="Body"
+                options={pixelAvatarOptions.bodies}
+                onSelect={(body) => updatePixelAvatar({ body })}
+              />
+              <ColorControl
+                current={pixelAvatar.skinColor}
+                label="Skin"
+                options={pixelAvatarOptions.skinColors}
+                onSelect={(skinColor) => updatePixelAvatar({ skinColor })}
+              />
+              <ColorControl
+                current={pixelAvatar.outfitColor}
+                label="Outfit"
+                options={pixelAvatarOptions.outfitColors}
+                onSelect={(outfitColor) => updatePixelAvatar({ outfitColor })}
+              />
+              <View style={styles.bodyHeader}>
+                <Text style={styles.bodyTitle}>Classic icon</Text>
+                <Text style={styles.bodyUnit}>small</Text>
               </View>
               <View style={styles.avatarOptions}>
                 {avatarOptions.map((option) => {
@@ -416,6 +473,76 @@ function Stat({ label, value }: { label: string; value: string }) {
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
+}
+
+function AvatarControl<T extends string>({
+  current,
+  label,
+  onSelect,
+  options,
+}: {
+  current: T;
+  label: string;
+  onSelect: (value: T) => void;
+  options: readonly T[];
+}) {
+  return (
+    <View style={styles.avatarControl}>
+      <Text style={styles.avatarControlLabel}>{label}</Text>
+      <View style={styles.avatarControlOptions}>
+        {options.map((option) => {
+          const selected = current === option;
+
+          return (
+            <Pressable
+              key={option}
+              style={[styles.avatarControlOption, selected && styles.avatarControlOptionSelected]}
+              onPress={() => onSelect(option)}>
+              <Text style={[styles.avatarControlOptionText, selected && styles.avatarControlOptionTextSelected]}>
+                {labelOption(option)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function ColorControl({
+  current,
+  label,
+  onSelect,
+  options,
+}: {
+  current: string;
+  label: string;
+  onSelect: (value: string) => void;
+  options: readonly string[];
+}) {
+  return (
+    <View style={styles.avatarControl}>
+      <Text style={styles.avatarControlLabel}>{label}</Text>
+      <View style={styles.avatarControlOptions}>
+        {options.map((option) => (
+          <Pressable
+            accessibilityLabel={`${label} ${option}`}
+            key={option}
+            style={[
+              styles.colorSwatch,
+              { backgroundColor: option },
+              current === option && styles.colorSwatchSelected,
+            ]}
+            onPress={() => onSelect(option)}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function labelOption(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1).replace(/-/g, ' ');
 }
 
 function SavedTripCard({
@@ -649,10 +776,13 @@ const styles = StyleSheet.create({
   },
   avatarLarge: {
     alignItems: 'center',
-    backgroundColor: closetTheme.ink,
-    borderRadius: 52,
+    backgroundColor: closetTheme.creamDeep,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
     height: 104,
     justifyContent: 'center',
+    overflow: 'hidden',
     position: 'relative',
     width: 104,
   },
@@ -753,6 +883,64 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 12,
+  },
+  pixelAvatarPreview: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.creamDeep,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginBottom: 4,
+    marginTop: 12,
+    minHeight: 174,
+    overflow: 'hidden',
+  },
+  avatarControl: {
+    gap: 8,
+    marginTop: 12,
+  },
+  avatarControlLabel: {
+    color: closetTheme.muted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  avatarControlOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  avatarControlOption: {
+    backgroundColor: closetTheme.cream,
+    borderColor: closetTheme.line,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  avatarControlOptionSelected: {
+    backgroundColor: closetTheme.ink,
+    borderColor: closetTheme.ink,
+  },
+  avatarControlOptionText: {
+    color: closetTheme.ink,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  avatarControlOptionTextSelected: {
+    color: closetTheme.cream,
+  },
+  colorSwatch: {
+    borderColor: closetTheme.line,
+    borderRadius: 4,
+    borderWidth: 2,
+    height: 30,
+    width: 30,
+  },
+  colorSwatchSelected: {
+    borderColor: closetTheme.ink,
+    transform: [{ translateY: -2 }],
   },
   avatarOption: {
     alignItems: 'center',

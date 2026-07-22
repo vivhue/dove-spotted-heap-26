@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { calendarLooks, ScreenId } from '@/models/closet';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
+import { TodaysPickCard } from '@/views/components/todays-pick-card';
 
 const days: Array<number | null> = [
   ...Array.from({ length: 2 }, () => null),
@@ -16,52 +17,58 @@ export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
   const selectedLabel = useMemo(() => `Sun, June ${selectedDay}`, [selectedDay]);
 
   return (
-    <AppScreen activeTab="home" onNavigate={onNavigate} showStatus={false}>
-      <View style={styles.header}>
-        <Pressable style={styles.nav} onPress={() => onNavigate('home')}>
-          <LineIcon name="<" />
-        </Pressable>
-        <Text style={styles.month}>June 2026</Text>
-        <Pressable style={styles.nav} onPress={() => setSelectedDay((day) => Math.min(day + 1, 30))}>
-          <LineIcon name=">" />
-        </Pressable>
-      </View>
+    <AppScreen activeTab="calendar" onNavigate={onNavigate} showStatus={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Pressable style={styles.nav} onPress={() => onNavigate('home')}>
+            <LineIcon name="<" />
+          </Pressable>
+          <Text style={styles.month}>June 2026</Text>
+          <Pressable style={styles.nav} onPress={() => setSelectedDay((day) => Math.min(day + 1, 30))}>
+            <LineIcon name=">" />
+          </Pressable>
+        </View>
 
-      <View style={styles.calendar}>
-        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-          <Text key={`${day}-${index}`} style={styles.dayName}>
-            {day}
-          </Text>
-        ))}
-        {days.map((day, index) => {
-          const look = calendarLooks.find((entry) => entry.day === day);
+        <View style={styles.todayPickWrap}>
+          <TodaysPickCard onNavigate={onNavigate} />
+        </View>
 
-          return (
-            <Pressable
-              key={`${day ?? 'empty'}-${index}`}
-              disabled={!day}
-              onPress={() => day && setSelectedDay(day)}
-              style={[styles.day, selectedDay === day && styles.daySelected]}>
-              <Text style={[styles.dayText, selectedDay === day && styles.dayTextSelected]}>{day ?? ''}</Text>
-              {look?.hasLook && <View style={styles.dot} />}
-            </Pressable>
-          );
-        })}
-      </View>
+        <View style={styles.calendar}>
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+            <Text key={`${day}-${index}`} style={styles.dayName}>
+              {day}
+            </Text>
+          ))}
+          {days.map((day, index) => {
+            const look = calendarLooks.find((entry) => entry.day === day);
 
-      <View style={styles.sheet}>
-        <Text style={styles.sheetDate}>{selectedLabel}</Text>
-        <CalendarAction
-          label="Select from closet"
-          icon={<ClosetIcon size={22} color={closetTheme.camelDeep} />}
-          onPress={() => onNavigate('closet')}
-        />
-        <CalendarAction
-          label="From saved looks"
-          icon={<LineIcon name="♡" color={closetTheme.camelDeep} />}
-          onPress={() => onNavigate('wishlist')}
-        />
-      </View>
+            return (
+              <Pressable
+                key={`${day ?? 'empty'}-${index}`}
+                disabled={!day}
+                onPress={() => day && setSelectedDay(day)}
+                style={[styles.day, selectedDay === day && styles.daySelected]}>
+                <Text style={[styles.dayText, selectedDay === day && styles.dayTextSelected]}>{day ?? ''}</Text>
+                {look?.hasLook && <View style={styles.dot} />}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.sheet}>
+          <Text style={styles.sheetDate}>{selectedLabel}</Text>
+          <CalendarAction
+            label="Select from closet"
+            icon={<ClosetIcon size={22} color={closetTheme.camelDeep} />}
+            onPress={() => onNavigate('closet')}
+          />
+          <CalendarAction
+            label="From saved looks"
+            icon={<LineIcon name="♡" color={closetTheme.camelDeep} />}
+            onPress={() => onNavigate('wishlist')}
+          />
+        </View>
+      </ScrollView>
     </AppScreen>
   );
 }
@@ -76,6 +83,9 @@ function CalendarAction({ icon, label, onPress }: { icon: React.ReactNode; label
 }
 
 const styles = StyleSheet.create({
+  content: {
+    paddingBottom: 18,
+  },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -104,7 +114,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
     padding: 18,
-    paddingTop: 18,
+    paddingTop: 12,
+  },
+  todayPickWrap: {
+    paddingHorizontal: 18,
+    paddingTop: 14,
   },
   dayName: {
     color: closetTheme.muted,
@@ -147,10 +161,10 @@ const styles = StyleSheet.create({
   sheet: {
     backgroundColor: closetTheme.white,
     borderColor: closetTheme.line,
-    borderRadius: 18,
+    borderRadius: 8,
     borderWidth: 1,
     marginHorizontal: 18,
-    marginTop: 'auto',
+    marginTop: 2,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },

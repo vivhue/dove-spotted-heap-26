@@ -2,7 +2,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { useClosetApp } from '@/controllers/use-closet-app';
 import { useClosetStore } from '@/stores/closet-store';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetPaperBackground, closetTheme } from '@/views/components/closet-theme';
 import { AccountScreen } from '@/views/screens/AccountScreen';
 import { AddItemScreen } from '@/views/screens/AddItemScreen';
 import { CalendarScreen } from '@/views/screens/CalendarScreen';
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   screenGlass: {
-    backgroundColor: closetTheme.cream,
+    ...closetPaperBackground,
     borderRadius: 46,
     flex: 1,
     overflow: 'hidden',

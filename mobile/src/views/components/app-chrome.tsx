@@ -4,8 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvatarChoice, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
-import { closetTheme, closetTypography } from '@/views/components/closet-theme';
-import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
+import { closetPaperBackground, closetTheme, closetTypography } from '@/views/components/closet-theme';
+import { CalendarIcon, ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 type ScreenProps = {
   avatarMenuActions?: AvatarMenuAction[];
@@ -14,6 +14,7 @@ type ScreenProps = {
   title?: string;
   onNavigate: (screen: ScreenId) => void;
   activeTab?: ScreenId;
+  bottomNavOverlay?: boolean;
   showBottomNav?: boolean;
   showStatus?: boolean;
 };
@@ -32,6 +33,7 @@ export type AppNotification = {
 export function AppScreen({
   activeTab = 'home',
   avatarMenuActions,
+  bottomNavOverlay = false,
   children,
   notifications,
   onNavigate,
@@ -95,7 +97,15 @@ export function AppScreen({
         </View>
       )}
       <View style={styles.body}>{children}</View>
-      {showBottomNav && <BottomNav activeTab={activeTab} avatar={userAvatar} initial={userInitial} onNavigate={onNavigate} />}
+      {showBottomNav && (
+        <BottomNav
+          activeTab={activeTab}
+          avatar={userAvatar}
+          initial={userInitial}
+          overlay={bottomNavOverlay}
+          onNavigate={onNavigate}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -163,40 +173,66 @@ export function useAppNotifications(username?: string | null, closetItemCount = 
 
 export function BottomNav({
   activeTab,
-  avatar = 'initial',
-  initial,
+  overlay = false,
   onNavigate,
 }: {
   activeTab: ScreenId;
   avatar?: AvatarChoice;
   initial?: string;
+  overlay?: boolean;
   onNavigate: (screen: ScreenId) => void;
 }) {
-  const tabs: Array<{ id: ScreenId; icon: ReactNode }> = [
-    { id: 'home', icon: <Text style={styles.navGlyph}>⌂</Text> },
-    { id: 'discover', icon: <Text style={styles.navGlyph}>✦</Text> },
-    { id: 'add', icon: <NavAddIcon /> },
-    { id: 'closet', icon: <NavClosetIcon /> },
-    { id: 'account', icon: <Text style={styles.navInitial}>{initial ?? 'U'}</Text> },
+  const tabs: Array<{ icon: (selected: boolean) => ReactNode; id: ScreenId; label: string; matches: ScreenId[] }> = [
+    {
+      id: 'home',
+      label: 'Home',
+      matches: ['home'],
+      icon: (selected) => <PixelHomeIcon color={selected ? closetTheme.camelDeep : closetTheme.muted} />,
+    },
+    {
+      id: 'closet',
+      label: 'Closet',
+      matches: ['closet', 'wishlist', 'add'],
+      icon: (selected) => <PixelTshirtIcon color={selected ? closetTheme.camelDeep : closetTheme.muted} />,
+    },
+    {
+      id: 'try-on',
+      label: 'Try-On',
+      matches: ['try-on'],
+      icon: (selected) => <TryOnNavIcon color={selected ? closetTheme.camelDeep : closetTheme.muted} />,
+    },
+    {
+      id: 'discover',
+      label: 'Style',
+      matches: ['discover'],
+      icon: (selected) => <SpeechBubbleIcon color={selected ? closetTheme.camelDeep : closetTheme.muted} />,
+    },
+    {
+      id: 'calendar',
+      label: 'Planner',
+      matches: ['calendar', 'trip-planner'],
+      icon: (selected) => <CalendarIcon color={selected ? closetTheme.camelDeep : closetTheme.muted} size={28} />,
+    },
+    {
+      id: 'account',
+      label: 'Profile',
+      matches: ['account'],
+      icon: (selected) => <ProfileNavIcon color={selected ? closetTheme.camelDeep : closetTheme.muted} />,
+    },
   ];
 
   return (
-    <View style={styles.navbar}>
-      <View pointerEvents="none" style={styles.navAddBump} />
+    <View style={[styles.navbar, overlay && styles.navbarOverlay]}>
       {tabs.map((tab) => {
-        const selected =
-          activeTab === tab.id || (activeTab === 'wishlist' && tab.id === 'closet');
+        const selected = tab.matches.includes(activeTab);
 
         return (
           <Pressable
             key={tab.id}
             onPress={() => onNavigate(tab.id)}
-            style={[
-              styles.navButton,
-              tab.id === 'add' && styles.navAddButton,
-              selected && tab.id !== 'add' && styles.navButtonActive,
-            ]}>
-            <View style={[styles.navIconFrame, tab.id === 'add' && styles.navAddIconFrame]}>{tab.icon}</View>
+            style={[styles.navButton, selected && styles.navButtonActive]}>
+            <View style={styles.navIconFrame}>{tab.icon(selected)}</View>
+            <Text style={[styles.navLabel, selected && styles.navLabelActive]}>{tab.label}</Text>
           </Pressable>
         );
       })}
@@ -315,24 +351,127 @@ export function ProfileAvatarMark({
   return <ClosetIcon category={avatar} color={color} accent={accent} size={size} />;
 }
 
-function NavAddIcon() {
+function PixelHomeIcon({ color }: { color: string }) {
+  const blocks = [
+    { x: 3, y: 0 },
+    { x: 2, y: 1 },
+    { x: 3, y: 1 },
+    { x: 4, y: 1 },
+    { x: 1, y: 2 },
+    { x: 2, y: 2 },
+    { x: 3, y: 2 },
+    { x: 4, y: 2 },
+    { x: 5, y: 2 },
+    { x: 1, y: 3 },
+    { x: 2, y: 3 },
+    { accent: true, x: 3, y: 3 },
+    { x: 4, y: 3 },
+    { x: 5, y: 3 },
+    { x: 1, y: 4 },
+    { x: 2, y: 4 },
+    { accent: true, x: 3, y: 4 },
+    { x: 4, y: 4 },
+    { x: 5, y: 4 },
+    { x: 1, y: 5 },
+    { x: 2, y: 5 },
+    { x: 3, y: 5 },
+    { x: 4, y: 5 },
+    { x: 5, y: 5 },
+  ];
+
   return (
-    <View style={styles.navAddCircle}>
-      <View style={styles.navAddLineHorizontal} />
-      <View style={styles.navAddLineVertical} />
+    <View style={styles.pixelShirt}>
+      {blocks.map((block) => (
+        <View
+          key={`${block.x}-${block.y}`}
+          style={[
+            styles.pixelShirtBlock,
+            {
+              backgroundColor: block.accent ? closetTheme.camel : color,
+              left: block.x * 4,
+              top: block.y * 4,
+            },
+          ]}
+        />
+      ))}
     </View>
   );
 }
 
-function NavClosetIcon() {
+function PixelTshirtIcon({ color }: { color: string }) {
+  const blocks = [
+    { x: 1, y: 1 },
+    { x: 2, y: 1 },
+    { x: 4, y: 1 },
+    { x: 5, y: 1 },
+    { x: 0, y: 2 },
+    { x: 1, y: 2 },
+    { x: 2, y: 2 },
+    { accent: true, x: 3, y: 2 },
+    { x: 4, y: 2 },
+    { x: 5, y: 2 },
+    { x: 6, y: 2 },
+    { x: 0, y: 3 },
+    { x: 1, y: 3 },
+    { x: 2, y: 3 },
+    { x: 3, y: 3 },
+    { x: 4, y: 3 },
+    { x: 5, y: 3 },
+    { x: 6, y: 3 },
+    { x: 1, y: 4 },
+    { x: 2, y: 4 },
+    { x: 3, y: 4 },
+    { x: 4, y: 4 },
+    { x: 5, y: 4 },
+    { x: 1, y: 5 },
+    { x: 2, y: 5 },
+    { x: 3, y: 5 },
+    { x: 4, y: 5 },
+    { x: 5, y: 5 },
+  ];
+
   return (
-    <View style={styles.navCloset}>
-      <View style={[styles.navClosetDoor, styles.navClosetLeftDoor]}>
-        <View style={styles.navClosetHandle} />
-      </View>
-      <View style={[styles.navClosetDoor, styles.navClosetRightDoor]}>
-        <View style={styles.navClosetHandle} />
-      </View>
+    <View style={styles.pixelShirt}>
+      {blocks.map((block) => (
+        <View
+          key={`${block.x}-${block.y}`}
+          style={[
+            styles.pixelShirtBlock,
+            {
+              backgroundColor: block.accent ? closetTheme.camel : color,
+              left: block.x * 4,
+              top: block.y * 4,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+function TryOnNavIcon({ color }: { color: string }) {
+  return (
+    <View style={styles.tryOnNavIcon}>
+      <Text style={[styles.tryOnSparkle, { color }]}>✧</Text>
+      <Text style={[styles.tryOnPlus, { color }]}>+</Text>
+    </View>
+  );
+}
+
+function SpeechBubbleIcon({ color }: { color: string }) {
+  return (
+    <View style={styles.speechIcon}>
+      <View style={[styles.speechCircle, { borderColor: color }]} />
+      <View style={[styles.speechTail, { borderBottomColor: color }]} />
+    </View>
+  );
+}
+
+function ProfileNavIcon({ color }: { color: string }) {
+  return (
+    <View style={styles.profileNavIcon}>
+      <View style={[styles.profileHead, { borderColor: color }]} />
+      <View style={[styles.profileShoulders, { borderColor: color }]} />
     </View>
   );
 }
@@ -396,8 +535,8 @@ export function Chip({
 
 const styles = StyleSheet.create({
   safe: {
+    ...closetPaperBackground,
     flex: 1,
-    backgroundColor: closetTheme.cream,
   },
   status: {
     flexDirection: 'row',
@@ -640,40 +779,29 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-around',
-    minHeight: 84,
-    paddingBottom: 12,
-    paddingHorizontal: 12,
-    paddingTop: 12,
+    minHeight: 104,
+    paddingBottom: 18,
+    paddingHorizontal: 8,
+    paddingTop: 14,
     position: 'relative',
   },
-  navAddBump: {
-    alignSelf: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 30,
-    borderTopWidth: 1,
-    height: 60,
+  navbarOverlay: {
+    bottom: 0,
+    left: 0,
     position: 'absolute',
-    top: -20,
-    width: 60,
-    zIndex: 0,
+    right: 0,
+    zIndex: 60,
   },
   navButton: {
     alignItems: 'center',
-    borderRadius: 13,
-    height: 56,
+    gap: 5,
+    height: 68,
     justifyContent: 'center',
-    width: 50,
+    minWidth: 48,
     zIndex: 1,
   },
   navButtonActive: {
-    backgroundColor: closetTheme.blueWash,
-  },
-  navAddButton: {
-    borderRadius: 34,
-    height: 56,
-    width: 68,
-    zIndex: 2,
+    backgroundColor: 'transparent',
   },
   navGlyph: {
     color: closetTheme.ink,
@@ -684,73 +812,100 @@ const styles = StyleSheet.create({
   },
   navIconFrame: {
     alignItems: 'center',
-    height: 26,
+    height: 32,
     justifyContent: 'center',
-    width: 26,
+    width: 32,
   },
-  navAddIconFrame: {
-    height: 56,
-    width: 56,
-  },
-  navInitial: {
-    color: closetTheme.ink,
-    fontSize: 21,
+  navLabel: {
+    color: closetTheme.muted,
+    ...closetTypography.text,
+    fontSize: 10,
     fontWeight: '900',
-    lineHeight: 26,
+    lineHeight: 15,
     textAlign: 'center',
   },
-  navAddCircle: {
+  navLabelActive: {
+    color: closetTheme.camelDeep,
+  },
+  pixelShirt: {
+    height: 30,
+    position: 'relative',
+    width: 30,
+  },
+  pixelShirtBlock: {
+    height: 4,
+    position: 'absolute',
+    width: 4,
+  },
+  tryOnNavIcon: {
     alignItems: 'center',
-    backgroundColor: closetTheme.navy,
-    borderRadius: 28,
-    height: 56,
+    height: 32,
     justifyContent: 'center',
     position: 'relative',
-    width: 56,
+    width: 32,
   },
-  navAddLineHorizontal: {
-    backgroundColor: closetTheme.cream,
-    borderRadius: 2,
-    height: 3,
+  tryOnSparkle: {
+    fontSize: 34,
+    fontWeight: '300',
+    lineHeight: 34,
+  },
+  tryOnPlus: {
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 14,
     position: 'absolute',
-    width: 22,
+    right: -2,
+    top: 0,
   },
-  navAddLineVertical: {
-    backgroundColor: closetTheme.cream,
-    borderRadius: 2,
-    height: 22,
+  speechIcon: {
+    height: 30,
+    position: 'relative',
+    width: 32,
+  },
+  speechCircle: {
+    borderRadius: 15,
+    borderWidth: 3,
+    height: 28,
+    left: 2,
     position: 'absolute',
-    width: 3,
+    top: 0,
+    width: 28,
   },
-  navCloset: {
-    flexDirection: 'row',
-    height: 24,
-    overflow: 'hidden',
-    width: 26,
+  speechTail: {
+    borderBottomWidth: 8,
+    borderLeftColor: 'transparent',
+    borderLeftWidth: 4,
+    bottom: 0,
+    height: 0,
+    left: 6,
+    position: 'absolute',
+    transform: [{ rotate: '-30deg' }],
+    width: 0,
   },
-  navClosetDoor: {
+  profileNavIcon: {
     alignItems: 'center',
-    backgroundColor: closetTheme.navy,
-    flex: 1,
+    height: 30,
     justifyContent: 'center',
+    position: 'relative',
+    width: 32,
   },
-  navClosetLeftDoor: {
-    borderBottomLeftRadius: 3,
-    borderRightColor: closetTheme.white,
-    borderRightWidth: 1,
-    borderTopLeftRadius: 3,
+  profileHead: {
+    borderRadius: 8,
+    borderWidth: 3,
+    height: 14,
+    position: 'absolute',
+    top: 1,
+    width: 14,
   },
-  navClosetRightDoor: {
-    borderBottomRightRadius: 3,
-    borderLeftColor: closetTheme.white,
-    borderLeftWidth: 1,
-    borderTopRightRadius: 3,
-  },
-  navClosetHandle: {
-    backgroundColor: closetTheme.cream,
-    borderRadius: 2,
-    height: 5,
-    width: 3,
+  profileShoulders: {
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    borderWidth: 3,
+    borderBottomWidth: 0,
+    height: 13,
+    position: 'absolute',
+    top: 18,
+    width: 26,
   },
   chip: {
     backgroundColor: closetTheme.white,

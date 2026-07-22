@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { AvatarChoice, CategoryId, ClosetAccount, WardrobeItem } from '@/models/closet';
+import { AvatarChoice, CategoryId, ClosetAccount, defaultPixelAvatar, PixelAvatarConfig, WardrobeItem } from '@/models/closet';
 import { getGarments } from '@/services/closet-api';
 
 export type SelectedOutfit = Record<CategoryId, string | null>;
@@ -25,6 +25,7 @@ type ClosetStoreValue = {
   setSelfieImageUrl: (url: string) => void;
   signUp: (username: string, password: string, gender: ClosetAccount['gender']) => AuthResult;
   updateAccountAvatar: (avatar: AvatarChoice) => void;
+  updatePixelAvatar: (updates: Partial<PixelAvatarConfig>) => void;
   toggleWornItem: (item: WardrobeItem) => void;
   wishlistItems: WardrobeItem[];
 };
@@ -260,6 +261,7 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
           gender,
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           password,
+          pixelAvatar: defaultPixelAvatar,
           username: cleanedUsername,
         };
 
@@ -276,6 +278,19 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
         setAccounts((currentAccounts) =>
           currentAccounts.map((account) =>
             account.id === currentUserId ? { ...account, avatar } : account
+          )
+        );
+      },
+      updatePixelAvatar: (updates) => {
+        if (!currentUserId) {
+          return;
+        }
+
+        setAccounts((currentAccounts) =>
+          currentAccounts.map((account) =>
+            account.id === currentUserId
+              ? { ...account, pixelAvatar: { ...defaultPixelAvatar, ...(account.pixelAvatar ?? {}), ...updates } }
+              : account
           )
         );
       },

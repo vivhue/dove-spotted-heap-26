@@ -20,6 +20,42 @@ export type WardrobeDestination = 'closet' | 'wishlist';
 export type AvatarChoice = 'initial' | 'hanger' | 'shirt' | 'dress' | 'shorts' | 'pants';
 export const currentUserDisplayName = 'there';
 
+export type PixelAvatarConfig = {
+  body: 'slim' | 'classic' | 'strong' | 'curvy';
+  ears: 'small' | 'round' | 'pointed';
+  eyes: 'calm' | 'bright' | 'wink';
+  face: 'soft' | 'sharp' | 'round';
+  hair: 'bob' | 'short' | 'waves' | 'spikes' | 'cap';
+  mouth: 'smile' | 'neutral' | 'open';
+  nose: 'dot' | 'line' | 'button';
+  outfitColor: string;
+  skinColor: string;
+};
+
+export const defaultPixelAvatar: PixelAvatarConfig = {
+  body: 'classic',
+  ears: 'small',
+  eyes: 'bright',
+  face: 'soft',
+  hair: 'bob',
+  mouth: 'smile',
+  nose: 'dot',
+  outfitColor: '#2F5F8F',
+  skinColor: '#C8895C',
+};
+
+export const pixelAvatarOptions = {
+  bodies: ['slim', 'classic', 'strong', 'curvy'] as const,
+  ears: ['small', 'round', 'pointed'] as const,
+  eyes: ['calm', 'bright', 'wink'] as const,
+  faces: ['soft', 'sharp', 'round'] as const,
+  hair: ['bob', 'short', 'waves', 'spikes', 'cap'] as const,
+  mouths: ['smile', 'neutral', 'open'] as const,
+  noses: ['dot', 'line', 'button'] as const,
+  outfitColors: ['#2F5F8F', '#E18A39', '#9B5BC4', '#4E8B57', '#D96A77', '#1F2937'] as const,
+  skinColors: ['#7A4A2A', '#A96B43', '#C8895C', '#E2B184', '#6F86B5', '#7AA36A'] as const,
+};
+
 export type ClosetAccount = {
   avatar?: AvatarChoice;
   id: string;
@@ -27,6 +63,7 @@ export type ClosetAccount = {
   password: string;
   createdAt: string;
   gender?: 'female' | 'male';
+  pixelAvatar?: PixelAvatarConfig;
 };
 
 export type WardrobeItem = {

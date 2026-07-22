@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryId, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
-import { closetTheme, closetTypography } from '@/views/components/closet-theme';
+import { closetPaperBackground, closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 type TripStep = 'destination' | 'bag' | 'activities' | 'results';
@@ -797,11 +797,11 @@ function isDateInRange(date: Date, start: Date | null, end: Date | null) {
 
 const styles = StyleSheet.create({
   safe: {
-    backgroundColor: closetTheme.cream,
+    ...closetPaperBackground,
     flex: 1,
   },
   resultsSafe: {
-    backgroundColor: closetTheme.cream,
+    ...closetPaperBackground,
     flex: 1,
   },
   tripNav: {
