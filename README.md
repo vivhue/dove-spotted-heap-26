@@ -17,14 +17,12 @@ on yourself using [IDM-VTON](https://huggingface.co/spaces/yisol/IDM-VTON).
 ## Run it locally
 
 ```bash
-npm install            # root backend deps
-npm --prefix mobile install
 cp .env.example .env   # then fill in the R2_* values
-npm run dev            # backend + Expo together
+npm run dev            # installs missing deps, then starts backend + Expo together
 ```
 
-Backend output is prefixed with `[backend]`; Expo keeps its interactive terminal (QR code,
-simulator shortcuts). To run only the backend:
+Backend output is prefixed with `[backend]`; Expo output is prefixed with `[mobile]`.
+To run only the backend:
 
 ```bash
 npm run dev:server     # http://localhost:8080

@@ -3,8 +3,8 @@ import { existsSync } from "node:fs";
 import net from "node:net";
 
 const isWindows = process.platform === "win32";
-const npmCommand = "npm";
 const backendPort = Number(process.env.PORT || 8080);
+const mobileDir = new URL("../mobile/", import.meta.url);
 const backendArgs = [
   ...(existsSync(".env") ? ["--env-file=.env"] : []),
   "--experimental-strip-types",
@@ -22,11 +22,9 @@ const processes = [
   {
     name: "mobile",
     color: "\x1b[35m",
-    command: npmCommand,
-    args: ["--prefix", "mobile", "run", "start"],
-    cwd: process.cwd(),
-    inheritStdio: true,
-    useWindowsShell: true,
+    command: process.execPath,
+    args: ["node_modules/expo/bin/cli", "start"],
+    cwd: mobileDir,
   },
 ];
 
@@ -71,7 +69,7 @@ for (const config of processes) {
     child = spawn(command.command, command.args, {
       cwd: config.cwd,
       env: process.env,
-      stdio: config.inheritStdio ? "inherit" : ["inherit", "pipe", "pipe"],
+      stdio: ["inherit", "pipe", "pipe"],
       windowsHide: false,
     });
   } catch (error) {
@@ -138,7 +136,9 @@ function ensurePortAvailable(port) {
           [
             `Port ${port} is already in use, so the backend cannot start cleanly.`,
             "Stop the old dev server first with Ctrl+C in its terminal, then run npm run dev again.",
-            `If you cannot find it, run: lsof -nP -iTCP:${port} -sTCP:LISTEN`,
+            isWindows
+              ? `If you cannot find it, run: netstat -ano | findstr :${port}`
+              : `If you cannot find it, run: lsof -nP -iTCP:${port} -sTCP:LISTEN`,
           ].join("\n") + "\n"
         );
         process.exit(1);
