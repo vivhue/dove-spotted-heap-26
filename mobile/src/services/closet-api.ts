@@ -27,6 +27,27 @@ type TryOnPayload = {
   userId?: string;
 };
 
+export type WebStyleSource = {
+  snippet: string;
+  title: string;
+  url: string;
+};
+
+export type WebStyleStore = {
+  name: string;
+  query: string;
+  url: string;
+};
+
+export type WebStyleSuggestion = {
+  outfit: string[];
+  searchQuery: string;
+  stores: WebStyleStore[];
+  sources: WebStyleSource[];
+  summary: string;
+  title: string;
+};
+
 const apiBaseUrl = resolveApiBaseUrl();
 
 export async function createGarment({
@@ -92,6 +113,18 @@ export async function createTryOn({ garmentId, userId = 'demo-user' }: TryOnPayl
   });
 
   return readJsonResponse<{ resultUrl: string }>(response);
+}
+
+export async function getWebOutfitSuggestion(query: string) {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/style/web-outfit`, {
+    body: JSON.stringify({ query }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+  });
+
+  return readJsonResponse<{ text: string; webSuggestion: WebStyleSuggestion }>(response);
 }
 
 async function appendImageFile(formData: FormData, image: ImageAsset) {

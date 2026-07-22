@@ -359,13 +359,13 @@ export function DiscoverScreen({
                     <Text style={styles.webTitle}>{message.webSuggestion.title}</Text>
                     <Text style={styles.webSummary}>{message.webSuggestion.summary}</Text>
                     <View style={styles.webOutfitRow}>
-                      {message.webSuggestion.outfit.map((step) => (
+                      {message.webSuggestion.outfit.map((step: string) => (
                         <View key={step} style={styles.webOutfitChip}>
                           <Text style={styles.webOutfitText}>{step}</Text>
                         </View>
                       ))}
                     </View>
-                    {message.webSuggestion.sources.slice(0, 2).map((source) => (
+                    {message.webSuggestion.sources.slice(0, 2).map((source: WebStyleSuggestion['sources'][number]) => (
                       <Pressable key={source.url} style={styles.webSource} onPress={() => void Linking.openURL(source.url)}>
                         <Text numberOfLines={1} style={styles.webSourceTitle}>{source.title}</Text>
                         {source.snippet ? <Text numberOfLines={2} style={styles.webSourceSnippet}>{source.snippet}</Text> : null}
@@ -374,7 +374,7 @@ export function DiscoverScreen({
                     <View style={styles.webStoreSection}>
                       <Text style={styles.webStoreLabel}>Where to buy</Text>
                       <View style={styles.webStoreRow}>
-                        {message.webSuggestion.stores.slice(0, 4).map((store) => (
+                        {message.webSuggestion.stores.slice(0, 4).map((store: WebStyleSuggestion['stores'][number]) => (
                           <Pressable key={`${store.name}:${store.query}`} style={styles.webStoreChip} onPress={() => void Linking.openURL(store.url)}>
                             <Text style={styles.webStoreName}>{store.name}</Text>
                             <Text numberOfLines={1} style={styles.webStoreQuery}>{store.query}</Text>
