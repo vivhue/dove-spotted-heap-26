@@ -48,6 +48,44 @@ export type WebStyleSuggestion = {
   title: string;
 };
 
+export type ClosetChatRequest = {
+  bodyProfile?: {
+    chestCm: number | null;
+    derivedShape: string | null;
+    heightCm: number | null;
+    hipsCm: number | null;
+    inseamCm: number | null;
+    legTorsoRatio: string | null;
+    waistCm: number | null;
+  };
+  chatMode: 'closet' | 'shopping';
+  closetItems: WardrobeItem[];
+  colorProfile?: {
+    avoidPalette: string[];
+    contrastLevel: string | null;
+    recommendedPalette: string[];
+    undertone: string | null;
+  };
+  currentUser: {
+    gender?: 'female' | 'male';
+    username: string;
+  } | null;
+  hasAttachedImage: boolean;
+  message: string;
+  selectedClosetItems: WardrobeItem[];
+  styleProfile?: {
+    bottomFitPref: string | null;
+    tags: string[];
+    topFitPref: string | null;
+  };
+  wishlistItems: WardrobeItem[];
+};
+
+export type ClosetChatResponse = {
+  outfit?: Partial<Record<CategoryId, string | null>>;
+  text: string;
+};
+
 const apiBaseUrl = resolveApiBaseUrl();
 
 export async function createGarment({
@@ -127,6 +165,18 @@ export async function getWebOutfitSuggestion(query: string) {
   return readJsonResponse<{ text: string; webSuggestion: WebStyleSuggestion }>(response);
 }
 
+export async function getClosetChatReplyFromModel(payload: ClosetChatRequest) {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/chat`, {
+    body: JSON.stringify(payload),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+  });
+
+  return readJsonResponse<ClosetChatResponse>(response);
+}
+
 async function appendImageFile(formData: FormData, image: ImageAsset) {
   const fileName = image.fileName ?? `upload-${Date.now()}.${extensionFromMime(image.mimeType)}`;
   const mimeType = image.mimeType ?? mimeTypeFromFileName(fileName);
@@ -174,7 +224,7 @@ async function fetchWithBackendMessage(url: string, init: RequestInit) {
 function resolveApiBaseUrl() {
   const configuredUrl =
     (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
-    'http://localhost:5173';
+    'http://localhost:8080';
 
   if (Platform.OS === 'web' || !isLocalhostUrl(configuredUrl)) {
     return configuredUrl;

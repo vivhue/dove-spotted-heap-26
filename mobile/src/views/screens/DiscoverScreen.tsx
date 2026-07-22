@@ -159,8 +159,11 @@ export function DiscoverScreen({
       bodyProfile: buildBodyProfile(measurements),
       colorProfile,
       closetItems,
+      chatMode,
       currentUser,
+      hasAttachedImage: Boolean(attachedImageUri),
       message: messageForReply,
+      selectedClosetItems,
       styleProfile,
       wishlistItems,
     });

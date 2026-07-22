@@ -27,7 +27,7 @@ Backend output is prefixed with `[backend]`; Expo keeps its interactive terminal
 simulator shortcuts). To run only the backend:
 
 ```bash
-npm run dev:server     # http://localhost:5173
+npm run dev:server     # http://localhost:8080
 ```
 
 ## Backend API

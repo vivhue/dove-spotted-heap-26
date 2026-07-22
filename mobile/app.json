@@ -43,7 +43,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "http://localhost:5173"
+      "apiUrl": "http://localhost:8080"
     }
   }
 }

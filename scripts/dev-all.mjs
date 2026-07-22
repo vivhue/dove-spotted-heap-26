@@ -4,7 +4,7 @@ import net from "node:net";
 
 const isWindows = process.platform === "win32";
 const npmCommand = "npm";
-const backendPort = Number(process.env.PORT || 5173);
+const backendPort = Number(process.env.PORT || 8080);
 const backendArgs = [
   ...(existsSync(".env") ? ["--env-file=.env"] : []),
   "--experimental-strip-types",

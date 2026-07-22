@@ -27,8 +27,71 @@ type MultipartPayload = {
   files: Record<string, UploadedFile>;
 };
 
+type ClosetChatRequest = {
+  bodyProfile?: {
+    chestCm: number | null;
+    derivedShape: string | null;
+    heightCm: number | null;
+    hipsCm: number | null;
+    inseamCm: number | null;
+    legTorsoRatio: string | null;
+    waistCm: number | null;
+  };
+  chatMode?: 'closet' | 'shopping';
+  closetItems?: {
+    category?: string;
+    color?: string;
+    id?: string;
+    name?: string;
+    pattern?: string;
+    primaryColor?: string;
+    subcategory?: string;
+    tags?: string[];
+    texture?: string;
+  }[];
+  colorProfile?: {
+    avoidPalette?: string[];
+    contrastLevel?: string | null;
+    recommendedPalette?: string[];
+    undertone?: string | null;
+  };
+  currentUser?: {
+    gender?: 'female' | 'male';
+    username?: string;
+  } | null;
+  hasAttachedImage?: boolean;
+  message?: string;
+  selectedClosetItems?: {
+    category?: string;
+    color?: string;
+    id?: string;
+    name?: string;
+    pattern?: string;
+    primaryColor?: string;
+    subcategory?: string;
+    tags?: string[];
+    texture?: string;
+  }[];
+  styleProfile?: {
+    bottomFitPref?: string | null;
+    tags?: string[];
+    topFitPref?: string | null;
+  };
+  wishlistItems?: {
+    category?: string;
+    color?: string;
+    id?: string;
+    name?: string;
+    pattern?: string;
+    primaryColor?: string;
+    subcategory?: string;
+    tags?: string[];
+    texture?: string;
+  }[];
+};
+
 const root = __dirname;
-const port = Number(process.env.PORT || 5173);
+const port = Number(process.env.PORT || 8080);
 const maxUploadBytes = Number(process.env.MAX_UPLOAD_MB || 15) * 1024 * 1024;
 const presignExpiresSeconds = Number(process.env.PRESIGN_EXPIRES_SECONDS || 604800);
 const bgRemovalModel = process.env.BG_REMOVAL_MODEL || 'isnet-general-use';
@@ -98,6 +161,11 @@ const server = http.createServer(async (req: typeof http.IncomingMessage.prototy
 
     if (req.method === 'POST' && url.pathname === '/api/try-on') {
       sendJson(res, 200, await handleTryOn(req));
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/chat') {
+      sendJson(res, 200, await handleChat(req));
       return;
     }
 
@@ -721,6 +789,279 @@ async function readJsonBody<T>(req: typeof http.IncomingMessage.prototype): Prom
   }
 
   return JSON.parse(body.toString('utf8')) as T;
+}
+
+async function handleChat(req: typeof http.IncomingMessage.prototype) {
+  const payload = await readJsonBody<ClosetChatRequest>(req);
+
+  if (!payload.message?.trim()) {
+    throw new HttpError(400, 'Message is required.');
+  }
+
+  const currentUser = payload.currentUser?.username?.trim()
+    ? {
+        gender: payload.currentUser.gender,
+        username: payload.currentUser.username.trim(),
+      }
+    : null;
+
+  if (!currentUser) {
+    return {
+      text: 'Create an account first, then I can answer using your own closet.',
+    };
+  }
+
+  const response = await callOpenAIChatReply({
+    bodyProfile: payload.bodyProfile,
+    chatMode: payload.chatMode === 'shopping' ? 'shopping' : 'closet',
+    closetItems: payload.closetItems ?? [],
+    colorProfile: payload.colorProfile,
+    currentUser,
+    hasAttachedImage: Boolean(payload.hasAttachedImage),
+    message: payload.message.trim(),
+    selectedClosetItems: payload.selectedClosetItems ?? [],
+    styleProfile: payload.styleProfile,
+    wishlistItems: payload.wishlistItems ?? [],
+  });
+
+  return response;
+}
+
+async function callOpenAIChatReply(context: {
+  bodyProfile?: ClosetChatRequest['bodyProfile'];
+  chatMode: 'closet' | 'shopping';
+  closetItems: NonNullable<ClosetChatRequest['closetItems']>;
+  colorProfile?: ClosetChatRequest['colorProfile'];
+  currentUser: NonNullable<ClosetChatRequest['currentUser']>;
+  hasAttachedImage: boolean;
+  message: string;
+  selectedClosetItems: NonNullable<ClosetChatRequest['selectedClosetItems']>;
+  styleProfile?: ClosetChatRequest['styleProfile'];
+  wishlistItems: NonNullable<ClosetChatRequest['wishlistItems']>;
+}) {
+  const apiKey = requireEnv('OPENAI_API_KEY');
+  const model = process.env.OPENAI_MODEL?.trim() || 'gpt-5.6-terra';
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      input: [
+        {
+          content: [{ text: buildChatSystemPrompt(context.chatMode), type: 'input_text' }],
+          role: 'system',
+        },
+        {
+          content: [{ text: buildChatUserPrompt(context), type: 'input_text' }],
+          role: 'user',
+        },
+      ],
+      max_output_tokens: 450,
+      model,
+      reasoning: { effort: 'low' },
+      text: {
+        format: {
+          name: 'closet_chat_reply',
+          schema: closetChatReplySchema,
+          strict: true,
+          type: 'json_schema',
+        },
+      },
+    }),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === 'object' && 'error' in payload
+        ? typeof payload.error === 'object' && payload.error && 'message' in payload.error
+          ? String(payload.error.message)
+          : String(payload.error)
+        : `OpenAI request failed with ${response.status}.`;
+    throw new HttpError(502, message);
+  }
+
+  const rawText = extractResponsesApiText(payload);
+  const parsed = parseClosetReply(rawText);
+
+  if (!parsed) {
+    throw new HttpError(502, 'OpenAI returned an unexpected chat response.');
+  }
+
+  return parsed;
+}
+
+function buildChatSystemPrompt(chatMode: 'closet' | 'shopping') {
+  const modeGuidance =
+    chatMode === 'shopping'
+      ? 'The user wants shopping help when the closet is missing something.'
+      : 'The user wants to rely on their existing closet first.';
+
+  return [
+    'You are BoveCloset, a practical fashion assistant.',
+    'Be direct, warm, and specific. Keep replies short and useful.',
+    modeGuidance,
+    'Never invent items the user does not own.',
+    'If you recommend an outfit, choose item ids only from the provided closet items.',
+    'If no exact outfit is possible, explain what is missing and keep the outfit fields null.',
+    'Use selected closet items as a strong priority if they are provided.',
+    'Return only valid JSON that matches the schema.',
+  ].join(' ');
+}
+
+function buildChatUserPrompt(context: {
+  bodyProfile?: ClosetChatRequest['bodyProfile'];
+  closetItems: NonNullable<ClosetChatRequest['closetItems']>;
+  colorProfile?: ClosetChatRequest['colorProfile'];
+  currentUser: NonNullable<ClosetChatRequest['currentUser']>;
+  hasAttachedImage: boolean;
+  message: string;
+  selectedClosetItems: NonNullable<ClosetChatRequest['selectedClosetItems']>;
+  styleProfile?: ClosetChatRequest['styleProfile'];
+  wishlistItems: NonNullable<ClosetChatRequest['wishlistItems']>;
+}) {
+  return JSON.stringify(
+    {
+      attachedImage: context.hasAttachedImage,
+      bodyProfile: context.bodyProfile ?? null,
+      closetItems: context.closetItems.map(summarizeWardrobeItem),
+      currentUser: context.currentUser,
+      message: context.message,
+      selectedClosetItems: context.selectedClosetItems.map(summarizeWardrobeItem),
+      styleProfile: context.styleProfile ?? null,
+      wishlistItems: context.wishlistItems.map(summarizeWardrobeItem),
+      colorProfile: context.colorProfile ?? null,
+    },
+    null,
+    2
+  );
+}
+
+function summarizeWardrobeItem(item: {
+  category?: string;
+  color?: string;
+  id?: string;
+  name?: string;
+  pattern?: string;
+  primaryColor?: string;
+  subcategory?: string;
+  tags?: string[];
+  texture?: string;
+}) {
+  return {
+    category: item.category ?? null,
+    color: item.color ?? null,
+    id: item.id ?? null,
+    name: item.name ?? null,
+    pattern: item.pattern ?? null,
+    primaryColor: item.primaryColor ?? null,
+    subcategory: item.subcategory ?? null,
+    tags: item.tags ?? [],
+    texture: item.texture ?? null,
+  };
+}
+
+const closetChatReplySchema = {
+  additionalProperties: false,
+  properties: {
+    outfit: {
+      additionalProperties: false,
+      properties: {
+        dress: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+        pants: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+        shirt: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+        shorts: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+      },
+      required: ['shirt', 'dress', 'shorts', 'pants'],
+      type: 'object',
+    },
+    text: { type: 'string' },
+  },
+  required: ['outfit', 'text'],
+  type: 'object',
+} as const;
+
+function extractResponsesApiText(payload: unknown) {
+  if (!payload || typeof payload !== 'object') {
+    return '';
+  }
+
+  const responsePayload = payload as {
+    output?: {
+      content?: { text?: string; type?: string }[];
+      text?: string;
+      type?: string;
+    }[];
+    output_text?: string;
+  };
+
+  if (typeof responsePayload.output_text === 'string' && responsePayload.output_text.trim()) {
+    return responsePayload.output_text.trim();
+  }
+
+  for (const item of responsePayload.output ?? []) {
+    for (const content of item.content ?? []) {
+      if (typeof content.text === 'string' && content.text.trim()) {
+        return content.text.trim();
+      }
+    }
+  }
+
+  return '';
+}
+
+function parseClosetReply(rawText: string) {
+  const text = rawText.trim();
+
+  if (!text) {
+    return null;
+  }
+
+  const parsed = tryParseJson<{ outfit?: Partial<Record<'shirt' | 'dress' | 'shorts' | 'pants', string | null>>; text?: string }>(text);
+
+  if (!parsed || typeof parsed.text !== 'string') {
+    return null;
+  }
+
+  const reply: { outfit?: Partial<Record<'shirt' | 'dress' | 'shorts' | 'pants', string | null>>; text: string } = {
+    text: parsed.text.trim(),
+  };
+
+  if (parsed.outfit && typeof parsed.outfit === 'object') {
+    reply.outfit = {
+      dress: normalizeOutfitValue(parsed.outfit.dress),
+      pants: normalizeOutfitValue(parsed.outfit.pants),
+      shirt: normalizeOutfitValue(parsed.outfit.shirt),
+      shorts: normalizeOutfitValue(parsed.outfit.shorts),
+    };
+  }
+
+  return reply;
+}
+
+function normalizeOutfitValue(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function tryParseJson<T>(value: string): T | null {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    const match = value.match(/\{[\s\S]*\}$/);
+
+    if (!match) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(match[0]) as T;
+    } catch {
+      return null;
+    }
+  }
 }
 
 async function downloadImage(url: string): Promise<Buffer> {

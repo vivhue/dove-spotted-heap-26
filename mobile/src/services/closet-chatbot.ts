@@ -1,5 +1,6 @@
 import { BodyMeasurements, CategoryId, ClosetAccount, WardrobeItem } from '@/models/closet';
 import type { SelectedOutfit } from '@/stores/closet-store';
+import { getClosetChatReplyFromModel } from '@/services/closet-api';
 import { getWeatherOutfitRecommendation } from '@/services/weather-recommendation';
 
 export type BodyShape = 'hourglass' | 'pear' | 'inverted triangle' | 'rectangle' | 'apple';
@@ -35,8 +36,11 @@ type ChatContext = {
   bodyProfile?: BodyProfile;
   colorProfile?: ColorProfile;
   closetItems: WardrobeItem[];
+  chatMode?: 'closet' | 'shopping';
   currentUser: ClosetAccount | null;
+  hasAttachedImage?: boolean;
   message: string;
+  selectedClosetItems?: WardrobeItem[];
   styleProfile?: StyleProfile;
   wishlistItems: WardrobeItem[];
 };
@@ -121,7 +125,36 @@ const fashionTrends2026 = [
 const isTop = (category: CategoryId) => category === 'shirt';
 const isBottom = (category: CategoryId) => category === 'pants' || category === 'shorts';
 
-export async function getClosetChatReply({
+export async function getClosetChatReply(context: ChatContext): Promise<ClosetChatReply> {
+  if (!context.currentUser) {
+    return { text: 'Create an account first, then I can answer using your own closet.' };
+  }
+
+  try {
+    const reply = await getClosetChatReplyFromModel({
+      bodyProfile: context.bodyProfile,
+      chatMode: context.chatMode ?? 'closet',
+      closetItems: context.closetItems,
+      colorProfile: context.colorProfile,
+      currentUser: context.currentUser,
+      hasAttachedImage: Boolean(context.hasAttachedImage),
+      message: context.message,
+      selectedClosetItems: context.selectedClosetItems ?? [],
+      styleProfile: context.styleProfile,
+      wishlistItems: context.wishlistItems,
+    });
+
+    if (reply.text.trim()) {
+      return reply;
+    }
+  } catch {
+    // Fall back to the local rules engine if the model route is unavailable.
+  }
+
+  return getLocalClosetChatReply(context);
+}
+
+async function getLocalClosetChatReply({
   bodyProfile,
   colorProfile,
   closetItems,
@@ -132,10 +165,6 @@ export async function getClosetChatReply({
 }: ChatContext): Promise<ClosetChatReply> {
   const text = message.trim();
   const lower = text.toLowerCase();
-
-  if (!currentUser) {
-    return { text: 'Create an account first, then I can answer using your own closet.' };
-  }
 
   if (isGreeting(lower)) {
     return {
