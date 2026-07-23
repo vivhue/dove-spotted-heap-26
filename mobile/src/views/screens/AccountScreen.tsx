@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AvatarChoice, BodyMeasurements, defaultPixelAvatar, pixelAvatarOptions, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
@@ -47,6 +47,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
     closetItems,
     currentUser,
     guidedMode,
+    isAuthReady,
     logIn,
     logOut,
     signUp,
@@ -95,8 +96,10 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
     return () => { isMounted = false; };
   }, [currentUser]);
 
-  function submitAuth() {
-    const result = authMode === 'signup' ? signUp(username, password, selectedGender ?? undefined) : logIn(username, password);
+  async function submitAuth() {
+    const result = authMode === 'signup'
+      ? await signUp(username, password, selectedGender ?? undefined)
+      : await logIn(username, password);
 
     setAuthMessage(result.message);
 
@@ -110,6 +113,12 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
     return (
       <AppScreen activeTab="account" onNavigate={onNavigate} showBottomNav={false} showStylist={false} title="Account">
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+          {!isAuthReady ? (
+            <View style={styles.authLoadingPanel}>
+              <ActivityIndicator color={closetTheme.camelDeep} />
+              <Text style={styles.authLoadingText}>Checking your session...</Text>
+            </View>
+          ) : (
           <View style={styles.authPanel}>
             <View style={styles.authAvatar}>
               <ClosetIcon category="shirt" color={closetTheme.camel} accent={closetTheme.blush} size={74} />
@@ -187,6 +196,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
               </Text>
             </Pressable>
           </View>
+          )}
         </ScrollView>
       </AppScreen>
     );
@@ -676,6 +686,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: 28,
     padding: 18,
+  },
+  authLoadingPanel: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+    justifyContent: 'center',
+    marginTop: 28,
+    minHeight: 220,
+    padding: 18,
+  },
+  authLoadingText: {
+    color: closetTheme.muted,
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   authAvatar: {
     alignItems: 'center',

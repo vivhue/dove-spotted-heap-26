@@ -71,7 +71,7 @@ export type ClosetAccount = {
   guidedMode?: boolean;
   id: string;
   username: string;
-  password: string;
+  password?: string;
   createdAt: string;
   gender?: 'female' | 'male';
   pixelAvatar?: PixelAvatarConfig;

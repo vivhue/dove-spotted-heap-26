@@ -1,6 +1,8 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
 
 import { AvatarChoice, CategoryId, ClosetAccount, defaultPixelAvatar, PixelAvatarConfig, WardrobeItem } from '@/models/closet';
+import { supabase } from '@/lib/supabase';
 import { deleteGarment, getGarments } from '@/services/closet-api';
 
 export type SelectedOutfit = Record<CategoryId, string | null>;
@@ -23,8 +25,9 @@ type ClosetStoreValue = {
   setEditingItem: (item: WardrobeItem | null) => void;
   isLoadingItems: boolean;
   itemsError: string;
-  logIn: (username: string, password: string) => AuthResult;
-  logOut: () => void;
+  isAuthReady: boolean;
+  logIn: (username: string, password: string) => Promise<AuthResult>;
+  logOut: () => Promise<void>;
   refreshItems: () => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
   updateItem: (item: WardrobeItem) => void;
@@ -33,7 +36,7 @@ type ClosetStoreValue = {
   selectedOutfit: SelectedOutfit;
   selfieImageUrl: string;
   setSelfieImageUrl: (url: string) => void;
-  signUp: (username: string, password: string, gender: ClosetAccount['gender']) => AuthResult;
+  signUp: (username: string, password: string, gender: ClosetAccount['gender']) => Promise<AuthResult>;
   updateAccountAvatar: (avatar: AvatarChoice) => void;
   updateGuidedMode: (enabled: boolean) => void;
   updatePixelAvatar: (updates: Partial<PixelAvatarConfig>) => void;
@@ -42,10 +45,8 @@ type ClosetStoreValue = {
 };
 
 const ClosetStoreContext = createContext<ClosetStoreValue | undefined>(undefined);
-const accountsStorageKey = 'bove-closet-accounts';
 const closetItemsStoragePrefix = 'bove-closet-items';
 const calendarOutfitsStoragePrefix = 'bove-calendar-outfits';
-const currentUserStorageKey = 'bove-closet-current-user';
 
 const initialSelectedOutfit: SelectedOutfit = {
   shirt: null,
@@ -56,48 +57,6 @@ const initialSelectedOutfit: SelectedOutfit = {
 
 function canUseLocalStorage() {
   return typeof globalThis !== 'undefined' && 'localStorage' in globalThis;
-}
-
-function loadStoredAccounts() {
-  if (!canUseLocalStorage()) {
-    return [];
-  }
-
-  try {
-    const storedAccounts = globalThis.localStorage.getItem(accountsStorageKey);
-
-    return storedAccounts ? (JSON.parse(storedAccounts) as ClosetAccount[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function loadStoredCurrentUserId() {
-  if (!canUseLocalStorage()) {
-    return '';
-  }
-
-  return globalThis.localStorage.getItem(currentUserStorageKey) ?? '';
-}
-
-function saveStoredAccounts(accounts: ClosetAccount[]) {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  globalThis.localStorage.setItem(accountsStorageKey, JSON.stringify(accounts));
-}
-
-function saveStoredCurrentUserId(userId: string) {
-  if (!canUseLocalStorage()) {
-    return;
-  }
-
-  if (userId) {
-    globalThis.localStorage.setItem(currentUserStorageKey, userId);
-  } else {
-    globalThis.localStorage.removeItem(currentUserStorageKey);
-  }
 }
 
 function closetItemsStorageKey(userId: string) {
@@ -156,17 +115,61 @@ function normalizeUsername(username: string) {
   return username.trim();
 }
 
+function usernameToAuthEmail(username: string) {
+  const localPart = normalizeUsername(username)
+    .toLowerCase()
+    .replace(/\s+/g, '.')
+    .replace(/[^a-z0-9._-]/g, '');
+
+  return localPart ? `${localPart}@bovecloset.app` : '';
+}
+
+function accountFromSupabaseUser(user: User): ClosetAccount {
+  const metadata = user.user_metadata ?? {};
+
+  return {
+    avatar: isAvatarChoice(metadata.avatar) ? metadata.avatar : 'shirt',
+    createdAt: typeof metadata.createdAt === 'string' ? metadata.createdAt : user.created_at ?? new Date().toISOString(),
+    gender: metadata.gender === 'female' || metadata.gender === 'male' ? metadata.gender : undefined,
+    guidedMode: typeof metadata.guidedMode === 'boolean' ? metadata.guidedMode : true,
+    id: user.id,
+    password: '',
+    pixelAvatar: isPixelAvatarConfig(metadata.pixelAvatar) ? metadata.pixelAvatar : defaultPixelAvatar,
+    username: typeof metadata.username === 'string' && metadata.username.trim() ? metadata.username.trim() : user.email?.split('@')[0] ?? 'closet-user',
+  };
+}
+
+function isAvatarChoice(value: unknown): value is AvatarChoice {
+  return ['initial', 'hanger', 'shirt', 'dress', 'shorts', 'pants'].includes(String(value));
+}
+
+function isPixelAvatarConfig(value: unknown): value is PixelAvatarConfig {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      'body' in value &&
+      'ears' in value &&
+      'eyes' in value &&
+      'face' in value &&
+      'hair' in value &&
+      'mouth' in value &&
+      'nose' in value &&
+      'outfitColor' in value &&
+      'skinColor' in value
+  );
+}
+
 export function ClosetStoreProvider({ children }: { children: ReactNode }) {
-  const [accounts, setAccounts] = useState<ClosetAccount[]>(loadStoredAccounts);
-  const [currentUserId, setCurrentUserId] = useState(loadStoredCurrentUserId);
+  const [currentUser, setCurrentUser] = useState<ClosetAccount | null>(null);
+  const [currentUserId, setCurrentUserId] = useState('');
   const [items, setItems] = useState<WardrobeItem[]>([]);
-  const [isLoadingItems, setIsLoadingItems] = useState(Boolean(currentUserId));
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [itemsError, setItemsError] = useState('');
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [selectedOutfit, setSelectedOutfit] = useState<SelectedOutfit>(initialSelectedOutfit);
   const [scheduledOutfits, setScheduledOutfits] = useState<ScheduledOutfits>(() => loadCachedScheduledOutfits(currentUserId));
   const [selfieImageUrl, setSelfieImageUrl] = useState('');
   const [editingItem, setEditingItem] = useState<WardrobeItem | null>(null);
-  const currentUser = accounts.find((account) => account.id === currentUserId) ?? null;
 
   const refreshItems = useCallback(async () => {
     if (!currentUserId) {
@@ -211,12 +214,40 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
   }, [currentUserId]);
 
   useEffect(() => {
-    saveStoredAccounts(accounts);
-  }, [accounts]);
+    let isMounted = true;
 
-  useEffect(() => {
-    saveStoredCurrentUserId(currentUserId);
-  }, [currentUserId]);
+    async function bootstrapSession() {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (error) {
+        setCurrentUser(null);
+        setCurrentUserId('');
+        setIsAuthReady(true);
+        return;
+      }
+
+      setCurrentUser(data.session?.user ? accountFromSupabaseUser(data.session.user) : null);
+      setCurrentUserId(data.session?.user?.id ?? '');
+      setIsAuthReady(true);
+    }
+
+    bootstrapSession();
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ? accountFromSupabaseUser(session.user) : null);
+      setCurrentUserId(session?.user?.id ?? '');
+      setIsAuthReady(true);
+    });
+
+    return () => {
+      isMounted = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   const value = useMemo<ClosetStoreValue>(() => {
     const closetItems = items.filter((item) => (item.destination ?? 'closet') === 'closet');
@@ -257,26 +288,28 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
       setEditingItem,
       isLoadingItems,
       itemsError,
-      logIn: (username, password) => {
+      isAuthReady,
+      logIn: async (username, password) => {
         const cleanedUsername = normalizeUsername(username);
-        const matchingAccount = accounts.find(
-          (account) => account.username.toLowerCase() === cleanedUsername.toLowerCase()
-        );
+        const email = usernameToAuthEmail(cleanedUsername);
 
         if (!cleanedUsername || !password) {
           return { ok: false, message: 'Enter your username and password.' };
         }
 
-        if (!matchingAccount || matchingAccount.password !== password) {
-          return { ok: false, message: 'That username or password does not match.' };
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          return { ok: false, message: error.message || 'That username or password does not match.' };
         }
 
-        setCurrentUserId(matchingAccount.id);
-
-        return { ok: true, message: `Welcome back, ${matchingAccount.username}.` };
+        return { ok: true, message: `Welcome back, ${cleanedUsername}.` };
       },
-      logOut: () => {
-        setCurrentUserId('');
+      logOut: async () => {
+        await supabase.auth.signOut();
       },
       refreshItems,
       removeItem: async (itemId) => {
@@ -364,8 +397,9 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
           return nextItems;
         });
       },
-      signUp: (username, password, gender) => {
+      signUp: async (username, password, gender) => {
         const cleanedUsername = normalizeUsername(username);
+        const email = usernameToAuthEmail(cleanedUsername);
 
         if (!gender) {
           return { ok: false, message: 'Choose male or female so recommendations fit better.' };
@@ -379,59 +413,87 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
           return { ok: false, message: 'Use at least 6 characters for your password.' };
         }
 
-        if (accounts.some((account) => account.username.toLowerCase() === cleanedUsername.toLowerCase())) {
-          return { ok: false, message: 'That username is already taken.' };
+        if (!email) {
+          return { ok: false, message: 'Use a username with letters or numbers.' };
         }
 
-        const nextAccount: ClosetAccount = {
-          avatar: 'shirt',
-          createdAt: new Date().toISOString(),
-          gender,
-          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        const { data, error } = await supabase.auth.signUp({
+          email,
           password,
-          pixelAvatar: defaultPixelAvatar,
-          username: cleanedUsername,
-        };
+          options: {
+            data: {
+              avatar: 'shirt',
+              createdAt: new Date().toISOString(),
+              gender,
+              guidedMode: true,
+              pixelAvatar: defaultPixelAvatar,
+              username: cleanedUsername,
+            },
+          },
+        });
 
-        setAccounts((currentAccounts) => [nextAccount, ...currentAccounts]);
-        setCurrentUserId(nextAccount.id);
+        if (error) {
+          return { ok: false, message: error.message || 'Could not create your account.' };
+        }
 
-        return { ok: true, message: `Account created for ${nextAccount.username}.` };
+        if (data.user && !data.session) {
+          return { ok: true, message: 'Account created. Turn off email confirmation in Supabase Auth for instant demo login.' };
+        }
+
+        return { ok: true, message: `Account created for ${cleanedUsername}.` };
       },
       updateAccountAvatar: (avatar) => {
         if (!currentUserId) {
           return;
         }
 
-        setAccounts((currentAccounts) =>
-          currentAccounts.map((account) =>
-            account.id === currentUserId ? { ...account, avatar } : account
-          )
-        );
+        setCurrentUser((current) => (current ? { ...current, avatar } : current));
+        void supabase.auth.updateUser({
+          data: {
+            avatar,
+            createdAt: currentUser?.createdAt ?? new Date().toISOString(),
+            gender: currentUser?.gender,
+            guidedMode: currentUser?.guidedMode ?? true,
+            pixelAvatar: currentUser?.pixelAvatar ?? defaultPixelAvatar,
+            username: currentUser?.username ?? 'closet-user',
+          },
+        });
       },
       updateGuidedMode: (enabled) => {
         if (!currentUserId) {
           return;
         }
 
-        setAccounts((currentAccounts) =>
-          currentAccounts.map((account) =>
-            account.id === currentUserId ? { ...account, guidedMode: enabled } : account
-          )
-        );
+        setCurrentUser((current) => (current ? { ...current, guidedMode: enabled } : current));
+        void supabase.auth.updateUser({
+          data: {
+            avatar: currentUser?.avatar ?? 'shirt',
+            createdAt: currentUser?.createdAt ?? new Date().toISOString(),
+            gender: currentUser?.gender,
+            guidedMode: enabled,
+            pixelAvatar: currentUser?.pixelAvatar ?? defaultPixelAvatar,
+            username: currentUser?.username ?? 'closet-user',
+          },
+        });
       },
       updatePixelAvatar: (updates) => {
         if (!currentUserId) {
           return;
         }
 
-        setAccounts((currentAccounts) =>
-          currentAccounts.map((account) =>
-            account.id === currentUserId
-              ? { ...account, pixelAvatar: { ...defaultPixelAvatar, ...(account.pixelAvatar ?? {}), ...updates } }
-              : account
-          )
-        );
+        const nextPixelAvatar = { ...defaultPixelAvatar, ...(currentUser?.pixelAvatar ?? {}), ...updates };
+
+        setCurrentUser((current) => (current ? { ...current, pixelAvatar: nextPixelAvatar } : current));
+        void supabase.auth.updateUser({
+          data: {
+            avatar: currentUser?.avatar ?? 'shirt',
+            createdAt: currentUser?.createdAt ?? new Date().toISOString(),
+            gender: currentUser?.gender,
+            guidedMode: currentUser?.guidedMode ?? true,
+            pixelAvatar: nextPixelAvatar,
+            username: currentUser?.username ?? 'closet-user',
+          },
+        });
       },
       toggleWornItem: (item) => {
         setSelectedOutfit((currentOutfit) => ({
@@ -441,7 +503,7 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
       },
       wishlistItems,
     };
-  }, [accounts, currentUser, currentUserId, editingItem, items, isLoadingItems, itemsError, refreshItems, scheduledOutfits, selectedOutfit, selfieImageUrl]);
+  }, [currentUser, currentUserId, editingItem, isAuthReady, items, isLoadingItems, itemsError, refreshItems, scheduledOutfits, selectedOutfit, selfieImageUrl]);
 
   return <ClosetStoreContext.Provider value={value}>{children}</ClosetStoreContext.Provider>;
 }
