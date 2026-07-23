@@ -1,3 +1,5 @@
+import '@/views/components/app-font-defaults';
+
 import { ClosetApp } from '@/views/ClosetApp';
 import { ClosetStoreProvider } from '@/stores/closet-store';
 

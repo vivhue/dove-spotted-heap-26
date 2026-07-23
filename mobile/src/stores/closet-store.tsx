@@ -4,6 +4,7 @@ import { AvatarChoice, CategoryId, ClosetAccount, defaultPixelAvatar, PixelAvata
 import { getGarments } from '@/services/closet-api';
 
 export type SelectedOutfit = Record<CategoryId, string | null>;
+export type ScheduledOutfits = Record<string, string[]>;
 
 type AuthResult = {
   ok: boolean;
@@ -20,6 +21,8 @@ type ClosetStoreValue = {
   logIn: (username: string, password: string) => AuthResult;
   logOut: () => void;
   refreshItems: () => Promise<void>;
+  scheduledOutfits: ScheduledOutfits;
+  scheduleOutfitForDate: (dateKey: string, itemIds: string[]) => void;
   selectedOutfit: SelectedOutfit;
   selfieImageUrl: string;
   setSelfieImageUrl: (url: string) => void;
@@ -33,6 +36,7 @@ type ClosetStoreValue = {
 const ClosetStoreContext = createContext<ClosetStoreValue | undefined>(undefined);
 const accountsStorageKey = 'bove-closet-accounts';
 const closetItemsStoragePrefix = 'bove-closet-items';
+const calendarOutfitsStoragePrefix = 'bove-calendar-outfits';
 const currentUserStorageKey = 'bove-closet-current-user';
 
 const initialSelectedOutfit: SelectedOutfit = {
@@ -114,6 +118,32 @@ function saveCachedClosetItems(userId: string, items: WardrobeItem[]) {
   globalThis.localStorage.setItem(closetItemsStorageKey(userId), JSON.stringify(items));
 }
 
+function calendarOutfitsStorageKey(userId: string) {
+  return `${calendarOutfitsStoragePrefix}:${userId}`;
+}
+
+function loadCachedScheduledOutfits(userId: string) {
+  if (!userId || !canUseLocalStorage()) {
+    return {};
+  }
+
+  try {
+    const cachedOutfits = globalThis.localStorage.getItem(calendarOutfitsStorageKey(userId));
+
+    return cachedOutfits ? (JSON.parse(cachedOutfits) as ScheduledOutfits) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCachedScheduledOutfits(userId: string, outfits: ScheduledOutfits) {
+  if (!userId || !canUseLocalStorage()) {
+    return;
+  }
+
+  globalThis.localStorage.setItem(calendarOutfitsStorageKey(userId), JSON.stringify(outfits));
+}
+
 function normalizeUsername(username: string) {
   return username.trim();
 }
@@ -125,6 +155,7 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
   const [isLoadingItems, setIsLoadingItems] = useState(Boolean(currentUserId));
   const [itemsError, setItemsError] = useState('');
   const [selectedOutfit, setSelectedOutfit] = useState<SelectedOutfit>(initialSelectedOutfit);
+  const [scheduledOutfits, setScheduledOutfits] = useState<ScheduledOutfits>(() => loadCachedScheduledOutfits(currentUserId));
   const [selfieImageUrl, setSelfieImageUrl] = useState('');
   const currentUser = accounts.find((account) => account.id === currentUserId) ?? null;
 
@@ -159,11 +190,16 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
   }, [currentUserId]);
 
   useEffect(() => {
+    // Sync cached closet data whenever the signed-in account changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshItems();
   }, [refreshItems]);
 
   useEffect(() => {
+    // Reset account-scoped UI state when switching users.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedOutfit(initialSelectedOutfit);
+    setScheduledOutfits(loadCachedScheduledOutfits(currentUserId));
     setSelfieImageUrl('');
   }, [currentUserId]);
 
@@ -233,6 +269,23 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
         setCurrentUserId('');
       },
       refreshItems,
+      scheduledOutfits,
+      scheduleOutfitForDate: (dateKey, itemIds) => {
+        if (!currentUserId) {
+          return;
+        }
+
+        setScheduledOutfits((currentOutfits) => {
+          const nextOutfits = {
+            ...currentOutfits,
+            [dateKey]: Array.from(new Set(itemIds)),
+          };
+
+          saveCachedScheduledOutfits(currentUserId, nextOutfits);
+
+          return nextOutfits;
+        });
+      },
       selectedOutfit,
       selfieImageUrl,
       setSelfieImageUrl,
@@ -302,7 +355,7 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
       },
       wishlistItems,
     };
-  }, [accounts, currentUser, currentUserId, items, isLoadingItems, itemsError, refreshItems, selectedOutfit, selfieImageUrl]);
+  }, [accounts, currentUser, currentUserId, items, isLoadingItems, itemsError, refreshItems, scheduledOutfits, selectedOutfit, selfieImageUrl]);
 
   return <ClosetStoreContext.Provider value={value}>{children}</ClosetStoreContext.Provider>;
 }

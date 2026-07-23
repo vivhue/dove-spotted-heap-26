@@ -24,14 +24,18 @@ export const closetPaperBackground = {
   backgroundSize: '16px 16px',
 } as const;
 
+const regularFontFamily = 'Silkscreen-Regular';
+const boldFontFamily = 'Silkscreen-Bold';
 const appFontFamily = Platform.select({
-  android: 'monospace',
-  ios: 'Menlo',
-  web: '"Courier New", "Lucida Console", Monaco, ui-monospace, monospace',
-  default: 'monospace',
+  android: regularFontFamily,
+  ios: regularFontFamily,
+  web: regularFontFamily,
+  default: regularFontFamily,
 });
 
 export const closetTypography = {
   appFont: appFontFamily,
+  boldFont: boldFontFamily,
+  regularFont: regularFontFamily,
   text: { fontFamily: appFontFamily },
 };

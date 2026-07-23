@@ -189,14 +189,10 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
             <Text style={styles.name}>{currentUser.username}</Text>
             <View style={styles.stats}>
               <Stat value="0" label="looks" />
-              <Stat value="0" label="avatars" />
               <Stat value={String(itemCount)} label="items" />
             </View>
           </View>
         </View>
-
-        <Text style={styles.followText}>0 followers   0 following</Text>
-        <Text style={styles.memberText}>{formatMemberSince(currentUser.createdAt)}</Text>
 
         {isEditingProfile && (
           <View style={styles.editProfilePanel}>
@@ -392,14 +388,14 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
               <Pressable
                 style={[styles.pill, hasLookbook && styles.pillSelected]}
                 onPress={() => setHasLookbook((hasCreated) => !hasCreated)}>
-                <Text style={[styles.pillText, hasLookbook && styles.pillTextSelected]}>
+                <Text numberOfLines={1} style={[styles.pillText, hasLookbook && styles.pillTextSelected]}>
                   {hasLookbook ? 'Lookbook Added' : '+ Add Lookbook'}
                 </Text>
               </Pressable>
               <Pressable
                 style={[styles.pill, isWornLooksOnly && styles.pillSelected]}
                 onPress={() => setIsWornLooksOnly((isOnly) => !isOnly)}>
-                <Text style={[styles.pillText, isWornLooksOnly && styles.pillTextSelected]}>
+                <Text numberOfLines={1} style={[styles.pillText, isWornLooksOnly && styles.pillTextSelected]}>
                   {isWornLooksOnly ? 'All Looks' : 'Worn Looks'}
                 </Text>
               </Pressable>
@@ -451,19 +447,6 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
       </ScrollView>
     </AppScreen>
   );
-}
-
-function formatMemberSince(createdAt: string) {
-  const createdDate = new Date(createdAt);
-
-  if (Number.isNaN(createdDate.getTime())) {
-    return 'Member since today';
-  }
-
-  const month = createdDate.toLocaleString('en', { month: 'short' });
-  const year = String(createdDate.getFullYear()).slice(-2);
-
-  return `Member since ${month} '${year}`;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -806,7 +789,7 @@ const styles = StyleSheet.create({
   },
   profileMeta: {
     flex: 1,
-    gap: 10,
+    gap: 18,
   },
   name: {
     color: closetTheme.ink,
@@ -815,7 +798,7 @@ const styles = StyleSheet.create({
   },
   stats: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 28,
   },
   stat: {
     minWidth: 54,
@@ -829,18 +812,6 @@ const styles = StyleSheet.create({
     color: closetTheme.ink,
     fontSize: 14,
     marginTop: 2,
-  },
-  followText: {
-    color: closetTheme.ink,
-    fontSize: 17,
-    fontWeight: '800',
-    marginTop: 12,
-  },
-  memberText: {
-    color: closetTheme.muted,
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 4,
   },
   tabs: {
     flexDirection: 'row',
@@ -1277,14 +1248,18 @@ const styles = StyleSheet.create({
   },
   pills: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
     marginTop: 22,
   },
   pill: {
+    alignItems: 'center',
     backgroundColor: closetTheme.creamDeep,
     borderRadius: 22,
-    paddingHorizontal: 16,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 0,
+    paddingHorizontal: 8,
     paddingVertical: 12,
   },
   pillSelected: {
@@ -1292,8 +1267,9 @@ const styles = StyleSheet.create({
   },
   pillText: {
     color: closetTheme.ink,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '900',
+    textAlign: 'center',
   },
   pillTextSelected: {
     color: closetTheme.cream,

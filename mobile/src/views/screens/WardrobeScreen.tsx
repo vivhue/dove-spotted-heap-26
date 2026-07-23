@@ -143,8 +143,19 @@ export function WardrobeScreen({
                 />
               </View>
             ))}
-            {!isLoadingItems && !itemsError && filteredItems.length === 0 && <Text style={styles.emptyText}>No items in digital closet. Tap + to upload one.</Text>}
+            {!isLoadingItems && !itemsError && filteredItems.length === 0 && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No items in digital closet. Tap + to upload one.</Text>
+              </View>
+            )}
           </ScrollView>
+
+          <Pressable
+            accessibilityLabel="Upload clothing item"
+            style={({ pressed }) => [styles.addFab, pressed && styles.buttonPressed]}
+            onPress={() => onNavigate('add')}>
+            <LineIcon name="+" color={closetTheme.cream} />
+          </Pressable>
         </View>
       </View>
     </AppScreen>
@@ -278,6 +289,7 @@ const styles = StyleSheet.create({
   scrim: {
     backgroundColor: 'rgba(247,239,226,0.48)',
     flex: 1,
+    position: 'relative',
   },
   screenTitle: {
     color: closetTheme.ink,
@@ -425,6 +437,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 14,
     padding: 22,
+    paddingBottom: 120,
     paddingTop: 8,
   },
   cardWrap: {
@@ -434,14 +447,35 @@ const styles = StyleSheet.create({
     color: closetTheme.muted,
     fontSize: 13,
     fontWeight: '800',
-    paddingTop: 12,
     textAlign: 'center',
     width: '100%',
   },
   emptyState: {
     alignItems: 'center',
-    gap: 10,
-    paddingTop: 28,
+    gap: 14,
+    justifyContent: 'center',
+    minHeight: 220,
     width: '100%',
+  },
+  addFab: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.ink,
+    borderRadius: 28,
+    bottom: 82,
+    elevation: 8,
+    height: 56,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 24,
+    shadowColor: closetTheme.ink,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.24,
+    shadowRadius: 12,
+    width: 56,
+    zIndex: 80,
+  },
+  buttonPressed: {
+    opacity: 0.74,
+    transform: [{ scale: 0.96 }],
   },
 });
