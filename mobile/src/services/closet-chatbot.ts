@@ -36,7 +36,6 @@ type ChatContext = {
   bodyProfile?: BodyProfile;
   colorProfile?: ColorProfile;
   closetItems: WardrobeItem[];
-  chatMode?: 'closet' | 'shopping';
   currentUser: ClosetAccount | null;
   hasAttachedImage?: boolean;
   message: string;
@@ -133,7 +132,6 @@ export async function getClosetChatReply(context: ChatContext): Promise<ClosetCh
   try {
     const reply = await getClosetChatReplyFromModel({
       bodyProfile: context.bodyProfile,
-      chatMode: context.chatMode ?? 'closet',
       closetItems: context.closetItems,
       colorProfile: context.colorProfile,
       currentUser: context.currentUser,

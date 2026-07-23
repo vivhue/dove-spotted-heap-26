@@ -39,8 +39,6 @@ type QuizState = {
   mode: 'color' | 'style';
 };
 
-type ChatMode = 'closet' | 'shopping';
-
 const styleQuiz = [
   { text: 'Pick the outfit pair you would actually wear: fitted top + baggy jeans, or baggy top + fitted jeans?', actions: ['fitted top + baggy jeans', 'baggy top + fitted jeans'] },
   { text: 'For a casual day, which silhouette feels better?', actions: ['fitted + fitted', 'baggy + baggy'] },
@@ -89,10 +87,8 @@ export function DiscoverScreen({
   ]);
   const [draft, setDraft] = useState('');
   const [attachedImageUri, setAttachedImageUri] = useState('');
-  const [chatMode, setChatMode] = useState<ChatMode>('closet');
   const [closetSearch, setClosetSearch] = useState('');
   const [closetSheetOpen, setClosetSheetOpen] = useState(false);
-  const [isModeOpen, setIsModeOpen] = useState(false);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'all'>('all');
   const [selectedClosetItemIds, setSelectedClosetItemIds] = useState<string[]>([]);
@@ -145,10 +141,7 @@ export function DiscoverScreen({
       return;
     }
 
-    const modeContext =
-      chatMode === 'closet'
-        ? 'Use my closet as much as possible.'
-        : 'Include shopping suggestions if my closet is missing something.';
+    const modeContext = 'Use my closet as much as possible.';
     const selectedContext = selectedClosetItems.length
       ? ` Selected closet items: ${selectedClosetItems.map((item) => item.name).join(', ')}.`
       : '';
@@ -177,7 +170,6 @@ export function DiscoverScreen({
       bodyProfile: buildBodyProfile(measurements),
       colorProfile,
       closetItems,
-      chatMode,
       currentUser,
       hasAttachedImage: Boolean(attachedImageUri),
       message: messageForReply,
@@ -190,7 +182,6 @@ export function DiscoverScreen({
       ...currentMessages,
       { id: nextMessageId('bot'), outfit: reply.outfit, role: 'bot', text: reply.text },
     ]);
-    setIsModeOpen(false);
     setClosetSheetOpen(false);
     setIsThinking(false);
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
@@ -205,8 +196,6 @@ export function DiscoverScreen({
     if (!requireAccount()) {
       return;
     }
-
-    setIsModeOpen(false);
     setClosetSheetOpen(false);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -241,8 +230,6 @@ export function DiscoverScreen({
     if (!requireAccount()) {
       return;
     }
-
-    setIsModeOpen(false);
     setClosetSheetOpen(false);
     setIsVoiceActive((isActive) => !isActive);
   }
@@ -251,14 +238,7 @@ export function DiscoverScreen({
     if (!requireAccount()) {
       return;
     }
-
-    setIsModeOpen(false);
     setClosetSheetOpen(true);
-  }
-
-  function toggleModeMenu() {
-    setClosetSheetOpen(false);
-    setIsModeOpen((isOpen) => !isOpen);
   }
 
   function startQuiz(mode: QuizState['mode']) {
@@ -498,10 +478,6 @@ export function DiscoverScreen({
             <Pressable style={[styles.composerIconButton, selectedClosetItems.length > 0 && styles.composerIconButtonActive]} onPress={openClosetSheet}>
               <LineIcon name="♕" color={closetTheme.ink} />
             </Pressable>
-            <Pressable style={styles.modePill} onPress={toggleModeMenu}>
-              <Text style={styles.modePillText}>{chatMode === 'closet' ? 'Closet mode' : 'Shopping mode'}</Text>
-              <LineIcon name="⌄" color={closetTheme.ink} />
-            </Pressable>
             <Pressable style={[styles.composerIconButton, isVoiceActive && styles.composerIconButtonActive]} onPress={toggleVoiceInput}>
               <LineIcon name="♬" color={closetTheme.ink} />
             </Pressable>
@@ -512,26 +488,6 @@ export function DiscoverScreen({
               <LineIcon name="→" color={closetTheme.cream} />
             </Pressable>
           </View>
-          {isModeOpen && (
-            <View style={styles.modeMenu}>
-              {(['closet', 'shopping'] as ChatMode[]).map((mode) => (
-                <Pressable
-                  key={mode}
-                  style={[styles.modeMenuItem, chatMode === mode && styles.modeMenuItemSelected]}
-                  onPress={() => {
-                    setChatMode(mode);
-                    setIsModeOpen(false);
-                  }}>
-                  <Text style={styles.modeMenuTitle}>{mode === 'closet' ? 'Closet mode' : 'Shopping mode'}</Text>
-                  <Text style={styles.modeMenuText}>
-                    {mode === 'closet'
-                      ? 'Looks use your closet as much as possible.'
-                      : 'Includes shopping ideas if something is missing.'}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
         </View>
 
         {closetSheetOpen && (
@@ -891,57 +847,6 @@ const styles = StyleSheet.create({
   composerIconButtonActive: {
     backgroundColor: closetTheme.blueMist,
     borderColor: closetTheme.camelDeep,
-  },
-  modePill: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderWidth: 1,
-    borderRadius: 20,
-    flex: 1,
-    flexDirection: 'row',
-    gap: 6,
-    height: 40,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  modePillText: {
-    color: closetTheme.ink,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  modeMenu: {
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 14,
-    borderWidth: 1,
-    bottom: 62,
-    left: 92,
-    overflow: 'hidden',
-    position: 'absolute',
-    right: 68,
-    zIndex: 6,
-  },
-  modeMenuItem: {
-    borderBottomColor: closetTheme.line,
-    borderBottomWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  modeMenuItemSelected: {
-    backgroundColor: closetTheme.cream,
-  },
-  modeMenuTitle: {
-    color: closetTheme.ink,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  modeMenuText: {
-    color: closetTheme.muted,
-    fontSize: 10,
-    fontWeight: '700',
-    lineHeight: 14,
-    marginTop: 2,
   },
   send: {
     alignItems: 'center',
