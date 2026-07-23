@@ -307,13 +307,10 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
   );
 }
 
-function TryOnHeader({ step }: { step: 1 | 2 | 3 }) {
+function TryOnHeader() {
   return (
     <View style={styles.stepTwoHeader}>
       <Text style={styles.mirrorHeroTitle}>Virtual Try-On</Text>
-      <View style={styles.mirrorProgressRow}>
-        <StepTracker step={step} variant="mirror" />
-      </View>
     </View>
   );
 }
