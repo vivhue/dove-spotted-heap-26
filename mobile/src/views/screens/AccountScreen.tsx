@@ -39,8 +39,6 @@ type Props = {
 
 type AuthMode = 'login' | 'signup';
 type ProfileTab = 'looks' | 'trips';
-type LooksSort = 'newest' | 'oldest';
-type LooksViewMode = 'grid' | 'list';
 
 export function AccountScreen({ measurements, onAuthenticated, onMeasurementChange, onNavigate, savedTrips }: Props) {
   const {
@@ -59,13 +57,6 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [expandedTripIds, setExpandedTripIds] = useState<string[]>([]);
-  const [isLooksSearchOpen, setIsLooksSearchOpen] = useState(false);
-  const [isSelectMode, setIsSelectMode] = useState(false);
-  const [isWornLooksOnly, setIsWornLooksOnly] = useState(false);
-  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
-  const [looksSearch, setLooksSearch] = useState('');
-  const [looksSort, setLooksSort] = useState<LooksSort>('newest');
-  const [looksViewMode, setLooksViewMode] = useState<LooksViewMode>('grid');
   const [profileTab, setProfileTab] = useState<ProfileTab>('looks');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -390,80 +381,6 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
             <Pressable style={({ pressed }) => [styles.addLook, pressed && styles.pressed]} onPress={() => onNavigate('look-history')}>
               <Text style={styles.addLookText}>History</Text>
             </Pressable>
-
-            <View style={styles.filterRow}>
-              <View style={styles.sortWrap}>
-                <Pressable style={styles.sortButton} onPress={() => setIsSortMenuOpen((isOpen) => !isOpen)}>
-                  <Text style={styles.filterText}>{looksSort === 'newest' ? 'Newest' : 'Oldest'}</Text>
-                  <Text style={styles.sortChevron}>⌄</Text>
-                </Pressable>
-                {isSortMenuOpen && (
-                  <View style={styles.sortMenu}>
-                    {(['newest', 'oldest'] as LooksSort[]).map((sort) => (
-                      <Pressable
-                        key={sort}
-                        style={[styles.sortMenuItem, looksSort === sort && styles.sortMenuItemSelected]}
-                        onPress={() => {
-                          setLooksSort(sort);
-                          setIsSortMenuOpen(false);
-                        }}>
-                        <Text style={[styles.sortMenuText, looksSort === sort && styles.sortMenuTextSelected]}>
-                          {sort === 'newest' ? 'Newest first' : 'Oldest first'}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-              </View>
-              <View style={styles.filterActions}>
-                <Pressable style={styles.iconControl} onPress={() => setIsLooksSearchOpen((isOpen) => !isOpen)}>
-                  <Text style={[styles.filterIcon, isLooksSearchOpen && styles.filterIconActive]}>⌕</Text>
-                </Pressable>
-                <Pressable style={styles.iconControl} onPress={() => setLooksViewMode((mode) => (mode === 'grid' ? 'list' : 'grid'))}>
-                  <Text style={styles.filterIcon}>{looksViewMode === 'grid' ? '☷' : '☰'}</Text>
-                </Pressable>
-                <Pressable style={styles.selectControl} onPress={() => setIsSelectMode((isSelecting) => !isSelecting)}>
-                  <Text style={[styles.selectText, isSelectMode && styles.selectTextActive]}>
-                    {isSelectMode ? 'Done' : 'Select'}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-
-            {isLooksSearchOpen && (
-              <TextInput
-                autoCapitalize="none"
-                onChangeText={setLooksSearch}
-                placeholder="Search looks"
-                placeholderTextColor={closetTheme.muted}
-                style={styles.looksSearchInput}
-                value={looksSearch}
-              />
-            )}
-
-            <View style={styles.pills}>
-              <Pressable
-                style={[styles.pill, isWornLooksOnly && styles.pillSelected]}
-                onPress={() => setIsWornLooksOnly((isOnly) => !isOnly)}>
-                <Text numberOfLines={1} style={[styles.pillText, isWornLooksOnly && styles.pillTextSelected]}>
-                  {isWornLooksOnly ? 'All Looks' : 'Worn Looks'}
-                </Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.looksStatePanel}>
-              <Text style={styles.looksStateText}>
-                {looksViewMode === 'grid' ? 'Grid view' : 'List view'}
-                {' · '}
-                {isSelectMode ? 'Select mode on' : 'Browsing'}
-              </Text>
-              {looksSearch || isWornLooksOnly ? (
-                <Text style={styles.looksStateMeta}>
-                  Showing {isWornLooksOnly ? 'worn looks' : 'all looks'}
-                  {looksSearch ? ` matching "${looksSearch}"` : ''}.
-                </Text>
-              ) : null}
-            </View>
           </>
         ) : (
           <View style={styles.tripsPanel}>
@@ -1249,157 +1166,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
     maxWidth: 72,
     textAlign: 'center',
-  },
-  filterRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24,
-    position: 'relative',
-    zIndex: 3,
-  },
-  sortWrap: {
-    position: 'relative',
-    width: 132,
-    zIndex: 4,
-  },
-  sortButton: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    height: 34,
-  },
-  sortChevron: {
-    color: closetTheme.ink,
-    fontSize: 14,
-    fontWeight: '900',
-    lineHeight: 18,
-    marginLeft: 2,
-  },
-  filterText: {
-    color: closetTheme.ink,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  sortMenu: {
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 8,
-    borderWidth: 1,
-    left: 0,
-    overflow: 'hidden',
-    position: 'absolute',
-    top: 36,
-    width: 132,
-    zIndex: 5,
-  },
-  sortMenuItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  sortMenuItemSelected: {
-    backgroundColor: closetTheme.creamDeep,
-  },
-  sortMenuText: {
-    color: closetTheme.ink,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  sortMenuTextSelected: {
-    color: closetTheme.camelDeep,
-  },
-  filterActions: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 14,
-  },
-  iconControl: {
-    alignItems: 'center',
-    height: 34,
-    justifyContent: 'center',
-    width: 34,
-  },
-  filterIcon: {
-    color: closetTheme.ink,
-    fontSize: 20,
-    fontWeight: '900',
-    lineHeight: 24,
-    textAlign: 'center',
-  },
-  filterIconActive: {
-    color: closetTheme.camelDeep,
-  },
-  selectControl: {
-    alignItems: 'center',
-    height: 34,
-    justifyContent: 'center',
-    minWidth: 58,
-  },
-  selectText: {
-    color: closetTheme.ink,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  selectTextActive: {
-    color: closetTheme.camelDeep,
-  },
-  looksSearchInput: {
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 8,
-    borderWidth: 1,
-    color: closetTheme.ink,
-    fontSize: 14,
-    fontWeight: '800',
-    marginTop: 12,
-    minHeight: 44,
-    paddingHorizontal: 14,
-  },
-  pills: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 22,
-  },
-  pill: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.creamDeep,
-    borderRadius: 22,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 44,
-    minWidth: 0,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-  },
-  pillSelected: {
-    backgroundColor: closetTheme.ink,
-  },
-  pillText: {
-    color: closetTheme.ink,
-    fontSize: 12,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  pillTextSelected: {
-    color: closetTheme.cream,
-  },
-  looksStatePanel: {
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 14,
-    padding: 12,
-  },
-  looksStateText: {
-    color: closetTheme.ink,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  looksStateMeta: {
-    color: closetTheme.muted,
-    fontSize: 12,
-    fontWeight: '800',
-    marginTop: 4,
   },
   historyLoading: {
     marginVertical: 28,
