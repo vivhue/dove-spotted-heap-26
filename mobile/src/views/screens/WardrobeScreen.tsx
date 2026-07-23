@@ -60,7 +60,7 @@ export function WardrobeScreen({
   return (
     <AppScreen activeTab={mode} onNavigate={onNavigate} showStatus={false}>
       <View style={styles.background}>
-        <Image source={wardrobeBackground} resizeMode="stretch" style={styles.backgroundImage} />
+        <Image source={wardrobeBackground} resizeMode="contain" style={styles.backgroundImage} />
         <View style={styles.scrim}>
           <Text style={styles.screenTitle}>My wardrobe</Text>
 
@@ -285,6 +285,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     top: 0,
+    transform: [{ translateX: -10 }],
   },
   scrim: {
     backgroundColor: 'rgba(247,239,226,0.48)',
