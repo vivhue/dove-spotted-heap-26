@@ -1,28 +1,29 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Image, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 import { ScreenId } from '@/models/closet';
 import { createTryOn, getAvatar, setupAvatar } from '@/services/closet-api';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
-const tryOnMirrorImage = require('../../../assets/images/try-on-mirror-v2.jpg');
-const tryOnBackdrop = '#E79A6C';
-const mirrorArtAspectRatio = 474 / 1024;
-const mirrorGlassWidthRatio = 0.426;
-const mirrorGlassHeightRatio = 0.505;
-const mirrorGlassLeftRatio = 0.312;
-const mirrorGlassTopRatio = 0.259;
-const mirrorPhotoInset = 2;
-const mirrorControlsTopRatio = 0.89;
-const mirrorStageHeightRatio = 1.08;
+const tryOnMirrorImage = require('../../../assets/images/try-on-room-v4.png');
+const wardrobeBackground = require('../../../assets/images/wardrobe-bg.png');
+const tryOnBackdrop = '#D98A42';
+const mirrorArtAspectRatio = 402 / 874;
+const mirrorGlassWidthRatio = 215 / 402;
+const mirrorGlassHeightRatio = 429 / 874;
+const mirrorGlassLeftRatio = 92 / 402;
+const mirrorGlassTopRatio = 273 / 874;
+const mirrorPhotoInset = 0;
+const mirrorVerticalOffset = -108;
+const mirrorControlsTopRatio = 0.74;
+const mirrorStageHeightRatio = 1;
 
 export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const { width: windowWidth } = useWindowDimensions();
   const { closetItems, currentUser, wishlistItems } = useClosetStore();
   const tryOnItems = [...closetItems, ...wishlistItems];
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -33,8 +34,14 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
   const [isCheckingAvatar, setIsCheckingAvatar] = useState(true);
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [stageArea, setStageArea] = useState({ height: 874, width: 402 });
   const selectedGarment = tryOnItems.find((item) => item.id === selectedGarmentId);
-  const mirrorStageWidth = Math.min(Math.max(windowWidth - 24, 300), 360);
+  const mirrorStageWidth = stageArea.width;
+
+  function measureStageArea(event: LayoutChangeEvent) {
+    const { height, width } = event.nativeEvent.layout;
+    setStageArea({ height, width });
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -140,7 +147,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
 
       setDisplayPhotoUrl(resultUrl);
       setStep(3);
-      setStatus('Try-on ready.');
+      setStatus('');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Try-on failed. You can retry.');
     } finally {
@@ -153,29 +160,37 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
   }
 
   return (
-    <AppScreen activeTab="try-on" onNavigate={onNavigate} showStatus={false}>
-      <View style={styles.tryOnRoot}>
-        <ScrollView contentContainerStyle={styles.content}>
+    <AppScreen activeTab="try-on" onNavigate={onNavigate} showStatus={false} showStylist={false}>
+      <View onLayout={measureStageArea} style={styles.tryOnRoot}>
+        {step === 2 && (
+          <View pointerEvents="none" style={styles.stepTwoBackground}>
+            <Image resizeMode="cover" source={wardrobeBackground} style={styles.stepTwoBackgroundImage} />
+            <View style={styles.stepTwoScrim} />
+          </View>
+        )}
+        <ScrollView contentContainerStyle={[styles.content, step === 2 && styles.stepTwoContent]} scrollEnabled={step === 2}>
           {step === 1 && (
             <MirrorStage
               actionRow={
-                <View style={styles.actionRow}>
+                <View style={[styles.actionRow, styles.centeredActionRow]}>
                   <Pressable
                     disabled={isSettingUp}
-                    style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, isSettingUp && styles.disabled]}
+                    style={({ pressed }) => [styles.secondaryButton, styles.centeredMirrorButton, pressed && styles.pressed, isSettingUp && styles.disabled]}
                     onPress={uploadAvatar}>
-                    {isSettingUp ? <ActivityIndicator color={closetTheme.camelDeep} /> : <LineIcon name="▧" color={closetTheme.camelDeep} />}
-                    <Text style={styles.secondaryText}>{avatarUrl ? 'Retake photo' : 'Upload photo'}</Text>
+                    {isSettingUp && <ActivityIndicator color={closetTheme.camelDeep} />}
+                    <Text numberOfLines={1} style={[styles.secondaryText, styles.centeredMirrorButtonText]}>{avatarUrl ? 'Retake photo' : 'Upload photo'}</Text>
                   </Pressable>
 
-                  <Pressable
-                    disabled={!avatarUrl || isSettingUp}
-                    style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, (!avatarUrl || isSettingUp) && styles.disabled]}
-                    onPress={() => setStep(2)}>
-                    <Text style={styles.primaryText}>Continue</Text>
-                    <LineIcon name="›" color={closetTheme.cream} />
-                  </Pressable>
                 </View>
+              }
+              nextAction={
+                <Pressable
+                  disabled={!avatarUrl || isSettingUp}
+                  style={({ pressed }) => [styles.stepNextButton, pressed && styles.pressed, (!avatarUrl || isSettingUp) && styles.disabled]}
+                  onPress={() => setStep(2)}>
+                  <Text style={styles.stepNextText}>Next</Text>
+                  <LineIcon name="›" color={closetTheme.cream} />
+                </Pressable>
               }
               stageWidth={mirrorStageWidth}
               step={step}
@@ -189,7 +204,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
                 ]}
                 onPress={uploadAvatar}>
                 {displayPhotoUrl ? (
-                  <Image source={{ uri: displayPhotoUrl }} style={styles.userPhoto} resizeMode="cover" />
+                  <Image source={{ uri: displayPhotoUrl }} style={styles.userPhoto} resizeMode="contain" />
                 ) : (
                   <View style={styles.emptyPhoto}>
                     {isCheckingAvatar || isSettingUp ? (
@@ -208,8 +223,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
 
         {step === 2 && (
           <>
-            <TryOnHeader />
-            <StepTracker step={step} />
+            <TryOnHeader step={step} />
             <Text style={styles.sectionHeading}>Pick a piece to try on</Text>
             {tryOnItems.length === 0 ? (
               <View style={styles.emptyGarments}>
@@ -224,6 +238,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
                   {tryOnItems.map((item) => (
                     <View key={item.id} style={styles.cardWrap}>
                       <WardrobeCard
+                        compact
                         isWorn={selectedGarmentId === item.id}
                         item={item}
                         onPress={() => toggleGarment(item.id)}
@@ -233,14 +248,14 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
                   ))}
                 </View>
 
-                <Text style={styles.statusText}>{selectedGarment ? `${selectedGarment.name} selected.` : 'Select one garment to continue.'}</Text>
-                <View style={styles.actionRow}>
-                  <Pressable style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]} onPress={() => setStep(1)}>
-                    <Text style={styles.secondaryText}>Back</Text>
+                <Text style={[styles.statusText, styles.selectionStatus]}>{selectedGarment ? `${selectedGarment.name} selected.` : 'Select one garment to continue.'}</Text>
+                <View style={[styles.actionRow, styles.stepTwoActionRow]}>
+                  <Pressable style={({ pressed }) => [styles.secondaryButton, styles.stepTwoBackButton, pressed && styles.pressed]} onPress={() => setStep(1)}>
+                    <Text style={[styles.secondaryText, styles.centeredMirrorButtonText]}>Back</Text>
                   </Pressable>
                   <Pressable
                     disabled={!selectedGarmentId || isGenerating}
-                    style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, (!selectedGarmentId || isGenerating) && styles.disabled]}
+                    style={({ pressed }) => [styles.primaryButton, styles.stepTwoTryOnButton, pressed && styles.pressed, (!selectedGarmentId || isGenerating) && styles.stepTwoTryOnDisabled]}
                     onPress={tryOnSelectedGarment}>
                     {isGenerating ? <ActivityIndicator color={closetTheme.cream} /> : <LineIcon name="✦" color={closetTheme.cream} />}
                     <Text style={styles.primaryText}>{isGenerating ? 'Creating' : 'Try it on'}</Text>
@@ -273,7 +288,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
             step={step}
             status={status}>
               {displayPhotoUrl ? (
-                <Image source={{ uri: displayPhotoUrl }} style={styles.userPhoto} resizeMode="cover" />
+                <Image source={{ uri: displayPhotoUrl }} style={styles.userPhoto} resizeMode="contain" />
               ) : (
                 <View style={styles.emptyPhoto}>
                   <ActivityIndicator color={closetTheme.camelDeep} />
@@ -288,11 +303,13 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
   );
 }
 
-function TryOnHeader() {
+function TryOnHeader({ step }: { step: 1 | 2 | 3 }) {
   return (
-    <View style={styles.hero}>
-      <Text style={styles.heroTitle}>Virtual Try-On</Text>
-      <Text style={styles.heroSubtitle}>See how it looks before you wear it</Text>
+    <View style={styles.stepTwoHeader}>
+      <Text style={styles.mirrorHeroTitle}>Virtual Try-On</Text>
+      <View style={styles.mirrorProgressRow}>
+        <StepTracker step={step} variant="mirror" />
+      </View>
     </View>
   );
 }
@@ -300,12 +317,14 @@ function TryOnHeader() {
 function MirrorStage({
   actionRow,
   children,
+  nextAction,
   stageWidth,
   step,
   status,
 }: {
   actionRow: React.ReactNode;
   children: React.ReactNode;
+  nextAction?: React.ReactNode;
   stageWidth: number;
   step: 1 | 2 | 3;
   status: string;
@@ -315,13 +334,11 @@ function MirrorStage({
   const glassHeight = baseStageHeight * mirrorGlassHeightRatio;
   const topOffset = baseStageHeight * mirrorGlassTopRatio;
   const stageHeight = baseStageHeight * mirrorStageHeightRatio;
-  const controlsTop = baseStageHeight * mirrorControlsTopRatio;
-  const shouldShowStatus = status !== 'Photo ready. Continue to pick a garment.';
+  const controlsTop = baseStageHeight * (step === 3 ? 0.65 : mirrorControlsTopRatio);
+  const shouldShowStatus = Boolean(status) && status !== 'Photo ready. Continue to pick a garment.';
 
   return (
-    <ImageBackground
-      source={tryOnMirrorImage}
-      resizeMode="stretch"
+    <View
       style={[
         styles.mirrorFrame,
         {
@@ -329,10 +346,13 @@ function MirrorStage({
           width: stageWidth,
         },
       ]}>
+      <Image resizeMode="stretch" source={tryOnMirrorImage} style={styles.mirrorArtwork} />
       <View style={styles.mirrorHeader}>
-        <Text style={styles.mirrorHeroTitle}>Virtual Try-On</Text>
-        <Text style={styles.mirrorHeroSubtitle}>See how it looks before you wear it</Text>
-        <StepTracker step={step} variant="mirror" />
+        <Text style={styles.mirrorHeroTitle}>{step === 3 ? 'Your Look Is Ready' : 'Virtual Try-On'}</Text>
+        <View style={styles.mirrorProgressRow}>
+          <StepTracker step={step} variant="mirror" />
+          {nextAction}
+        </View>
       </View>
       <View
         style={[
@@ -340,7 +360,7 @@ function MirrorStage({
           {
             height: glassHeight,
             left: stageWidth * mirrorGlassLeftRatio,
-            top: topOffset,
+            top: topOffset + mirrorVerticalOffset,
             width: glassWidth,
           },
         ]}>
@@ -350,7 +370,7 @@ function MirrorStage({
         {shouldShowStatus && <Text style={styles.statusText}>{status}</Text>}
         {actionRow}
       </View>
-    </ImageBackground>
+    </View>
   );
 }
 
@@ -363,7 +383,7 @@ function StepTracker({ step, variant = 'default' }: { step: 1 | 2 | 3; variant?:
 
         return (
           <View key={value} style={styles.stepSegment}>
-            <View style={[styles.stepDot, isActive && styles.stepDotActive, isComplete && styles.stepDotComplete]}>
+            <View style={[styles.stepDot, (isActive || isComplete) && styles.stepDotActive]}>
               <Text style={[styles.stepText, (isActive || isComplete) && styles.stepTextActive]}>{isComplete ? '✓' : value}</Text>
             </View>
             {index < 2 && <View style={[styles.stepLine, step > value && styles.stepLineComplete]} />}
@@ -382,23 +402,28 @@ const styles = StyleSheet.create({
   content: {
     backgroundColor: tryOnBackdrop,
     paddingBottom: 0,
-    paddingHorizontal: 12,
-    paddingTop: 48,
+    paddingHorizontal: 0,
+    paddingTop: 0,
   },
-  hero: {
-    marginTop: 52,
+  stepTwoContent: {
+    backgroundColor: 'transparent',
   },
-  heroTitle: {
-    color: closetTheme.ink,
-    fontSize: 32,
-    fontWeight: '900',
-    lineHeight: 36,
+  stepTwoBackground: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#D8AA70',
   },
-  heroSubtitle: {
-    color: closetTheme.muted,
-    fontSize: 13,
-    fontWeight: '900',
-    marginTop: 4,
+  stepTwoBackgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    height: '100%',
+    width: '100%',
+  },
+  stepTwoScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(247,239,226,0.48)',
+  },
+  stepTwoHeader: {
+    marginHorizontal: '5%',
+    marginTop: 80,
   },
   stepper: {
     alignItems: 'center',
@@ -408,9 +433,30 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   stepperMirror: {
+    flex: 1,
     marginBottom: 0,
     marginTop: 6,
     transform: [{ scale: 0.68 }],
+  },
+  mirrorProgressRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+  },
+  stepNextButton: {
+    alignItems: 'center',
+    backgroundColor: '#7A4328',
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'center',
+    minHeight: 34,
+    paddingHorizontal: 12,
+  },
+  stepNextText: {
+    color: closetTheme.cream,
+    fontSize: 11,
+    fontWeight: '900',
   },
   stepSegment: {
     alignItems: 'center',
@@ -418,33 +464,33 @@ const styles = StyleSheet.create({
   },
   stepDot: {
     alignItems: 'center',
-    backgroundColor: '#F2B705',
+    backgroundColor: '#FFF3D7',
+    borderColor: '#7A4328',
     borderRadius: 22,
+    borderWidth: 2,
     height: 44,
     justifyContent: 'center',
     width: 44,
   },
   stepDotActive: {
-    backgroundColor: '#87B8E5',
-  },
-  stepDotComplete: {
-    backgroundColor: '#87B8E5',
+    backgroundColor: '#F4DCAA',
   },
   stepText: {
     color: closetTheme.ink,
     fontSize: 13,
     fontWeight: '900',
+    zIndex: 2,
   },
   stepTextActive: {
     color: closetTheme.ink,
   },
   stepLine: {
-    backgroundColor: '#F2B705',
+    backgroundColor: '#7A4328',
     height: 3,
     width: 92,
   },
   stepLineComplete: {
-    backgroundColor: '#87B8E5',
+    backgroundColor: '#7A4328',
   },
   mirrorPressable: {
     alignItems: 'center',
@@ -456,14 +502,24 @@ const styles = StyleSheet.create({
   },
   mirrorFrame: {
     alignSelf: 'center',
+    backgroundColor: '#F7EFE2',
+    overflow: 'hidden',
     position: 'relative',
+  },
+  mirrorArtwork: {
+    ...StyleSheet.absoluteFillObject,
+    height: '100%',
+    opacity: 0.55,
+    transform: [{ translateY: mirrorVerticalOffset }],
+    width: '100%',
+    zIndex: 2,
   },
   mirrorHeader: {
     left: '5%',
     position: 'absolute',
     right: '5%',
-    top: '3.2%',
-    zIndex: 3,
+    top: '9%',
+    zIndex: 4,
   },
   mirrorHeroTitle: {
     color: closetTheme.ink,
@@ -483,7 +539,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     position: 'absolute',
-    zIndex: 2,
+    zIndex: 3,
   },
   mirrorPhotoMask: {
     bottom: mirrorPhotoInset,
@@ -497,7 +553,7 @@ const styles = StyleSheet.create({
     left: '8%',
     position: 'absolute',
     right: '8%',
-    zIndex: 3,
+    zIndex: 4,
   },
   userPhoto: {
     height: '100%',
@@ -522,10 +578,43 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     lineHeight: 16,
   },
+  selectionStatus: {
+    color: '#FFF3D7',
+    fontSize: 10,
+    marginHorizontal: 22,
+  },
   actionRow: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 8,
+  },
+  stepTwoActionRow: {
+    marginHorizontal: 22,
+  },
+  centeredActionRow: {
+    justifyContent: 'center',
+  },
+  centeredMirrorButton: {
+    backgroundColor: '#FFF3D7',
+    borderColor: '#7A4328',
+    borderWidth: 2,
+    flex: 0,
+    minWidth: 180,
+    paddingHorizontal: 18,
+  },
+  centeredMirrorButtonText: {
+    color: '#7A4328',
+  },
+  stepTwoBackButton: {
+    backgroundColor: '#FFF3D7',
+    borderColor: '#7A4328',
+    borderWidth: 2,
+  },
+  stepTwoTryOnButton: {
+    backgroundColor: '#7A4328',
+  },
+  stepTwoTryOnDisabled: {
+    opacity: 1,
   },
   secondaryButton: {
     alignItems: 'center',
@@ -567,10 +656,12 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   sectionHeading: {
-    color: closetTheme.muted,
-    fontSize: 18,
-    fontWeight: '900',
+    color: '#FFF3D7',
+    fontFamily: closetTypography.regularFont,
+    fontSize: 14,
+    fontWeight: '400',
     marginBottom: 18,
+    textAlign: 'center',
   },
   emptyGarments: {
     alignItems: 'center',
@@ -604,7 +695,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 14,
     paddingBottom: 0,
-    paddingHorizontal: 0,
+    paddingHorizontal: 22,
     paddingTop: 0,
   },
   cardWrap: {

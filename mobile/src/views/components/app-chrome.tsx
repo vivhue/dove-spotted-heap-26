@@ -18,6 +18,7 @@ type ScreenProps = {
   bottomNavOverlay?: boolean;
   showBottomNav?: boolean;
   showStatus?: boolean;
+  showStylist?: boolean;
 };
 
 export type AvatarMenuAction = {
@@ -38,6 +39,7 @@ export function AppScreen({
   notifications,
   onNavigate,
   showStatus = true,
+  showStylist = true,
   title,
 }: ScreenProps) {
   const { closetItems, currentUser } = useClosetStore();
@@ -101,7 +103,7 @@ export function AppScreen({
         </View>
       )}
       <View style={styles.body}>{children}</View>
-      <BottomAvatarTrack bottomOffset={18} isMoving={activeTab === 'home'} onPress={() => onNavigate('discover')} />
+      {showStylist && <BottomAvatarTrack bottomOffset={18} isMoving={activeTab === 'home'} onPress={() => onNavigate('discover')} />}
     </SafeAreaView>
   );
 }
@@ -181,7 +183,6 @@ function BottomAvatarTrack({ bottomOffset, isMoving, onPress }: { bottomOffset: 
           <View pointerEvents="none" style={styles.avatarHelpBubble}>
             <Text style={styles.avatarHelpText}>Tap here for help</Text>
             <View style={styles.avatarHelpTailBorder} />
-            <View style={styles.avatarHelpTail} />
           </View>
         )}
         <Pressable accessibilityLabel="Open Style chat" style={styles.walkingAvatarButton} onPress={onPress}>
@@ -905,6 +906,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F4F5DF',
     borderColor: closetTheme.ink,
+    borderRadius: 2,
     borderWidth: 3,
     bottom: 64,
     justifyContent: 'center',
@@ -912,6 +914,10 @@ const styles = StyleSheet.create({
     minHeight: 46,
     paddingHorizontal: 10,
     position: 'absolute',
+    shadowColor: '#D8CCBA',
+    shadowOffset: { height: 4, width: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
     width: 144,
     zIndex: 3,
   },
@@ -922,20 +928,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   avatarHelpTailBorder: {
-    backgroundColor: closetTheme.ink,
-    bottom: -7,
-    height: 12,
-    position: 'absolute',
-    transform: [{ rotate: '45deg' }],
-    width: 12,
-  },
-  avatarHelpTail: {
     backgroundColor: '#F4F5DF',
-    bottom: -4,
-    height: 8,
+    borderBottomColor: closetTheme.ink,
+    borderBottomWidth: 3,
+    borderLeftColor: closetTheme.ink,
+    borderLeftWidth: 3,
+    borderRightColor: closetTheme.ink,
+    borderRightWidth: 3,
+    bottom: -14,
+    height: 16,
     position: 'absolute',
-    transform: [{ rotate: '45deg' }],
-    width: 8,
+    width: 14,
   },
   navbar: {
     alignItems: 'center',

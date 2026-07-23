@@ -5,12 +5,14 @@ import { closetTheme } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 export function WardrobeCard({
+  compact = false,
   isWorn = false,
   item,
   onOpenActions,
   onPress,
   showHeart = false,
 }: {
+  compact?: boolean;
   isWorn?: boolean;
   item: WardrobeItem;
   onOpenActions?: () => void;
@@ -27,16 +29,16 @@ export function WardrobeCard({
       style={({ pressed }) => [styles.card, isWorn && styles.cardWorn, pressed && styles.cardPressed]}
       onPress={onPress}>
       <View style={styles.thumb}>
-        <View style={[styles.backdrop, { backgroundColor: `${accent}22` }]} />
+        <View style={[styles.backdrop, compact && styles.backdropCompact, { backgroundColor: `${accent}22` }]} />
         {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={styles.itemImage} resizeMode="contain" />
+          <Image source={{ uri: item.imageUrl }} style={[styles.itemImage, compact && styles.itemImageCompact]} resizeMode="contain" />
         ) : (
-          <ClosetIcon category={item.category} color={color} accent={accent} size={54} />
+          <ClosetIcon category={item.category} color={color} accent={accent} size={compact ? 42 : 54} />
         )}
         {item.texture && <View style={[styles.textureBadge, textureStyle(item.texture)]} />}
         {showHeart && (
           <View style={[styles.heart, isWorn && styles.heartWorn]}>
-            <LineIcon name={isWorn ? "✓" : "♡"} color={isWorn ? closetTheme.cream : closetTheme.camelDeep} />
+            <LineIcon name={isWorn ? "✓" : "♡"} color={isWorn ? '#7A4328' : closetTheme.camelDeep} />
           </View>
         )}
         {onOpenActions && (
@@ -100,8 +102,13 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
   },
   cardWorn: {
-    borderColor: closetTheme.camel,
+    borderColor: '#7A4328',
     borderWidth: 2,
+    elevation: 12,
+    shadowColor: '#7A4328',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.38,
+    shadowRadius: 12,
   },
   thumb: {
     alignItems: 'center',
@@ -116,9 +123,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 72,
   },
+  backdropCompact: {
+    borderRadius: 28,
+    height: 56,
+    width: 56,
+  },
   itemImage: {
     height: 108,
     width: '82%',
+  },
+  itemImageCompact: {
+    height: 82,
+    width: '70%',
   },
   textureBadge: {
     borderColor: closetTheme.white,
@@ -163,7 +179,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   heartWorn: {
-    backgroundColor: closetTheme.camelDeep,
+    backgroundColor: '#FFF3D7',
+    borderColor: '#7A4328',
+    borderWidth: 2,
   },
   meta: {
     paddingHorizontal: 11,
