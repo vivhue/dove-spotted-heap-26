@@ -8,6 +8,7 @@
     "@aws-sdk/s3-request-presigner": "^3.658.1",
     "@gradio/client": "^1.7.1",
     "@imgly/background-removal-node": "^1.4.5",
+    "expo": "^57.0.8",
     "sharp": "^0.33.5"
   },
   "scripts": {

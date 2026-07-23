@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -12,7 +12,8 @@ import {
   StyleProfile,
   Undertone,
 } from '@/services/closet-chatbot';
-import type { WebStyleSuggestion } from '@/services/closet-api';
+import { getTryOnHistory, TryOnResult, type WebStyleSuggestion } from '@/services/closet-api';
+import { getWeatherOutfitRecommendation } from '@/services/weather-recommendation';
 import type { SelectedOutfit } from '@/stores/closet-store';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
@@ -23,6 +24,7 @@ type ChatMessage = {
   actions?: ChatAction[];
   id: string;
   outfit?: Partial<SelectedOutfit>;
+  previewImageUrl?: string;
   webSuggestion?: WebStyleSuggestion;
   role: 'bot' | 'user';
   text: string;
@@ -56,6 +58,8 @@ const colorQuiz = [
   { text: 'Which shirt looks better?', actions: ['cream', 'white', 'both fine'] },
   { text: 'Hair-to-skin contrast?', actions: ['close in tone', 'very different'] },
 ];
+
+const plannerWeatherLocation = 'Singapore';
 
 export function DiscoverScreen({
   measurements,
@@ -93,6 +97,7 @@ export function DiscoverScreen({
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'all'>('all');
   const [selectedClosetItemIds, setSelectedClosetItemIds] = useState<string[]>([]);
   const [isThinking, setIsThinking] = useState(false);
+  const [tryOnHistory, setTryOnHistory] = useState<TryOnResult[]>([]);
   const scrollRef = useRef<ScrollView>(null);
   const visibleMessages = messages.filter((message) => message.id !== 'bot-intro');
   const isChatActive = visibleMessages.length > 0 || draft.trim().length > 0 || isThinking;
@@ -110,6 +115,36 @@ export function DiscoverScreen({
 
     return matchesCategory && matchesSearch;
   });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTryOnHistory() {
+      if (!currentUser) {
+        if (isMounted) {
+          setTryOnHistory([]);
+        }
+        return;
+      }
+
+      try {
+        const results = await getTryOnHistory(currentUser.id);
+        if (isMounted) {
+          setTryOnHistory(results);
+        }
+      } catch {
+        if (isMounted) {
+          setTryOnHistory([]);
+        }
+      }
+    }
+
+    loadTryOnHistory();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser]);
 
   function nextMessageId(prefix: string) {
     messageId.current += 1;
@@ -177,14 +212,53 @@ export function DiscoverScreen({
       styleProfile,
       wishlistItems,
     });
+    const previewImageUrl = findTryOnHistoryImage(reply.outfit, tryOnHistory);
 
     setMessages((currentMessages) => [
       ...currentMessages,
-      { id: nextMessageId('bot'), outfit: reply.outfit, role: 'bot', text: reply.text },
+      { id: nextMessageId('bot'), outfit: reply.outfit, previewImageUrl, role: 'bot', text: reply.text },
     ]);
     setClosetSheetOpen(false);
     setIsThinking(false);
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  }
+
+  async function sendWeatherSuggestion() {
+    if (!requireAccount()) {
+      return;
+    }
+
+    const userMessage: ChatMessage = {
+      id: nextMessageId('user'),
+      role: 'user',
+      text: 'What should I wear for the current weather?',
+    };
+
+    setMessages((currentMessages) => [...currentMessages, userMessage]);
+    setIsThinking(true);
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+
+    try {
+      const recommendation = await getWeatherOutfitRecommendation(plannerWeatherLocation, closetItems);
+      const names = recommendation.selectedItems.map((item) => item.name).join(', ');
+      const replyText = names
+        ? `In ${recommendation.weather.locationName}, it is ${recommendation.weather.temperatureC}°C and ${recommendation.weather.conditionLabel}. Try ${names}.`
+        : `In ${recommendation.weather.locationName}, it is ${recommendation.weather.temperatureC}°C and ${recommendation.weather.conditionLabel}, but I need at least a top, bottom, or shoes saved before I can build a weather outfit.`;
+      const previewImageUrl = findTryOnHistoryImage(recommendation.outfit, tryOnHistory);
+
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        { id: nextMessageId('bot'), outfit: recommendation.outfit, previewImageUrl, role: 'bot', text: replyText },
+      ]);
+    } catch {
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        { id: nextMessageId('bot'), role: 'bot', text: 'I could not load live weather right now. Try again in a moment.' },
+      ]);
+    } finally {
+      setIsThinking(false);
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    }
   }
 
   function applySuggestedOutfit(outfit: Partial<SelectedOutfit>) {
@@ -356,6 +430,11 @@ export function DiscoverScreen({
             return (
               <View key={message.id} style={[styles.bubble, isUser ? styles.userBubble : styles.botBubble]}>
                 <Text style={[styles.bubbleText, isUser && styles.userText]}>{message.text}</Text>
+                {!isUser && message.previewImageUrl && (
+                  <View style={styles.previewCard}>
+                    <Image source={{ uri: message.previewImageUrl }} style={styles.previewImage} resizeMode="cover" />
+                  </View>
+                )}
                 {message.actions && (
                   <View style={styles.actionList}>
                     {message.actions.map((action) => (
@@ -365,7 +444,7 @@ export function DiscoverScreen({
                     ))}
                   </View>
                 )}
-                {hasOutfit && (
+                {hasOutfit && !message.previewImageUrl && (
                   <Pressable style={styles.useOutfitButton} onPress={() => applySuggestedOutfit(message.outfit ?? {})}>
                     <Text style={styles.useOutfitText}>Try this outfit</Text>
                   </Pressable>
@@ -413,12 +492,23 @@ export function DiscoverScreen({
 
         <View style={styles.suggestions}>
           {[
+            { label: 'Weather fit', prompt: '', weather: true },
             { label: 'Today outfit', prompt: 'What should I wear today?' },
             { label: 'Body fit', prompt: 'What suits my body?' },
             { label: 'Style quiz', prompt: 'Start style quiz' },
             { label: 'Undertone', prompt: 'Start undertone quiz' },
           ].map((suggestion) => (
-            <Pressable key={suggestion.label} style={styles.suggestionChip} onPress={() => sendMessage(suggestion.prompt)}>
+            <Pressable
+              key={suggestion.label}
+              style={styles.suggestionChip}
+              onPress={() => {
+                if ('weather' in suggestion) {
+                  void sendWeatherSuggestion();
+                  return;
+                }
+
+                sendMessage(suggestion.prompt);
+              }}>
               <Text style={styles.suggestionText}>{suggestion.label}</Text>
             </Pressable>
           ))}
@@ -555,6 +645,20 @@ export function DiscoverScreen({
   );
 }
 
+function findTryOnHistoryImage(outfit: Partial<SelectedOutfit> | undefined, history: TryOnResult[]) {
+  if (!outfit) {
+    return '';
+  }
+
+  const requestedIds = Object.values(outfit).filter((itemId): itemId is string => Boolean(itemId));
+  if (requestedIds.length === 0) {
+    return '';
+  }
+
+  const match = history.find((entry) => requestedIds.includes(entry.garmentId));
+  return match?.resultUrl ?? '';
+}
+
 const styles = StyleSheet.create({
   chatScreen: {
     flex: 1,
@@ -631,6 +735,18 @@ const styles = StyleSheet.create({
     color: closetTheme.ink,
     fontSize: 13,
     lineHeight: 19,
+  },
+  previewCard: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  previewImage: {
+    aspectRatio: 0.72,
+    width: '100%',
   },
   userText: {
     color: closetTheme.cream,
