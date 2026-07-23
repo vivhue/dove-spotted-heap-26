@@ -108,7 +108,7 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
 
     try {
       setIsSettingUp(true);
-      setStatus('Saving your photo...');
+      setStatus('Uploading photo...');
       setDisplayPhotoUrl(result.assets[0].uri);
       const { avatarUrl: url } = await setupAvatar({ image: result.assets[0], userId: currentUser.id });
 
@@ -142,12 +142,14 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
 
     try {
       setIsGenerating(true);
-      setStatus('Running virtual try-on... this can take 30-60s.');
-      const { resultUrl } = await createTryOn({ garmentId: selectedGarmentId, userId: currentUser.id });
+      setStatus('Generating look...');
+      const tryOnPromise = createTryOn({ garmentId: selectedGarmentId, userId: currentUser.id });
+      setStatus('Saving to history...');
+      const { resultUrl } = await tryOnPromise;
 
       setDisplayPhotoUrl(resultUrl);
       setStep(3);
-      setStatus('');
+      setStatus('Look saved to history.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Try-on failed. You can retry.');
     } finally {

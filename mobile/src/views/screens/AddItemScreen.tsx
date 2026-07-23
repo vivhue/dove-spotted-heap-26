@@ -93,8 +93,8 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
 
     try {
       setIsSaving(true);
-      setStatus('Removing background and saving...');
-      const item = await createGarment({
+      setStatus('Uploading photo...');
+      const itemPromise = createGarment({
         category: selectedCategory,
         destination: destination === 'Closet' ? 'closet' : 'wishlist',
         fit,
@@ -106,6 +106,8 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
         source,
         userId: currentUser.id,
       });
+      setStatus('Cleaning garment...');
+      const item = await itemPromise;
 
       addItem(item);
       resetForm();

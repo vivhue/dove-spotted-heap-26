@@ -1,7 +1,7 @@
 import { BodyMeasurements, CategoryId, ClosetAccount, WardrobeItem } from '@/models/closet';
 import type { SelectedOutfit } from '@/stores/closet-store';
 import { getClosetChatReplyFromModel } from '@/services/closet-api';
-import { getWeatherOutfitRecommendation } from '@/services/weather-recommendation';
+import { getWeatherOutfitRecommendation, type WeatherSummary } from '@/services/weather-recommendation';
 
 export type BodyShape = 'hourglass' | 'pear' | 'inverted triangle' | 'rectangle' | 'apple';
 export type LegTorsoRatio = 'longer legs' | 'shorter legs' | 'balanced';
@@ -403,7 +403,7 @@ async function getOutfitReply(
 
   if (items.length === 0) {
     return {
-      text: generalOutfitReply(lower),
+      text: emptyClosetSuggestionReply(lower, bodyProfile, styleProfile, gender),
     };
   }
 
@@ -413,7 +413,15 @@ async function getOutfitReply(
       const names = recommendation.selectedItems.map(formatOwnedItem).join(', ');
 
       if (!names) {
-        return { text: 'I checked your closet, but I need at least a top, bottom, or shoes saved before I can build a weather outfit.' };
+        return {
+          text: `I checked your closet, but I still cannot build a full weather outfit yet. ${weatherGapSuggestion(
+            recommendation.weather,
+            recommendation.missingCategories,
+            bodyProfile,
+            styleProfile,
+            gender
+          )}`,
+        };
       }
 
       return {
@@ -430,6 +438,16 @@ async function getOutfitReply(
   }
 
   const outfit = buildLocalOutfit(items, lower, bodyProfile, styleProfile, gender);
+
+  if (outfit.selectedItems.length < 2) {
+    return {
+      outfit: outfit.outfit,
+      text: `${outfit.names ? `I found ${outfit.names}, but not enough for a full outfit yet.` : 'I could not find a strong match in your closet yet.'} ${shoppingGapReply(
+        items,
+        bodyProfile
+      )} ${suggestGeneralPieces(lower, bodyProfile, styleProfile, gender)}`.replace(/\s+/g, ' '),
+    };
+  }
 
   return {
     outfit: outfit.outfit,
@@ -456,7 +474,77 @@ function buildLocalOutfit(
   return {
     names: selectedItems.map(formatOwnedItem).join(', ') || 'one of your saved tops with your easiest shoes',
     outfit,
+    selectedItems,
   };
+}
+
+function emptyClosetSuggestionReply(
+  lower: string,
+  bodyProfile?: BodyProfile,
+  styleProfile?: StyleProfile,
+  gender?: ClosetAccount['gender']
+) {
+  return [
+    'Your closet is empty right now, so I cannot pull a real outfit from it yet.',
+    'If you want a starter wardrobe, add one neutral top, one bottom, and one layer or dress so I can mix outfits properly.',
+    suggestGeneralPieces(lower, bodyProfile, styleProfile, gender),
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function weatherGapSuggestion(
+  weather: WeatherSummary,
+  missingCategories: CategoryId[],
+  bodyProfile?: BodyProfile,
+  styleProfile?: StyleProfile,
+  gender?: ClosetAccount['gender']
+) {
+  const missing = missingCategories.length
+    ? `You are missing ${missingCategories.map((category) => labelForCategory(category)).join(', ')}.`
+    : 'You are missing the basics for a full outfit.';
+  const weatherPieces =
+    weather.condition === 'rain' || weather.condition === 'storm'
+      ? 'For this weather, add a light jacket or rain layer and something that covers your legs.'
+      : weather.temperatureC >= 28
+        ? 'For this weather, add a breathable top and something light on the bottom.'
+        : weather.temperatureC <= 18
+          ? 'For this weather, add a warmer top and a layer you can wear outside.'
+          : 'For this weather, add a balanced top-and-bottom combo with one light layer.';
+
+  return `${missing} ${weatherPieces} ${suggestGeneralPieces(`${weather.conditionLabel} weather`, bodyProfile, styleProfile, gender)}`.replace(/\s+/g, ' ');
+}
+
+function suggestGeneralPieces(
+  lower: string,
+  bodyProfile?: BodyProfile,
+  styleProfile?: StyleProfile,
+  gender?: ClosetAccount['gender']
+) {
+  const occasion = hasAny(lower, ['school', 'class', 'campus', 'uni', 'university', 'college'])
+    ? 'For school, add a clean tee or shirt, relaxed jeans or straight pants, and sneakers.'
+    : hasAny(lower, ['work', 'interview', 'presentation', 'formal'])
+      ? 'For work or interviews, add a neat shirt or blouse, straight pants, and one structured layer.'
+      : hasAny(lower, ['date', 'dinner', 'party'])
+        ? 'For a date or dinner, add a fitted top, dress, or skirt with one nicer accessory.'
+        : hasAny(lower, ['rain'])
+          ? 'For rainy days, add a jacket, covered shoes, and pants that still feel easy to move in.'
+          : hasAny(lower, ['hot', 'warm'])
+            ? 'For warm days, add a breathable top, shorts or light pants, and simple footwear.'
+            : 'A good starting point is a clean top, one bottom, and one layer so you can mix more outfits later.';
+  const bodyHint = bodyProfile?.derivedShape ? `For your shape, I would still lean ${shapeLookup(bodyProfile.derivedShape).tops.toLowerCase()} up top and ${shapeLookup(bodyProfile.derivedShape).bottoms.toLowerCase()} on the bottom.` : '';
+  const styleHint =
+    styleProfile?.topFitPref || styleProfile?.bottomFitPref
+      ? `Your style quiz suggests ${styleProfile.topFitPref ?? 'balanced'} tops and ${styleProfile.bottomFitPref ?? 'balanced'} bottoms.`
+      : '';
+  const genderHint =
+    gender === 'female'
+      ? 'If you want it softer, add a skirt or dress option too.'
+      : gender === 'male'
+        ? 'If you want it cleaner, add a tee, trouser, and jacket option too.'
+        : '';
+
+  return [occasion, bodyHint, styleHint, genderHint].filter(Boolean).join(' ');
 }
 
 function pickItem(

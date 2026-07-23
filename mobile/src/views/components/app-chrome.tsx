@@ -1,12 +1,15 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
-import { Animated, Easing, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, KeyboardAvoidingView, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvatarChoice, ScreenId } from '@/models/closet';
-import { useClosetStore } from '@/stores/closet-store';
+import { ScheduledOutfits, useClosetStore } from '@/stores/closet-store';
+import { getCachedWeatherSummary } from '@/services/weather-recommendation';
 import { closetPaperBackground, closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { CalendarIcon, ClosetIcon } from '@/views/components/closet-icons';
 import { PixelAvatar } from '@/views/components/pixel-avatar';
+
+const plannerWeatherLocation = 'Singapore';
 
 type ScreenProps = {
   avatarMenuActions?: AvatarMenuAction[];
@@ -42,10 +45,10 @@ export function AppScreen({
   showStylist = true,
   title,
 }: ScreenProps) {
-  const { closetItems, currentUser } = useClosetStore();
+  const { closetItems, currentUser, scheduledOutfits } = useClosetStore();
   const userInitial = initialForUsername(currentUser?.username);
   const userAvatar = currentUser?.avatar ?? 'shirt';
-  const defaultNotifications = useAppNotifications(currentUser?.username, closetItems.length);
+  const defaultNotifications = useAppNotifications(currentUser?.username, closetItems.length, scheduledOutfits);
   const shownNotifications = notifications ?? defaultNotifications;
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -64,45 +67,51 @@ export function AppScreen({
 
   return (
     <SafeAreaView style={styles.safe}>
-      {showStatus && <StatusRow />}
-      <View pointerEvents="box-none" style={styles.topShortcuts}>
-        <Pressable accessibilityLabel="Go home" style={styles.homeShortcut} onPress={() => onNavigate('home')}>
-          <PixelHomeIcon color={closetTheme.ink} />
-        </Pressable>
-        {isAvatarMenuOpen && <Pressable style={styles.avatarMenuBackdrop} onPress={() => setIsAvatarMenuOpen(false)} />}
-        <View style={styles.topShortcutActions}>
-          <NotificationButton
-            unread={hasUnreadNotification}
-            onPress={() => {
-              setIsNotificationsOpen((isOpen) => !isOpen);
-              setReadNotificationIds(shownNotifications.map((notification) => notification.id));
-            }}
-          />
-          <AvatarButton avatar={userAvatar} initial={userInitial} onPress={pressAvatar} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+        style={styles.keyboardAvoiding}>
+        {showStatus && <StatusRow />}
+        <View pointerEvents="box-none" style={styles.topShortcuts}>
+          <Pressable accessibilityLabel="Go home" style={styles.homeShortcut} onPress={() => onNavigate('home')}>
+            <PixelHomeIcon color={closetTheme.ink} />
+          </Pressable>
+          {isAvatarMenuOpen && <Pressable style={styles.avatarMenuBackdrop} onPress={() => setIsAvatarMenuOpen(false)} />}
+          <View style={styles.topShortcutActions}>
+            <NotificationButton
+              unread={hasUnreadNotification}
+              onPress={() => {
+                setIsNotificationsOpen((isOpen) => !isOpen);
+                setReadNotificationIds(shownNotifications.map((notification) => notification.id));
+              }}
+            />
+            <AvatarButton avatar={userAvatar} initial={userInitial} onPress={pressAvatar} />
+          </View>
+          {isNotificationsOpen && <NotificationMenu notifications={shownNotifications} />}
+          {isAvatarMenuOpen && avatarMenuActions && (
+            <View style={styles.avatarMenu}>
+              {avatarMenuActions.map((action, index) => (
+                <Pressable
+                  key={action.label}
+                  style={[styles.avatarMenuItem, index === avatarMenuActions.length - 1 && styles.avatarMenuItemLast]}
+                  onPress={() => {
+                    setIsAvatarMenuOpen(false);
+                    action.onPress();
+                  }}>
+                  <Text style={styles.avatarMenuText}>{action.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </View>
-        {isNotificationsOpen && <NotificationMenu notifications={shownNotifications} />}
-        {isAvatarMenuOpen && avatarMenuActions && (
-          <View style={styles.avatarMenu}>
-            {avatarMenuActions.map((action, index) => (
-              <Pressable
-                key={action.label}
-                style={[styles.avatarMenuItem, index === avatarMenuActions.length - 1 && styles.avatarMenuItemLast]}
-                onPress={() => {
-                  setIsAvatarMenuOpen(false);
-                  action.onPress();
-                }}>
-                <Text style={styles.avatarMenuText}>{action.label}</Text>
-              </Pressable>
-            ))}
+        {title && (
+          <View style={styles.pageHead}>
+            <Text style={styles.pageTitle}>{title}</Text>
           </View>
         )}
-      </View>
-      {title && (
-        <View style={styles.pageHead}>
-          <Text style={styles.pageTitle}>{title}</Text>
-        </View>
-      )}
-      <View style={styles.body}>{children}</View>
+        {shownNotifications.length > 0 && <NotificationStrip notifications={shownNotifications} />}
+        <View style={styles.body}>{children}</View>
+      </KeyboardAvoidingView>
       {showStylist && <BottomAvatarTrack bottomOffset={18} isMoving={activeTab === 'home'} onPress={() => onNavigate('discover')} />}
     </SafeAreaView>
   );
@@ -239,8 +248,8 @@ export function NotificationButton({
   );
 }
 
-export function useAppNotifications(username?: string | null, closetItemCount = 0) {
-  const [previousSeenAt] = useState(() => readLastSeenAt(username));
+export function useAppNotifications(username?: string | null, closetItemCount = 0, scheduledOutfits: ScheduledOutfits = {}) {
+  const [previousSeenAt, setPreviousSeenAt] = useState(() => readLastSeenAt(username));
 
   useEffect(() => {
     if (!username || !canUseLocalStorage()) {
@@ -250,7 +259,14 @@ export function useAppNotifications(username?: string | null, closetItemCount = 
     globalThis.localStorage.setItem(lastSeenKey(username), new Date().toISOString());
   }, [username]);
 
-  return useMemo(() => buildNotifications(previousSeenAt, closetItemCount), [closetItemCount, previousSeenAt]);
+  useEffect(() => {
+    setPreviousSeenAt(readLastSeenAt(username));
+  }, [username]);
+
+  return useMemo(
+    () => buildNotifications(previousSeenAt, closetItemCount, scheduledOutfits),
+    [closetItemCount, previousSeenAt, scheduledOutfits]
+  );
 }
 
 export function BottomNav({
@@ -346,8 +362,32 @@ export function NotificationMenu({ notifications }: { notifications: AppNotifica
   );
 }
 
-function buildNotifications(previousSeenAt: string, closetItemCount: number) {
+function NotificationStrip({ notifications }: { notifications: AppNotification[] }) {
+  const primary = notifications[0];
+
+  if (!primary) {
+    return null;
+  }
+
+  return (
+    <View style={styles.notificationStrip}>
+      <Text style={styles.notificationStripLabel}>Reminder</Text>
+      <View style={styles.notificationStripBody}>
+        <Text style={styles.notificationStripTitle}>{primary.title}</Text>
+        <Text numberOfLines={2} style={styles.notificationStripText}>
+          {primary.text}
+        </Text>
+      </View>
+      {notifications.length > 1 && <Text style={styles.notificationStripCount}>+{notifications.length - 1}</Text>}
+    </View>
+  );
+}
+
+function buildNotifications(previousSeenAt: string, closetItemCount: number, scheduledOutfits: ScheduledOutfits) {
   const today = new Date();
+  const todayKey = formatDateKey(today);
+  const todaySchedule = scheduledOutfits[todayKey] ?? [];
+  const weather = getCachedWeatherSummary(plannerWeatherLocation);
   const notifications: AppNotification[] = [];
 
   if (canUseLocalStorage() && globalThis.localStorage.getItem('bove-closet-trip-reminder') === '1') {
@@ -358,11 +398,22 @@ function buildNotifications(previousSeenAt: string, closetItemCount: number) {
     });
   }
 
-  if (closetItemCount > 0 && shouldShowOutfitReminder(today)) {
+  if (closetItemCount > 0) {
     notifications.push({
-      id: `daily-outfit-${formatDateKey(today)}`,
-      text: 'Pick a look from your digital closet for today before the day gets busy.',
-      title: 'Choose today\'s outfit',
+      id: `daily-outfit-${todayKey}`,
+      text:
+        todaySchedule.length > 0
+          ? 'You already planned an outfit for today. Open the calendar if you want to review it before heading out.'
+          : 'You have not planned today\'s outfit yet. Open the calendar to pick a look before the day gets busy.',
+      title: todaySchedule.length > 0 ? 'You planned this outfit for today' : 'Today\'s outfit is not planned',
+    });
+  }
+
+  if (weather && (weather.condition === 'rain' || weather.condition === 'storm')) {
+    notifications.push({
+      id: `rain-jacket-${plannerWeatherLocation}-${todayKey}`,
+      text: `The current weather in ${weather.locationName} is rainy, so add a jacket or umbrella before you head out.`,
+      title: 'Rain expected today, add a jacket',
     });
   }
 
@@ -380,12 +431,6 @@ function buildNotifications(previousSeenAt: string, closetItemCount: number) {
   }
 
   return notifications;
-}
-
-function shouldShowOutfitReminder(date: Date) {
-  const hour = date.getHours();
-
-  return hour >= 6 && hour < 12;
 }
 
 function formatDateKey(date: Date) {
@@ -620,6 +665,9 @@ const styles = StyleSheet.create({
     ...closetPaperBackground,
     flex: 1,
   },
+  keyboardAvoiding: {
+    flex: 1,
+  },
   status: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -727,6 +775,50 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 15,
     marginTop: 3,
+  },
+  notificationStrip: {
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255, 248, 236, 0.96)',
+    borderBottomColor: closetTheme.line,
+    borderBottomWidth: 1,
+    borderTopColor: closetTheme.line,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  notificationStripBody: {
+    flex: 1,
+    gap: 2,
+  },
+  notificationStripCount: {
+    alignSelf: 'center',
+    color: closetTheme.camelDeep,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  notificationStripLabel: {
+    backgroundColor: closetTheme.camel,
+    borderRadius: 999,
+    color: closetTheme.white,
+    fontSize: 10,
+    fontWeight: '900',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    textTransform: 'uppercase',
+  },
+  notificationStripText: {
+    color: closetTheme.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 15,
+  },
+  notificationStripTitle: {
+    color: closetTheme.ink,
+    fontSize: 13,
+    fontWeight: '900',
   },
   bellIcon: {
     alignItems: 'center',

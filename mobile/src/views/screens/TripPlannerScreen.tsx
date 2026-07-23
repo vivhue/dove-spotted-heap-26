@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryId, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
@@ -541,9 +541,10 @@ function TripShell({
   onClose?: () => void;
   stepLabel: string;
 }) {
-  return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.tripNav}>
+    return (
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0} style={styles.keyboardAvoiding}>
+        <View style={styles.tripNav}>
         <Pressable style={styles.circleButton} onPress={onBack}>
           <LineIcon name="‹" color="#000000" />
         </Pressable>
@@ -556,8 +557,9 @@ function TripShell({
           <View style={styles.circlePlaceholder} />
         )}
       </View>
-      <View style={styles.shellContent}>{children}</View>
-    </SafeAreaView>
+        <View style={styles.shellContent}>{children}</View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
   );
 }
 
@@ -798,6 +800,9 @@ function isDateInRange(date: Date, start: Date | null, end: Date | null) {
 const styles = StyleSheet.create({
   safe: {
     ...closetPaperBackground,
+    flex: 1,
+  },
+  keyboardAvoiding: {
     flex: 1,
   },
   resultsSafe: {
