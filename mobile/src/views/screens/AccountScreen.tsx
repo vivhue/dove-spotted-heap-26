@@ -43,7 +43,18 @@ type LooksSort = 'newest' | 'oldest';
 type LooksViewMode = 'grid' | 'list';
 
 export function AccountScreen({ measurements, onAuthenticated, onMeasurementChange, onNavigate, savedTrips }: Props) {
-  const { closetItems, currentUser, logIn, logOut, signUp, updateAccountAvatar, updatePixelAvatar, wishlistItems } = useClosetStore();
+  const {
+    closetItems,
+    currentUser,
+    guidedMode,
+    logIn,
+    logOut,
+    signUp,
+    updateAccountAvatar,
+    updateGuidedMode,
+    updatePixelAvatar,
+    wishlistItems,
+  } = useClosetStore();
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [expandedTripIds, setExpandedTripIds] = useState<string[]>([]);
@@ -97,7 +108,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
 
   if (!currentUser) {
     return (
-      <AppScreen activeTab="account" onNavigate={onNavigate} showBottomNav={false} title="Account">
+      <AppScreen activeTab="account" onNavigate={onNavigate} showBottomNav={false} showStylist={false} title="Account">
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.authPanel}>
             <View style={styles.authAvatar}>
@@ -215,6 +226,20 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
             </View>
           </View>
         </View>
+
+        <Pressable
+          accessibilityLabel={`Guided mode ${guidedMode ? 'on' : 'off'}`}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: guidedMode }}
+          style={styles.guidedModeButton}
+          onPress={() => updateGuidedMode(!guidedMode)}>
+          <Text style={styles.guidedModeLabel}>Guided mode</Text>
+          <View style={[styles.guidedModeState, guidedMode && styles.guidedModeStateEnabled]}>
+            <Text style={[styles.guidedModeStateText, guidedMode && styles.guidedModeStateTextEnabled]}>
+              {guidedMode ? 'On' : 'Off'}
+            </Text>
+          </View>
+        </Pressable>
 
         {isEditingProfile && (
           <View style={styles.editProfilePanel}>
@@ -804,6 +829,47 @@ const styles = StyleSheet.create({
   profileMeta: {
     flex: 1,
     gap: 18,
+  },
+  guidedModeButton: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    minHeight: 54,
+    paddingHorizontal: 14,
+  },
+  guidedModeLabel: {
+    color: closetTheme.ink,
+    fontFamily: closetTypography.boldFont,
+    fontSize: 14,
+    textTransform: 'uppercase',
+  },
+  guidedModeState: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.cream,
+    borderColor: closetTheme.line,
+    borderRadius: 6,
+    borderWidth: 2,
+    justifyContent: 'center',
+    minHeight: 32,
+    minWidth: 54,
+  },
+  guidedModeStateEnabled: {
+    backgroundColor: closetTheme.ink,
+    borderColor: closetTheme.ink,
+  },
+  guidedModeStateText: {
+    color: closetTheme.muted,
+    fontFamily: closetTypography.boldFont,
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  guidedModeStateTextEnabled: {
+    color: closetTheme.cream,
   },
   name: {
     color: closetTheme.ink,

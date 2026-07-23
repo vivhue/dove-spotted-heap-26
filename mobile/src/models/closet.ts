@@ -68,6 +68,7 @@ export const pixelAvatarOptions = {
 
 export type ClosetAccount = {
   avatar?: AvatarChoice;
+  guidedMode?: boolean;
   id: string;
   username: string;
   password: string;

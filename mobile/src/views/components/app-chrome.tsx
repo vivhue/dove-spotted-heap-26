@@ -111,7 +111,7 @@ export function AppScreen({
 const avatarTrackTripDurationMs = 22000;
 
 function BottomAvatarTrack({ bottomOffset, isMoving, onPress }: { bottomOffset: number; isMoving: boolean; onPress: () => void }) {
-  const { currentUser } = useClosetStore();
+  const { currentUser, guidedMode } = useClosetStore();
   const [walkProgress] = useState(() => new Animated.Value(0));
   const [trackWidth, setTrackWidth] = useState(0);
   const [showHelpBubble, setShowHelpBubble] = useState(false);
@@ -179,7 +179,7 @@ function BottomAvatarTrack({ bottomOffset, isMoving, onPress }: { bottomOffset: 
     <View pointerEvents="box-none" style={[styles.avatarTrack, { bottom: bottomOffset }]} onLayout={rememberTrackWidth}>
       <View pointerEvents="none" style={styles.avatarTrackLine} />
       <Animated.View style={[styles.walkingAvatar, { transform: [{ translateX: isMoving ? walkingTranslateX : 0 }] }]}>
-        {showHelpBubble && (
+        {guidedMode && showHelpBubble && (
           <View pointerEvents="none" style={styles.avatarHelpBubble}>
             <Text style={styles.avatarHelpText}>Tap here for help</Text>
             <View style={styles.avatarHelpTailBorder} />
