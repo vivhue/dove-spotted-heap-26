@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ScreenId, WardrobeItem } from '@/models/closet';
+import { SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { getCachedWeatherSummary, getCurrentWeather, WeatherSummary } from '@/services/weather-recommendation';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
@@ -17,11 +17,22 @@ type PlannerDay = {
 const plannerBackground = require('../../../assets/images/planner-bg.png');
 const plannerWeatherLocation = 'Singapore';
 
-export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
+export function CalendarScreen({
+  onEditTrip,
+  onNavigate,
+  onStartTrip,
+  savedTrips,
+}: {
+  onEditTrip: (trip: SavedTrip) => void;
+  onNavigate: (screen: ScreenId) => void;
+  onStartTrip: () => void;
+  savedTrips: SavedTrip[];
+}) {
   const { closetItems, currentUser, scheduledOutfits, scheduleOutfitForDate, selectedOutfit, setEditingItem } = useClosetStore();
   const [monthDate, setMonthDate] = useState(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [isOutfitPickerOpen, setIsOutfitPickerOpen] = useState(false);
+  const [expandedTripIds, setExpandedTripIds] = useState<string[]>([]);
   const [pickerItemIds, setPickerItemIds] = useState<string[]>([]);
   const [weatherSummary, setWeatherSummary] = useState<WeatherSummary | null>(() => getCachedWeatherSummary(plannerWeatherLocation));
   const plannerDays = useMemo(() => buildPlannerDays(monthDate), [monthDate]);
@@ -36,10 +47,20 @@ export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
     [closetItemById, selectedOutfit]
   );
   const pickerItems = useMemo(() => itemsFromIds(pickerItemIds, closetItemById), [closetItemById, pickerItemIds]);
+  const selectedTrips = useMemo(
+    () => savedTrips.filter((trip) => isTripOnDate(trip, selectedDate)),
+    [savedTrips, selectedDate]
+  );
   const calendarHelpText =
     closetItems.length > 0
       ? `Tap + to choose clothes for ${formatShortDate(selectedDate)}.`
       : 'Upload clothes first, then schedule what you will wear.';
+  const selectedDateMessage =
+    selectedScheduledItems.length > 0
+      ? 'Outfit saved for this day.'
+      : selectedTrips.length > 0
+        ? 'Trip planned for this day.'
+        : calendarHelpText;
 
   useEffect(() => {
     let isActive = true;
@@ -128,11 +149,13 @@ export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
                 <View style={styles.daysGrid}>
                   {plannerDays.map((date, index) => {
                     const scheduledItemsForDay = itemsFromIds(scheduledOutfits[formatDateKey(date.date)] ?? [], closetItemById);
+                    const hasTripForDay = savedTrips.some((trip) => isTripOnDate(trip, date.date));
 
                     return (
                       <PlannerDayCell
                         key={`${date.day}-${date.inCurrentMonth}-${index}`}
                         date={date}
+                        hasTrip={date.inCurrentMonth && hasTripForDay}
                         item={scheduledItemsForDay[0]}
                         selected={isSameDate(selectedDate, date.date)}
                         showLook={date.inCurrentMonth && scheduledItemsForDay.length > 0}
@@ -150,9 +173,27 @@ export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
                 </>
               )}
 
+              {selectedTrips.length > 0 && (
+                <>
+                  <Text style={styles.sectionLabel}>TRIP PLAN</Text>
+                  <TripSummaryCard
+                    expanded={expandedTripIds.includes(selectedTrips[0].id)}
+                    onEdit={() => onEditTrip(selectedTrips[0])}
+                    onToggleLooks={() =>
+                      setExpandedTripIds((currentIds) =>
+                        currentIds.includes(selectedTrips[0].id)
+                          ? currentIds.filter((id) => id !== selectedTrips[0].id)
+                          : [...currentIds, selectedTrips[0].id]
+                      )
+                    }
+                    trip={selectedTrips[0]}
+                  />
+                </>
+              )}
+
               <View style={styles.emptyWeek}>
                 <Text style={[styles.emptyWeekText, selectedScheduledItems.length > 0 ? styles.savedOutfitMessage : styles.calendarHelpMessage]}>
-                  {selectedScheduledItems.length > 0 ? 'Outfit saved for this day.' : calendarHelpText}
+                  {selectedDateMessage}
                 </Text>
               </View>
             </ScrollView>
@@ -169,6 +210,13 @@ export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
                 <View style={styles.addButtonPlusHorizontal} />
                 <View style={styles.addButtonPlusVertical} />
               </View>
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel="Add trip"
+              style={({ pressed }) => [styles.addTripButton, pressed && styles.addTripButtonPressed]}
+              onPress={onStartTrip}>
+              <Text style={styles.addTripButtonText}>+ Add trip</Text>
             </Pressable>
 
             {isOutfitPickerOpen && (
@@ -280,12 +328,14 @@ function OutfitPickerSheet({
 
 function PlannerDayCell({
   date,
+  hasTrip,
   item,
   onPress,
   selected,
   showLook,
 }: {
   date: PlannerDay;
+  hasTrip: boolean;
   item?: WardrobeItem;
   onPress: () => void;
   selected: boolean;
@@ -305,8 +355,117 @@ function PlannerDayCell({
           )}
         </View>
       )}
+      {hasTrip && (
+        <View style={[styles.dayTripMarker, selected && styles.dayTripMarkerSelected]}>
+          <Text style={[styles.dayTripMarkerText, selected && styles.dayTripMarkerTextSelected]}>TRIP</Text>
+        </View>
+      )}
       {selected && <View style={styles.selectedDot} />}
     </Pressable>
+  );
+}
+
+function TripSummaryCard({
+  expanded,
+  onEdit,
+  onToggleLooks,
+  trip,
+}: {
+  expanded: boolean;
+  onEdit: () => void;
+  onToggleLooks: () => void;
+  trip: SavedTrip;
+}) {
+  const lookCount = trip.looks.length;
+  const visibleLooks = (expanded ? trip.looks : trip.looks.slice(0, 1)).map((look) => ({
+    ...look,
+    items: look.itemIds
+        .map((itemId) => trip.packedItems.find((item) => item.id === itemId))
+        .filter((item): item is WardrobeItem => Boolean(item)),
+  }));
+  const fallbackNames = uniqueLabels(trip.packedItems.map((item) => item.name)).join(', ') || 'No clothes added yet';
+  const previewNames = visibleLooks.length > 0
+    ? uniqueLabels(visibleLooks.flatMap((look) => look.items.map((item) => item.name))).join(', ') || 'No clothes added yet'
+    : fallbackNames;
+
+  return (
+    <View style={styles.selectionCard}>
+      <View style={styles.tripSummaryHeader}>
+        <Text style={styles.tripSummaryTitle}>{trip.title}</Text>
+        <Text style={styles.tripSummaryBadge}>TRIP</Text>
+      </View>
+      <Text style={styles.tripSummaryDate}>{trip.dateRange}</Text>
+      {visibleLooks.length > 0 ? (
+        <View style={styles.tripLookStack}>
+          {visibleLooks.map((look, index) => (
+            <View key={look.id} style={index > 0 && styles.tripLookBlockSpacing}>
+              <Text style={styles.tripLookPreviewTitle}>{look.title || `Look ${index + 1}`}</Text>
+              <View style={styles.tripLookImageBox}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectionStack}>
+                  {look.items.length > 0 ? (
+                    look.items.map((item) => (
+                      <View key={`${look.id}-${item.id}`} style={styles.selectionThumb}>
+                        {item.imageUrl ? (
+                          <Image source={{ uri: item.imageUrl }} style={styles.selectionImage} resizeMode="contain" />
+                        ) : (
+                          <ClosetIcon category={item.category} color={item.color ?? closetTheme.ink} accent={closetTheme.blueMist} size={52} />
+                        )}
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.pickerHint}>No clothes added to this look yet.</Text>
+                  )}
+                </ScrollView>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <>
+          <Text style={styles.tripLookPreviewTitle}>Packed clothes</Text>
+          <View style={styles.tripLookImageBox}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectionStack}>
+              {trip.packedItems.length > 0 ? (
+                trip.packedItems.map((item) => (
+                  <View key={item.id} style={styles.selectionThumb}>
+                    {item.imageUrl ? (
+                      <Image source={{ uri: item.imageUrl }} style={styles.selectionImage} resizeMode="contain" />
+                    ) : (
+                      <ClosetIcon category={item.category} color={item.color ?? closetTheme.ink} accent={closetTheme.blueMist} size={52} />
+                    )}
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.pickerHint}>Add looks or packed clothes to this trip.</Text>
+              )}
+            </ScrollView>
+          </View>
+        </>
+      )}
+      <View style={styles.selectionCopy}>
+        <View style={styles.tags}>
+          <Text style={styles.darkTag}>{lookCount} LOOK{lookCount === 1 ? '' : 'S'}</Text>
+          <Text style={styles.lightTag}>{trip.packedItems.length} PACKED</Text>
+        </View>
+        <Text style={styles.selectionMeta}>{previewNames}</Text>
+        {!expanded && trip.looks.length > 1 && (
+          <Pressable onPress={onToggleLooks}>
+            <Text style={styles.tripMoreLooks}>
+              +{trip.looks.length - 1} more look{trip.looks.length - 1 === 1 ? '' : 's'}
+            </Text>
+          </Pressable>
+        )}
+        {expanded && trip.looks.length > 1 && (
+          <Pressable onPress={onToggleLooks}>
+            <Text style={styles.tripMoreLooks}>Show less</Text>
+          </Pressable>
+        )}
+      </View>
+      <Pressable style={({ pressed }) => [styles.changeOutfitButton, pressed && styles.changeOutfitButtonPressed]} onPress={onEdit}>
+        <LineIcon name="✎" color={calendarCream} />
+        <Text style={styles.changeOutfitText}>Edit</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -417,6 +576,16 @@ function formatDateKey(date: Date) {
   const day = `${date.getDate()}`.padStart(2, '0');
 
   return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function isTripOnDate(trip: SavedTrip, date: Date) {
+  if (!trip.startDateKey || !trip.endDateKey) {
+    return false;
+  }
+
+  const dateKey = formatDateKey(date);
+
+  return dateKey >= trip.startDateKey && dateKey <= trip.endDateKey;
 }
 
 function formatShortDate(date: Date) {
@@ -598,6 +767,29 @@ const styles = StyleSheet.create({
     height: '100%',
     width: '100%',
   },
+  dayTripMarker: {
+    alignItems: 'center',
+    backgroundColor: '#DCA94C',
+    bottom: 4,
+    left: 4,
+    minHeight: 10,
+    paddingHorizontal: 3,
+    position: 'absolute',
+    right: 4,
+  },
+  dayTripMarkerSelected: {
+    backgroundColor: '#FFF3D7',
+  },
+  dayTripMarkerText: {
+    color: plannerInk,
+    ...closetTypography.text,
+    fontSize: 7,
+    fontWeight: '900',
+    lineHeight: 10,
+  },
+  dayTripMarkerTextSelected: {
+    color: calendarBrown,
+  },
   selectedDot: {
     backgroundColor: '#E6B44C',
     borderRadius: 4,
@@ -646,6 +838,69 @@ const styles = StyleSheet.create({
     color: calendarCream,
     fontSize: 12,
     fontWeight: '900',
+  },
+  tripSummaryCard: {
+    backgroundColor: '#FFF9EA',
+    borderColor: calendarBrown,
+    borderWidth: 2,
+    gap: 8,
+    marginTop: 18,
+    padding: 16,
+  },
+  tripSummaryHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  tripSummaryTitle: {
+    color: '#000000',
+    flex: 1,
+    ...closetTypography.text,
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 26,
+  },
+  tripSummaryBadge: {
+    backgroundColor: '#DCA94C',
+    color: plannerInk,
+    ...closetTypography.text,
+    fontSize: 10,
+    fontWeight: '900',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  tripSummaryDate: {
+    color: calendarBrown,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  tripLookPreviewTitle: {
+    color: plannerInk,
+    ...closetTypography.text,
+    fontSize: 13,
+    fontWeight: '900',
+    lineHeight: 18,
+  },
+  tripLookStack: {
+    gap: 14,
+    width: '100%',
+  },
+  tripLookBlockSpacing: {
+    marginTop: 2,
+  },
+  tripLookImageBox: {
+    minHeight: 70,
+    paddingTop: 8,
+    width: '100%',
+  },
+  tripMoreLooks: {
+    color: '#2F5E91',
+    ...closetTypography.text,
+    fontSize: 11,
+    fontWeight: '900',
+    marginTop: 6,
+    textAlign: 'right',
   },
   selectionImageBox: {
     height: 62,
@@ -763,6 +1018,35 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     width: 46,
     zIndex: 80,
+  },
+  addTripButton: {
+    alignItems: 'center',
+    backgroundColor: '#F6E4B7',
+    borderColor: '#774530',
+    borderWidth: 4,
+    bottom: 14,
+    elevation: 8,
+    height: 42,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    position: 'absolute',
+    right: 22,
+    shadowColor: '#774530',
+    shadowOffset: { height: 5, width: 5 },
+    shadowOpacity: 0.48,
+    shadowRadius: 0,
+    zIndex: 80,
+  },
+  addTripButtonPressed: {
+    opacity: 0.74,
+    transform: [{ scale: 0.96 }],
+  },
+  addTripButtonText: {
+    color: '#4B2A1E',
+    ...closetTypography.text,
+    fontSize: 13,
+    fontWeight: '900',
+    lineHeight: 18,
   },
   addButtonPressed: {
     opacity: 0.74,

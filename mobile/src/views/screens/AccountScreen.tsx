@@ -32,15 +32,17 @@ const avatarOptions: { label: string; value: AvatarChoice }[] = [
 type Props = {
   measurements: BodyMeasurements;
   onAuthenticated?: () => void;
+  onEditTrip: (trip: SavedTrip) => void;
   onMeasurementChange: (field: keyof BodyMeasurements, value: string) => void;
   onNavigate: (screen: ScreenId) => void;
+  onStartTrip: () => void;
   savedTrips: SavedTrip[];
 };
 
 type AuthMode = 'login' | 'signup';
 type ProfileTab = 'looks' | 'trips';
 
-export function AccountScreen({ measurements, onAuthenticated, onMeasurementChange, onNavigate, savedTrips }: Props) {
+export function AccountScreen({ measurements, onAuthenticated, onEditTrip, onMeasurementChange, onNavigate, onStartTrip, savedTrips }: Props) {
   const {
     closetItems,
     currentUser,
@@ -384,7 +386,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
 
         {profileTab === 'trips' && (
           <View style={styles.tripsPanel}>
-            <Pressable style={styles.addTrip} onPress={() => onNavigate('trip-planner')}>
+            <Pressable accessibilityLabel="Add trip" style={styles.addTrip} onPress={onStartTrip}>
               <LineIcon name="+" color={closetTheme.ink} />
               <Text style={styles.addLookText}>Add trip</Text>
             </Pressable>
@@ -393,7 +395,8 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
                 <SavedTripCard
                   key={trip.id}
                   expanded={expandedTripIds.includes(trip.id)}
-                  onToggle={() =>
+                  onEdit={() => onEditTrip(trip)}
+                  onToggleLooks={() =>
                     setExpandedTripIds((currentIds) =>
                       currentIds.includes(trip.id)
                         ? currentIds.filter((id) => id !== trip.id)
@@ -497,11 +500,13 @@ function labelOption(value: string) {
 
 function SavedTripCard({
   expanded,
-  onToggle,
+  onEdit,
+  onToggleLooks,
   trip,
 }: {
   expanded: boolean;
-  onToggle: () => void;
+  onEdit: () => void;
+  onToggleLooks: () => void;
   trip: SavedTrip;
 }) {
   const previewItems = trip.packedItems.slice(0, 3);
@@ -523,9 +528,6 @@ function SavedTripCard({
             {lookCount} look{lookCount === 1 ? '' : 's'} · {trip.packedItems.length} packed
           </Text>
         </View>
-        <Pressable accessibilityLabel={expanded ? 'Hide trip outfits' : 'Show trip outfits'} style={styles.savedTripOpen} onPress={onToggle}>
-          <LineIcon name={expanded ? '↖' : '↗'} color={closetTheme.ink} />
-        </Pressable>
       </View>
 
       {visibleLooks.length > 0 ? (
@@ -557,12 +559,23 @@ function SavedTripCard({
       )}
 
       {trip.looks.length > visibleLooks.length && (
-        <Pressable onPress={onToggle}>
+        <Pressable onPress={onToggleLooks}>
           <Text style={styles.savedTripMore}>
             +{trip.looks.length - visibleLooks.length} more look{trip.looks.length - visibleLooks.length === 1 ? '' : 's'}
           </Text>
         </Pressable>
       )}
+
+      {expanded && trip.looks.length > 1 && (
+        <Pressable onPress={onToggleLooks}>
+          <Text style={styles.savedTripMore}>Show less</Text>
+        </Pressable>
+      )}
+
+      <Pressable accessibilityLabel={`Edit ${trip.title} trip`} style={styles.savedTripEditButton} onPress={onEdit}>
+        <LineIcon name="✎" color={closetTheme.cream} />
+        <Text style={styles.savedTripEditText}>Edit</Text>
+      </Pressable>
     </View>
   );
 }
@@ -1060,12 +1073,15 @@ const styles = StyleSheet.create({
   },
   addTrip: {
     alignItems: 'center',
+    alignSelf: 'center',
     backgroundColor: closetTheme.creamDeep,
-    borderRadius: 24,
+    borderRadius: 26,
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
+    height: 52,
     justifyContent: 'center',
-    paddingVertical: 15,
+    minWidth: 150,
+    paddingHorizontal: 22,
   },
   addLookText: {
     color: closetTheme.ink,
@@ -1125,14 +1141,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: 4,
   },
-  savedTripOpen: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.creamDeep,
-    borderRadius: 20,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
   savedTripPreview: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1164,6 +1172,22 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: 10,
     textAlign: 'right',
+  },
+  savedTripEditButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    backgroundColor: closetTheme.camelDeep,
+    flexDirection: 'row',
+    gap: 6,
+    height: 34,
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingHorizontal: 12,
+  },
+  savedTripEditText: {
+    color: closetTheme.cream,
+    fontSize: 12,
+    fontWeight: '900',
   },
   packedPreviewItem: {
     alignItems: 'center',

@@ -22,6 +22,7 @@ export function useClosetApp() {
   const [measurements, setMeasurements] = useState<BodyMeasurements>(defaultMeasurements);
   const [inventory, setInventory] = useState<InventoryState>(() => loadInventoryState());
   const [savedTrips, setSavedTrips] = useState<SavedTrip[]>([]);
+  const [editingTrip, setEditingTrip] = useState<SavedTrip | null>(null);
 
   const activeBrowseCategory = useMemo(
     () => browseCategories.find((category) => category.id === activeCategory) ?? browseCategories[0],
@@ -42,6 +43,16 @@ export function useClosetApp() {
 
   function goTo(nextScreen: ScreenId) {
     setScreen(nextScreen);
+  }
+
+  function startNewTrip() {
+    setEditingTrip(null);
+    setScreen('trip-planner');
+  }
+
+  function editTrip(trip: SavedTrip) {
+    setEditingTrip(trip);
+    setScreen('trip-planner');
   }
 
   function saveTrip(trip: SavedTrip) {
@@ -99,6 +110,8 @@ export function useClosetApp() {
     closetItems: inventory.closet,
     wishlistItems: inventory.wishlist,
     addItem,
+    editTrip,
+    editingTrip,
     goTo,
     isForward,
     measurements,
@@ -106,6 +119,7 @@ export function useClosetApp() {
     screen,
     savedTrips,
     setActiveCategory,
+    startNewTrip,
     updateMeasurement,
   };
 }

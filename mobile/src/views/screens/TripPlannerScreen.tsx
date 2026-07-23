@@ -36,33 +36,38 @@ const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const tripReminderKey = 'bove-closet-trip-reminder';
 
 export function TripPlannerScreen({
+  editingTrip,
   onNavigate,
   onTripSaved,
 }: {
+  editingTrip?: SavedTrip | null;
   onNavigate: (screen: ScreenId) => void;
   onTripSaved: (trip: SavedTrip) => void;
 }) {
   const { closetItems, currentUser } = useClosetStore();
   const planeFloat = useRef(new Animated.Value(0)).current;
-  const [step, setStep] = useState<TripStep>('destination');
-  const [destination, setDestination] = useState('');
-  const [dateRange, setDateRange] = useState('');
+  const editingStartDate = editingTrip?.startDateKey ? dateFromKey(editingTrip.startDateKey) : null;
+  const editingEndDate = editingTrip?.endDateKey ? dateFromKey(editingTrip.endDateKey) : null;
+  const editingLooks = editingTrip ? buildEditableTripLooks(editingTrip, closetItems) : [];
+  const [step, setStep] = useState<TripStep>(editingTrip ? 'results' : 'destination');
+  const [destination, setDestination] = useState(editingTrip?.title ?? '');
+  const [dateRange, setDateRange] = useState(editingTrip?.dateRange ?? '');
   const [destinationSuggestionsOpen, setDestinationSuggestionsOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState(() => new Date(2026, 6, 1));
-  const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
-  const [tripEndDate, setTripEndDate] = useState<Date | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => editingStartDate ? new Date(editingStartDate.getFullYear(), editingStartDate.getMonth(), 1) : new Date(2026, 6, 1));
+  const [tripStartDate, setTripStartDate] = useState<Date | null>(editingStartDate);
+  const [tripEndDate, setTripEndDate] = useState<Date | null>(editingEndDate);
   const [luggageType, setLuggageType] = useState<LuggageType>('Carry on');
   const [activities, setActivities] = useState('');
   const [resultsTab, setResultsTab] = useState<ResultsTab>('packing');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreparedToast, setShowPreparedToast] = useState(false);
-  const [packingItems, setPackingItems] = useState<WardrobeItem[]>([]);
+  const [packingItems, setPackingItems] = useState<WardrobeItem[]>(editingTrip?.packedItems ?? []);
   const [isClosetPickerOpen, setIsClosetPickerOpen] = useState(false);
   const [selectedClosetItemIds, setSelectedClosetItemIds] = useState<string[]>([]);
   const [suggestedItems, setSuggestedItems] = useState<WardrobeItem[]>([]);
-  const [looks, setLooks] = useState<TripLook[]>([]);
-  const [addedLookIds, setAddedLookIds] = useState<string[]>([]);
+  const [looks, setLooks] = useState<TripLook[]>(editingLooks);
+  const [addedLookIds, setAddedLookIds] = useState<string[]>(editingTrip?.looks.map((look) => look.id) ?? []);
   const tripTitle = destination.trim() || 'Your trip';
   const tripDates = dateRange.trim() || 'Dates not set';
   const progressWidth = isGenerating ? '74%' : '100%';
@@ -102,6 +107,11 @@ export function TripPlannerScreen({
   }, [showPreparedToast]);
 
   function goBack() {
+    if (editingTrip && step === 'results') {
+      onNavigate('calendar');
+      return;
+    }
+
     if (step === 'destination') {
       onNavigate('account');
       return;
@@ -114,7 +124,7 @@ export function TripPlannerScreen({
 
   function closePlanner() {
     clearTripReminder();
-    onNavigate('account');
+    onNavigate(editingTrip ? 'calendar' : 'account');
   }
 
   function nextFromActivities() {
@@ -143,7 +153,8 @@ export function TripPlannerScreen({
   function saveTripSnapshot(nextPackingItems: WardrobeItem[], nextAddedLookIds: string[], planLooks = looks) {
     onTripSaved({
       dateRange: tripDates,
-      id: `${tripTitle}-${tripDates}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      endDateKey: tripEndDate ? formatDateKey(tripEndDate) : tripStartDate ? formatDateKey(tripStartDate) : undefined,
+      id: editingTrip?.id ?? `${tripTitle}-${tripDates}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       looks: planLooks
         .filter((look) => nextAddedLookIds.includes(look.id))
         .map((look) => ({
@@ -152,6 +163,7 @@ export function TripPlannerScreen({
           title: look.title,
         })),
       packedItems: nextPackingItems,
+      startDateKey: tripStartDate ? formatDateKey(tripStartDate) : undefined,
       title: tripTitle,
     });
   }
@@ -190,7 +202,10 @@ export function TripPlannerScreen({
   }
 
   function addSelectedClosetItems() {
-    setPackingItems(closetItems.filter((item) => selectedClosetItemIds.includes(item.id)));
+    const nextItems = closetItems.filter((item) => selectedClosetItemIds.includes(item.id));
+
+    setPackingItems(nextItems);
+    saveTripSnapshot(nextItems, addedLookIds);
     setIsClosetPickerOpen(false);
   }
 
@@ -357,7 +372,7 @@ export function TripPlannerScreen({
           </ScrollView>
         )}
 
-        <FooterButton disabled={!destination.trim()} label="Next" onPress={() => setStep('bag')} />
+        <FooterButton disabled={!destination.trim() || !tripStartDate || !tripEndDate} label="Next" onPress={() => setStep('bag')} />
       </TripShell>
     );
   }
@@ -705,6 +720,33 @@ function buildTripLooks(items: WardrobeItem[]) {
     .filter((look) => look.items.length > 0);
 }
 
+function buildEditableTripLooks(trip: SavedTrip, closetItems: WardrobeItem[]) {
+  const itemById = new Map([...closetItems, ...trip.packedItems].map((item) => [item.id, item]));
+  const savedLooks = trip.looks
+    .map((look) => ({
+      id: look.id,
+      items: uniqueItems(look.itemIds.map((itemId) => itemById.get(itemId))),
+      title: look.title,
+    }))
+    .filter((look) => look.items.length > 0);
+  const generatedLooks = buildTripLooks(uniqueItems([...trip.packedItems, ...closetItems]));
+
+  return uniqueTripLooks([...savedLooks, ...generatedLooks]);
+}
+
+function uniqueTripLooks(looks: TripLook[]) {
+  const seenLookIds = new Set<string>();
+
+  return looks.filter((look) => {
+    if (seenLookIds.has(look.id)) {
+      return false;
+    }
+
+    seenLookIds.add(look.id);
+    return true;
+  });
+}
+
 function pickByCategory(items: WardrobeItem[], category: CategoryId, offset: number) {
   const categoryItems = items.filter((item) => item.category === category);
 
@@ -836,6 +878,19 @@ function formatCalendarMonth(date: Date) {
 
 function formatTripDate(date: Date) {
   return date.toLocaleString('en', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatDateKey(date: Date) {
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function dateFromKey(dateKey: string) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+
+  return new Date(year, month - 1, day);
 }
 
 function isSameCalendarDate(left: Date, right: Date | null) {
