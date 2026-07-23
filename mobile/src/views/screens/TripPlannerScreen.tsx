@@ -46,6 +46,8 @@ export function TripPlannerScreen({
 }) {
   const { closetItems, currentUser } = useClosetStore();
   const planeFloat = useRef(new Animated.Value(0)).current;
+  const editingTripLooks = editingTrip?.looks ?? [];
+  const editingTripPackedItems = editingTrip?.packedItems ?? [];
   const editingStartDate = editingTrip?.startDateKey ? dateFromKey(editingTrip.startDateKey) : null;
   const editingEndDate = editingTrip?.endDateKey ? dateFromKey(editingTrip.endDateKey) : null;
   const editingLooks = editingTrip ? buildEditableTripLooks(editingTrip, closetItems) : [];
@@ -62,12 +64,12 @@ export function TripPlannerScreen({
   const [resultsTab, setResultsTab] = useState<ResultsTab>('packing');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreparedToast, setShowPreparedToast] = useState(false);
-  const [packingItems, setPackingItems] = useState<WardrobeItem[]>(editingTrip?.packedItems ?? []);
+  const [packingItems, setPackingItems] = useState<WardrobeItem[]>(editingTripPackedItems);
   const [isClosetPickerOpen, setIsClosetPickerOpen] = useState(false);
   const [selectedClosetItemIds, setSelectedClosetItemIds] = useState<string[]>([]);
   const [suggestedItems, setSuggestedItems] = useState<WardrobeItem[]>([]);
   const [looks, setLooks] = useState<TripLook[]>(editingLooks);
-  const [addedLookIds, setAddedLookIds] = useState<string[]>(editingTrip?.looks.map((look) => look.id) ?? []);
+  const [addedLookIds, setAddedLookIds] = useState<string[]>(editingTripLooks.map((look) => look.id));
   const tripTitle = destination.trim() || 'Your trip';
   const tripDates = dateRange.trim() || 'Dates not set';
   const progressWidth = isGenerating ? '74%' : '100%';
@@ -721,15 +723,16 @@ function buildTripLooks(items: WardrobeItem[]) {
 }
 
 function buildEditableTripLooks(trip: SavedTrip, closetItems: WardrobeItem[]) {
-  const itemById = new Map([...closetItems, ...trip.packedItems].map((item) => [item.id, item]));
-  const savedLooks = trip.looks
+  const packedItems = trip.packedItems ?? [];
+  const itemById = new Map([...closetItems, ...packedItems].map((item) => [item.id, item]));
+  const savedLooks = (trip.looks ?? [])
     .map((look) => ({
       id: look.id,
       items: uniqueItems(look.itemIds.map((itemId) => itemById.get(itemId))),
       title: look.title,
     }))
     .filter((look) => look.items.length > 0);
-  const generatedLooks = buildTripLooks(uniqueItems([...trip.packedItems, ...closetItems]));
+  const generatedLooks = buildTripLooks(uniqueItems([...packedItems, ...closetItems]));
 
   return uniqueTripLooks([...savedLooks, ...generatedLooks]);
 }
