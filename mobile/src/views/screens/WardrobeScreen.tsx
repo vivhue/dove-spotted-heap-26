@@ -183,7 +183,7 @@ export function WardrobeScreen({
             ))}
             {!isLoadingItems && !itemsError && filteredItems.length === 0 && items.length > 0 && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>Nothing matches these filters.</Text>
+                <Text style={[styles.emptyText, styles.filteredEmptyText]}>Nothing matches these filters.</Text>
                 <Pressable
                   style={({ pressed }) => [styles.clearFiltersButton, pressed && styles.buttonPressed]}
                   onPress={clearFilters}>
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   screenTitle: {
-    color: closetTheme.ink,
+    color: '#000000',
     fontSize: 28,
     fontWeight: '900',
     marginHorizontal: 22,
@@ -750,6 +750,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
   },
+  filteredEmptyText: {
+    color: '#A8A8A8',
+    fontFamily: closetTypography.regularFont,
+    fontWeight: '400',
+  },
   emptyState: {
     alignItems: 'center',
     gap: 14,
@@ -910,7 +915,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheetTitle: {
-    color: closetTheme.ink,
+    color: '#000000',
     fontSize: 15,
     fontWeight: '900',
   },
@@ -921,7 +926,7 @@ const styles = StyleSheet.create({
   },
   sheetEdit: {
     alignItems: 'center',
-    backgroundColor: closetTheme.ink,
+    backgroundColor: '#7A4328',
     borderRadius: 16,
     justifyContent: 'center',
     marginBottom: 8,

@@ -39,8 +39,6 @@ type Props = {
 
 type AuthMode = 'login' | 'signup';
 type ProfileTab = 'looks' | 'trips';
-type LooksSort = 'newest' | 'oldest';
-type LooksViewMode = 'grid' | 'list';
 
 export function AccountScreen({ measurements, onAuthenticated, onMeasurementChange, onNavigate, savedTrips }: Props) {
   const {
@@ -59,13 +57,6 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [expandedTripIds, setExpandedTripIds] = useState<string[]>([]);
-  const [isLooksSearchOpen, setIsLooksSearchOpen] = useState(false);
-  const [isSelectMode, setIsSelectMode] = useState(false);
-  const [isWornLooksOnly, setIsWornLooksOnly] = useState(false);
-  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
-  const [looksSearch, setLooksSearch] = useState('');
-  const [looksSort, setLooksSort] = useState<LooksSort>('newest');
-  const [looksViewMode, setLooksViewMode] = useState<LooksViewMode>('grid');
   const [profileTab, setProfileTab] = useState<ProfileTab>('looks');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -390,80 +381,6 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
             <Pressable style={({ pressed }) => [styles.addLook, pressed && styles.pressed]} onPress={() => onNavigate('look-history')}>
               <Text style={styles.addLookText}>History</Text>
             </Pressable>
-
-            <View style={styles.filterRow}>
-              <View style={styles.sortWrap}>
-                <Pressable style={styles.sortButton} onPress={() => setIsSortMenuOpen((isOpen) => !isOpen)}>
-                  <Text style={styles.filterText}>{looksSort === 'newest' ? 'Newest' : 'Oldest'}</Text>
-                  <Text style={styles.sortChevron}>⌄</Text>
-                </Pressable>
-                {isSortMenuOpen && (
-                  <View style={styles.sortMenu}>
-                    {(['newest', 'oldest'] as LooksSort[]).map((sort) => (
-                      <Pressable
-                        key={sort}
-                        style={[styles.sortMenuItem, looksSort === sort && styles.sortMenuItemSelected]}
-                        onPress={() => {
-                          setLooksSort(sort);
-                          setIsSortMenuOpen(false);
-                        }}>
-                        <Text style={[styles.sortMenuText, looksSort === sort && styles.sortMenuTextSelected]}>
-                          {sort === 'newest' ? 'Newest first' : 'Oldest first'}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-              </View>
-              <View style={styles.filterActions}>
-                <Pressable style={styles.iconControl} onPress={() => setIsLooksSearchOpen((isOpen) => !isOpen)}>
-                  <Text style={[styles.filterIcon, isLooksSearchOpen && styles.filterIconActive]}>⌕</Text>
-                </Pressable>
-                <Pressable style={styles.iconControl} onPress={() => setLooksViewMode((mode) => (mode === 'grid' ? 'list' : 'grid'))}>
-                  <Text style={styles.filterIcon}>{looksViewMode === 'grid' ? '☷' : '☰'}</Text>
-                </Pressable>
-                <Pressable style={styles.selectControl} onPress={() => setIsSelectMode((isSelecting) => !isSelecting)}>
-                  <Text style={[styles.selectText, isSelectMode && styles.selectTextActive]}>
-                    {isSelectMode ? 'Done' : 'Select'}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-
-            {isLooksSearchOpen && (
-              <TextInput
-                autoCapitalize="none"
-                onChangeText={setLooksSearch}
-                placeholder="Search looks"
-                placeholderTextColor="#8A8A8A"
-                style={styles.looksSearchInput}
-                value={looksSearch}
-              />
-            )}
-
-            <View style={styles.pills}>
-              <Pressable
-                style={[styles.pill, isWornLooksOnly && styles.pillSelected]}
-                onPress={() => setIsWornLooksOnly((isOnly) => !isOnly)}>
-                <Text numberOfLines={1} style={[styles.pillText, isWornLooksOnly && styles.pillTextSelected]}>
-                  {isWornLooksOnly ? 'All Looks' : 'Worn Looks'}
-                </Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.looksStatePanel}>
-              <Text style={styles.looksStateText}>
-                {looksViewMode === 'grid' ? 'Grid view' : 'List view'}
-                {' · '}
-                {isSelectMode ? 'Select mode on' : 'Browsing'}
-              </Text>
-              {looksSearch || isWornLooksOnly ? (
-                <Text style={styles.looksStateMeta}>
-                  Showing {isWornLooksOnly ? 'worn looks' : 'all looks'}
-                  {looksSearch ? ` matching "${looksSearch}"` : ''}.
-                </Text>
-              ) : null}
-            </View>
           </>
         ) : (
           <View style={styles.tripsPanel}>
@@ -902,8 +819,9 @@ const styles = StyleSheet.create({
   },
   name: {
     color: closetTheme.ink,
+    fontFamily: closetTypography.regularFont,
     fontSize: 25,
-    fontWeight: '900',
+    fontWeight: '400',
   },
   stats: {
     flexDirection: 'row',
@@ -914,11 +832,13 @@ const styles = StyleSheet.create({
   },
   statValue: {
     color: closetTheme.ink,
+    fontFamily: closetTypography.regularFont,
     fontSize: 24,
-    fontWeight: '900',
+    fontWeight: '400',
   },
   statLabel: {
     color: closetTheme.ink,
+    fontFamily: closetTypography.regularFont,
     fontSize: 14,
     marginTop: 2,
   },
