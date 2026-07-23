@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   },
   thumb: {
     alignItems: 'center',
-    backgroundColor: closetTheme.creamDeep,
+    backgroundColor: '#FFFCF5',
     height: 128,
     justifyContent: 'center',
     position: 'relative',

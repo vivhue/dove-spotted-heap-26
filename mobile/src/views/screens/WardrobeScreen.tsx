@@ -734,13 +734,14 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
+    justifyContent: 'space-between',
     padding: 22,
     paddingBottom: 120,
     paddingTop: 8,
+    rowGap: 14,
   },
   cardWrap: {
-    width: '47.8%',
+    width: '47%',
   },
   emptyText: {
     color: closetTheme.muted,

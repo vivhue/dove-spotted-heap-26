@@ -170,21 +170,20 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
             <View style={styles.stepTwoScrim} />
           </View>
         )}
-        <ScrollView contentContainerStyle={[styles.content, step === 2 && styles.stepTwoContent]} scrollEnabled={step === 2}>
+        <View style={[styles.content, step === 2 && styles.stepTwoContent]}>
           {step === 1 && (
             <MirrorStage
-              actionRow={
+              actionRow={avatarUrl ? (
                 <View style={[styles.actionRow, styles.centeredActionRow]}>
                   <Pressable
                     disabled={isSettingUp}
-                    style={({ pressed }) => [styles.secondaryButton, styles.centeredMirrorButton, pressed && styles.pressed, isSettingUp && styles.disabled]}
-                    onPress={uploadAvatar}>
+                    onPress={uploadAvatar}
+                    style={({ pressed }) => [styles.secondaryButton, styles.centeredMirrorButton, pressed && styles.pressed, isSettingUp && styles.disabled]}>
                     {isSettingUp && <ActivityIndicator color={closetTheme.camelDeep} />}
-                    <Text numberOfLines={1} style={[styles.secondaryText, styles.centeredMirrorButtonText]}>{avatarUrl ? 'Retake photo' : 'Upload photo'}</Text>
+                    <Text numberOfLines={1} style={[styles.secondaryText, styles.centeredMirrorButtonText]}>Retake photo</Text>
                   </Pressable>
-
                 </View>
-              }
+              ) : null}
               nextAction={
                 <Pressable
                   disabled={!avatarUrl || isSettingUp}
@@ -240,7 +239,11 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
               </View>
             ) : (
               <>
-                <View style={styles.grid}>
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                  style={styles.garmentScroller}
+                  contentContainerStyle={styles.grid}>
                   {tryOnItems.map((item) => (
                     <View key={item.id} style={styles.cardWrap}>
                       <WardrobeCard
@@ -252,21 +255,9 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
                       />
                     </View>
                   ))}
-                </View>
+                </ScrollView>
 
                 <Text style={[styles.statusText, styles.selectionStatus]}>{selectedGarment ? `${selectedGarment.name} selected.` : 'Select one garment to continue.'}</Text>
-                <View style={[styles.actionRow, styles.stepTwoActionRow]}>
-                  <Pressable style={({ pressed }) => [styles.secondaryButton, styles.stepTwoBackButton, pressed && styles.pressed]} onPress={() => setStep(1)}>
-                    <Text style={[styles.secondaryText, styles.centeredMirrorButtonText]}>Back</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={!selectedGarmentId || isGenerating}
-                    style={({ pressed }) => [styles.primaryButton, styles.stepTwoTryOnButton, pressed && styles.pressed, (!selectedGarmentId || isGenerating) && styles.stepTwoTryOnDisabled]}
-                    onPress={tryOnSelectedGarment}>
-                    {isGenerating ? <ActivityIndicator color={closetTheme.cream} /> : <LineIcon name="✦" color={closetTheme.cream} />}
-                    <Text style={styles.primaryText}>{isGenerating ? 'Creating' : 'Try it on'}</Text>
-                  </Pressable>
-                </View>
               </>
             )}
           </>
@@ -303,7 +294,21 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
               )}
           </MirrorStage>
         )}
-        </ScrollView>
+        </View>
+        {step === 2 && tryOnItems.length > 0 && (
+          <View style={[styles.actionRow, styles.stepTwoActionRow, styles.fixedStepTwoActions]}>
+            <Pressable style={({ pressed }) => [styles.secondaryButton, styles.stepTwoBackButton, pressed && styles.pressed]} onPress={() => setStep(1)}>
+              <Text style={[styles.secondaryText, styles.centeredMirrorButtonText]}>Back</Text>
+            </Pressable>
+            <Pressable
+              disabled={!selectedGarmentId || isGenerating}
+              style={({ pressed }) => [styles.primaryButton, styles.stepTwoTryOnButton, pressed && styles.pressed, (!selectedGarmentId || isGenerating) && styles.stepTwoTryOnDisabled]}
+              onPress={tryOnSelectedGarment}>
+              {isGenerating ? <ActivityIndicator color={closetTheme.cream} /> : <LineIcon name="✦" color={closetTheme.cream} />}
+              <Text style={styles.primaryText}>{isGenerating ? 'Creating' : 'Try it on'}</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     </AppScreen>
   );
@@ -407,12 +412,15 @@ const styles = StyleSheet.create({
   },
   content: {
     backgroundColor: tryOnBackdrop,
+    flex: 1,
     paddingBottom: 0,
     paddingHorizontal: 0,
     paddingTop: 0,
   },
   stepTwoContent: {
     backgroundColor: 'transparent',
+    flexGrow: 1,
+    paddingBottom: 92,
   },
   stepTwoBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -597,6 +605,14 @@ const styles = StyleSheet.create({
   stepTwoActionRow: {
     marginHorizontal: 22,
   },
+  fixedStepTwoActions: {
+    bottom: 18,
+    left: 0,
+    marginTop: 0,
+    position: 'absolute',
+    right: 0,
+    zIndex: 20,
+  },
   centeredActionRow: {
     justifyContent: 'center',
     transform: [{ translateY: -15 }],
@@ -700,12 +716,17 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
+    justifyContent: 'space-between',
     paddingBottom: 0,
     paddingHorizontal: 22,
     paddingTop: 0,
+    rowGap: 14,
+  },
+  garmentScroller: {
+    flex: 1,
+    minHeight: 0,
   },
   cardWrap: {
-    width: '47.8%',
+    width: '47%',
   },
 });

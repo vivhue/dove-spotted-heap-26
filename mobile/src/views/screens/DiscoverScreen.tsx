@@ -553,7 +553,7 @@ export function DiscoverScreen({
                   : 'Help me style this from my closet.'
                 : 'Create an account first...'
             }
-            placeholderTextColor={closetTheme.muted}
+            placeholderTextColor="#8A8A8A"
             style={styles.input}
             value={draft}
             onChangeText={setDraft}
@@ -589,7 +589,7 @@ export function DiscoverScreen({
                 autoCapitalize="none"
                 onChangeText={setClosetSearch}
                 placeholder="Search your closet..."
-                placeholderTextColor={closetTheme.muted}
+                placeholderTextColor="#8A8A8A"
                 style={styles.closetSearch}
                 value={closetSearch}
               />
@@ -938,8 +938,9 @@ const styles = StyleSheet.create({
   },
   input: {
     color: closetTheme.ink,
+    fontFamily: closetTypography.inputFont,
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '400',
     lineHeight: 26,
     minHeight: 64,
     padding: 0,
@@ -1018,8 +1019,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F0D0C',
     borderRadius: 22,
     color: closetTheme.cream,
+    fontFamily: closetTypography.inputFont,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '400',
     minHeight: 44,
     paddingHorizontal: 18,
   },

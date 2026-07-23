@@ -266,7 +266,7 @@ export function TripPlannerScreen({
                 setCalendarOpen(false);
               }}
               placeholder="Search by city, postal code, or landmark"
-              placeholderTextColor={closetTheme.muted}
+              placeholderTextColor="#8A8A8A"
               style={styles.tripInput}
               value={destination}
             />
@@ -402,7 +402,7 @@ export function TripPlannerScreen({
           <TextInput
             onChangeText={setActivities}
             placeholder="What activities do you have planned?"
-            placeholderTextColor="#9D9D9D"
+            placeholderTextColor="#8A8A8A"
             style={styles.activityInput}
             value={activities}
           />
@@ -910,10 +910,11 @@ const styles = StyleSheet.create({
     height: 1,
   },
   tripInput: {
+    fontFamily: closetTypography.inputFont,
     color: closetTheme.ink,
     flex: 1,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '400',
     minHeight: 52,
   },
   destinationDropdown: {
@@ -1131,9 +1132,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   activityInput: {
+    fontFamily: closetTypography.inputFont,
     color: '#111111',
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: '400',
     minHeight: 72,
   },
   resultActions: {

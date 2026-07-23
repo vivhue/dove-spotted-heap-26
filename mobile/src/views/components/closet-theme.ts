@@ -38,6 +38,7 @@ const appFontFamily = Platform.select({
 export const closetTypography = {
   appFont: appFontFamily,
   boldFont: boldFontFamily,
+  inputFont: Platform.select({ android: 'sans-serif', ios: 'System', web: 'Arial' }),
   regularFont: regularFontFamily,
   text: { fontFamily: appFontFamily },
 };
