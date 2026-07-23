@@ -40,7 +40,6 @@ type ClosetChatRequest = {
     legTorsoRatio: string | null;
     waistCm: number | null;
   };
-  chatMode?: 'closet' | 'shopping';
   closetItems?: {
     category?: string;
     color?: string;
@@ -1133,7 +1132,6 @@ async function handleChat(req: typeof http.IncomingMessage.prototype) {
 
   const response = await callOpenAIChatReply({
     bodyProfile: payload.bodyProfile,
-    chatMode: payload.chatMode === 'shopping' ? 'shopping' : 'closet',
     closetItems: payload.closetItems ?? [],
     colorProfile: payload.colorProfile,
     currentUser,
@@ -1149,7 +1147,6 @@ async function handleChat(req: typeof http.IncomingMessage.prototype) {
 
 async function callOpenAIChatReply(context: {
   bodyProfile?: ClosetChatRequest['bodyProfile'];
-  chatMode: 'closet' | 'shopping';
   closetItems: NonNullable<ClosetChatRequest['closetItems']>;
   colorProfile?: ClosetChatRequest['colorProfile'];
   currentUser: NonNullable<ClosetChatRequest['currentUser']>;
@@ -1170,7 +1167,7 @@ async function callOpenAIChatReply(context: {
     body: JSON.stringify({
       input: [
         {
-          content: [{ text: buildChatSystemPrompt(context.chatMode), type: 'input_text' }],
+          content: [{ text: buildChatSystemPrompt(), type: 'input_text' }],
           role: 'system',
         },
         {
@@ -1214,16 +1211,11 @@ async function callOpenAIChatReply(context: {
   return parsed;
 }
 
-function buildChatSystemPrompt(chatMode: 'closet' | 'shopping') {
-  const modeGuidance =
-    chatMode === 'shopping'
-      ? 'The user wants shopping help when the closet is missing something.'
-      : 'The user wants to rely on their existing closet first.';
-
+function buildChatSystemPrompt() {
   return [
     'You are BoveCloset, a practical fashion assistant.',
     'Be direct, warm, and specific. Keep replies short and useful.',
-    modeGuidance,
+    'The user wants to rely on their existing closet first.',
     'Never invent items the user does not own.',
     'If you recommend an outfit, choose item ids only from the provided closet items.',
     'If no exact outfit is possible, explain what is missing and keep the outfit fields null.',

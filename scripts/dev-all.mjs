@@ -23,7 +23,7 @@ const processes = [
     name: "mobile",
     color: "\x1b[35m",
     command: process.execPath,
-    args: ["node_modules/expo/bin/cli", "start"],
+    args: ["node_modules/expo/bin/cli", "start", "--clear"],
     cwd: mobileDir,
   },
 ];

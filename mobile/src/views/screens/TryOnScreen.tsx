@@ -223,7 +223,11 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
 
         {step === 2 && (
           <>
-            <TryOnHeader step={step} />
+            <View style={styles.selectionHero}>
+              <TryOnHeader />
+              <StepTracker step={step} />
+            </View>
+
             <Text style={styles.sectionHeading}>Pick a piece to try on</Text>
             {tryOnItems.length === 0 ? (
               <View style={styles.emptyGarments}>
@@ -398,6 +402,9 @@ const styles = StyleSheet.create({
   tryOnRoot: {
     backgroundColor: tryOnBackdrop,
     flex: 1,
+  },
+  selectionHero: {
+    marginTop: 20,
   },
   content: {
     backgroundColor: tryOnBackdrop,

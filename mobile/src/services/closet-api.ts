@@ -78,7 +78,6 @@ export type ClosetChatRequest = {
     legTorsoRatio: string | null;
     waistCm: number | null;
   };
-  chatMode: 'closet' | 'shopping';
   closetItems: WardrobeItem[];
   colorProfile?: {
     avoidPalette: string[];
