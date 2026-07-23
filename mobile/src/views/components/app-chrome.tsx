@@ -32,6 +32,7 @@ export type AppNotification = {
 };
 
 export function AppScreen({
+  activeTab,
   avatarMenuActions,
   children,
   notifications,
@@ -100,23 +101,23 @@ export function AppScreen({
         </View>
       )}
       <View style={styles.body}>{children}</View>
-      <BottomAvatarTrack bottomOffset={18} onPress={() => onNavigate('discover')} />
+      <BottomAvatarTrack bottomOffset={18} isMoving={activeTab === 'home'} onPress={() => onNavigate('discover')} />
     </SafeAreaView>
   );
 }
 
 const avatarTrackTripDurationMs = 22000;
-const avatarTrackCycleDurationMs = avatarTrackTripDurationMs * 2;
 
-function BottomAvatarTrack({ bottomOffset, onPress }: { bottomOffset: number; onPress: () => void }) {
+function BottomAvatarTrack({ bottomOffset, isMoving, onPress }: { bottomOffset: number; isMoving: boolean; onPress: () => void }) {
   const { currentUser } = useClosetStore();
   const [walkProgress] = useState(() => new Animated.Value(0));
   const [trackWidth, setTrackWidth] = useState(0);
+  const [showHelpBubble, setShowHelpBubble] = useState(false);
   const avatarWidth = 58;
   const travelDistance = Math.max(0, trackWidth - avatarWidth);
-  const translateX = walkProgress.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, travelDistance, 0],
+  const walkingTranslateX = walkProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, travelDistance],
   });
 
   function rememberTrackWidth(event: LayoutChangeEvent) {
@@ -125,29 +126,64 @@ function BottomAvatarTrack({ bottomOffset, onPress }: { bottomOffset: number; on
 
   useEffect(() => {
     walkProgress.setValue(0);
+    setShowHelpBubble(false);
+
+    if (!isMoving) {
+      return;
+    }
+
+    let hideBubbleTimer: ReturnType<typeof setTimeout> | undefined;
+    const showBubble = () => {
+      setShowHelpBubble(true);
+      if (hideBubbleTimer) clearTimeout(hideBubbleTimer);
+      hideBubbleTimer = setTimeout(() => setShowHelpBubble(false), 4500);
+    };
+    let laterCenterCrossings: ReturnType<typeof setInterval> | undefined;
+    const firstCenterCrossing = setTimeout(() => {
+      showBubble();
+      laterCenterCrossings = setInterval(showBubble, avatarTrackTripDurationMs);
+    }, avatarTrackTripDurationMs / 2);
+
     const animation = Animated.loop(
-      Animated.timing(walkProgress, {
-        duration: avatarTrackCycleDurationMs,
-        easing: Easing.inOut(Easing.quad),
-        isInteraction: false,
-        toValue: 1,
-        useNativeDriver: true,
-      }),
-      {
-        iterations: -1,
-        resetBeforeIteration: true,
-      }
+      Animated.sequence([
+        Animated.timing(walkProgress, {
+          duration: avatarTrackTripDurationMs,
+          easing: Easing.inOut(Easing.quad),
+          isInteraction: false,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.timing(walkProgress, {
+          duration: avatarTrackTripDurationMs,
+          easing: Easing.inOut(Easing.quad),
+          isInteraction: false,
+          toValue: 0,
+          useNativeDriver: true,
+        }),
+      ])
     );
 
     animation.start();
 
-    return () => animation.stop();
-  }, [walkProgress]);
+    return () => {
+      animation.stop();
+      clearTimeout(firstCenterCrossing);
+      if (laterCenterCrossings) clearInterval(laterCenterCrossings);
+      if (hideBubbleTimer) clearTimeout(hideBubbleTimer);
+    };
+  }, [isMoving, walkProgress]);
 
   return (
     <View pointerEvents="box-none" style={[styles.avatarTrack, { bottom: bottomOffset }]} onLayout={rememberTrackWidth}>
       <View pointerEvents="none" style={styles.avatarTrackLine} />
-      <Animated.View style={[styles.walkingAvatar, { transform: [{ translateX }] }]}>
+      <Animated.View style={[styles.walkingAvatar, { transform: [{ translateX: isMoving ? walkingTranslateX : 0 }] }]}>
+        {showHelpBubble && (
+          <View pointerEvents="none" style={styles.avatarHelpBubble}>
+            <Text style={styles.avatarHelpText}>Tap here for help</Text>
+            <View style={styles.avatarHelpTailBorder} />
+            <View style={styles.avatarHelpTail} />
+          </View>
+        )}
         <Pressable accessibilityLabel="Open Style chat" style={styles.walkingAvatarButton} onPress={onPress}>
           <PixelAvatar config={currentUser?.pixelAvatar} scale={0.34} />
         </Pressable>
@@ -864,6 +900,42 @@ const styles = StyleSheet.create({
     height: 58,
     justifyContent: 'flex-end',
     width: 58,
+  },
+  avatarHelpBubble: {
+    alignItems: 'center',
+    backgroundColor: '#F4F5DF',
+    borderColor: closetTheme.ink,
+    borderWidth: 3,
+    bottom: 64,
+    justifyContent: 'center',
+    left: -43,
+    minHeight: 46,
+    paddingHorizontal: 10,
+    position: 'absolute',
+    width: 144,
+    zIndex: 3,
+  },
+  avatarHelpText: {
+    color: closetTheme.ink,
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  avatarHelpTailBorder: {
+    backgroundColor: closetTheme.ink,
+    bottom: -7,
+    height: 12,
+    position: 'absolute',
+    transform: [{ rotate: '45deg' }],
+    width: 12,
+  },
+  avatarHelpTail: {
+    backgroundColor: '#F4F5DF',
+    bottom: -4,
+    height: 8,
+    position: 'absolute',
+    transform: [{ rotate: '45deg' }],
+    width: 8,
   },
   navbar: {
     alignItems: 'center',
