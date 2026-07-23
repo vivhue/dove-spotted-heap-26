@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { AvatarChoice, CategoryId, ClosetAccount, defaultPixelAvatar, PixelAvatarConfig, WardrobeItem } from '@/models/closet';
-import { getGarments } from '@/services/closet-api';
+import { deleteGarment, getGarments } from '@/services/closet-api';
 
 export type SelectedOutfit = Record<CategoryId, string | null>;
 export type ScheduledOutfits = Record<string, string[]>;
@@ -16,11 +16,17 @@ type ClosetStoreValue = {
   applyOutfit: (outfit: Partial<SelectedOutfit>) => void;
   closetItems: WardrobeItem[];
   currentUser: ClosetAccount | null;
+  // Item the add screen should edit instead of creating. Navigation cannot
+  // carry params (screens are switched by id), so the store carries it.
+  editingItem: WardrobeItem | null;
+  setEditingItem: (item: WardrobeItem | null) => void;
   isLoadingItems: boolean;
   itemsError: string;
   logIn: (username: string, password: string) => AuthResult;
   logOut: () => void;
   refreshItems: () => Promise<void>;
+  removeItem: (itemId: string) => Promise<void>;
+  updateItem: (item: WardrobeItem) => void;
   scheduledOutfits: ScheduledOutfits;
   scheduleOutfitForDate: (dateKey: string, itemIds: string[]) => void;
   selectedOutfit: SelectedOutfit;
@@ -157,6 +163,7 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
   const [selectedOutfit, setSelectedOutfit] = useState<SelectedOutfit>(initialSelectedOutfit);
   const [scheduledOutfits, setScheduledOutfits] = useState<ScheduledOutfits>(() => loadCachedScheduledOutfits(currentUserId));
   const [selfieImageUrl, setSelfieImageUrl] = useState('');
+  const [editingItem, setEditingItem] = useState<WardrobeItem | null>(null);
   const currentUser = accounts.find((account) => account.id === currentUserId) ?? null;
 
   const refreshItems = useCallback(async () => {
@@ -191,13 +198,11 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Sync cached closet data whenever the signed-in account changes.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshItems();
   }, [refreshItems]);
 
   useEffect(() => {
     // Reset account-scoped UI state when switching users.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedOutfit(initialSelectedOutfit);
     setScheduledOutfits(loadCachedScheduledOutfits(currentUserId));
     setSelfieImageUrl('');
@@ -245,6 +250,8 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
       },
       closetItems,
       currentUser,
+      editingItem,
+      setEditingItem,
       isLoadingItems,
       itemsError,
       logIn: (username, password) => {
@@ -269,6 +276,56 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
         setCurrentUserId('');
       },
       refreshItems,
+      removeItem: async (itemId) => {
+        if (!currentUserId) {
+          return;
+        }
+
+        // Server first, so a failure never leaves the UI claiming the item is
+        // gone. Items that only ever lived client-side come back
+        // { deleted: false }, which is still success for removal.
+        await deleteGarment(itemId, currentUserId);
+
+        setItems((currentItems) => {
+          const nextItems = currentItems.filter((item) => item.id !== itemId);
+
+          saveCachedClosetItems(currentUserId, nextItems);
+
+          return nextItems;
+        });
+
+        setSelectedOutfit((currentOutfit) => {
+          const entries = Object.entries(currentOutfit) as [CategoryId, string | null][];
+
+          if (!entries.some(([, wornId]) => wornId === itemId)) {
+            return currentOutfit;
+          }
+
+          return Object.fromEntries(
+            entries.map(([category, wornId]) => [category, wornId === itemId ? null : wornId])
+          ) as SelectedOutfit;
+        });
+
+        setScheduledOutfits((currentOutfits) => {
+          let hasChanged = false;
+          const nextOutfits: ScheduledOutfits = {};
+
+          for (const [dateKey, itemIds] of Object.entries(currentOutfits)) {
+            const nextIds = itemIds.filter((id) => id !== itemId);
+
+            hasChanged = hasChanged || nextIds.length !== itemIds.length;
+            nextOutfits[dateKey] = nextIds;
+          }
+
+          if (!hasChanged) {
+            return currentOutfits;
+          }
+
+          saveCachedScheduledOutfits(currentUserId, nextOutfits);
+
+          return nextOutfits;
+        });
+      },
       scheduledOutfits,
       scheduleOutfitForDate: (dateKey, itemIds) => {
         if (!currentUserId) {
@@ -289,6 +346,21 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
       selectedOutfit,
       selfieImageUrl,
       setSelfieImageUrl,
+      updateItem: (item) => {
+        if (!currentUserId) {
+          return;
+        }
+
+        // Replace, don't merge: a cleared attribute is absent from the server
+        // response and merging would resurrect its old value.
+        setItems((currentItems) => {
+          const nextItems = currentItems.map((current) => (current.id === item.id ? item : current));
+
+          saveCachedClosetItems(currentUserId, nextItems);
+
+          return nextItems;
+        });
+      },
       signUp: (username, password, gender) => {
         const cleanedUsername = normalizeUsername(username);
 
@@ -355,7 +427,7 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
       },
       wishlistItems,
     };
-  }, [accounts, currentUser, currentUserId, items, isLoadingItems, itemsError, refreshItems, scheduledOutfits, selectedOutfit, selfieImageUrl]);
+  }, [accounts, currentUser, currentUserId, editingItem, items, isLoadingItems, itemsError, refreshItems, scheduledOutfits, selectedOutfit, selfieImageUrl]);
 
   return <ClosetStoreContext.Provider value={value}>{children}</ClosetStoreContext.Provider>;
 }

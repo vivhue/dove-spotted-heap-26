@@ -1,21 +1,40 @@
 import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
-import { browseCategories, CategoryId, ScreenId } from '@/models/closet';
-import { createGarment } from '@/services/closet-api';
+import { browseCategories, CategoryId, ScreenId, WardrobeFit, wardrobeFitOptions } from '@/models/closet';
+import { createGarment, updateGarment } from '@/services/closet-api';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 
+// Server-managed garment ids are sha256 hashes; client-local items (e.g. saved
+// from the stylist chat) use readable prefixed ids and are edited locally.
+function isServerItemId(id: string) {
+  return /^[0-9a-f]{64}$/.test(id);
+}
+
 export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('shirt');
-  const [destination, setDestination] = useState<'Closet' | 'Wishlist'>('Closet');
-  const [status, setStatus] = useState('Choose how to add your item.');
+  const { addItem, currentUser, editingItem, setEditingItem, updateItem } = useClosetStore();
+  // Frozen on mount so the form cannot flip modes mid-edit.
+  const [editTarget] = useState(editingItem);
+  const isEditing = Boolean(editTarget);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>(editTarget?.category ?? 'shirt');
+  const [destination, setDestination] = useState<'Closet' | 'Wishlist'>(
+    editTarget?.destination === 'wishlist' ? 'Wishlist' : 'Closet'
+  );
+  const [status, setStatus] = useState(
+    editTarget ? `Editing "${editTarget.name}". Adjust the details below.` : 'Choose how to add your item.'
+  );
   const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const { addItem, currentUser } = useClosetStore();
+  const [itemName, setItemName] = useState(editTarget?.name ?? '');
+  const [primaryColor, setPrimaryColor] = useState(editTarget?.primaryColor ?? '');
+  const [price, setPrice] = useState(editTarget?.price ?? '');
+  const [source, setSource] = useState(editTarget?.source ?? '');
+  const [fit, setFit] = useState<WardrobeFit | ''>(editTarget?.fit ?? '');
+  const [notes, setNotes] = useState(editTarget?.notes ?? '');
 
   async function pickImage(source: 'camera' | 'library') {
     if (!currentUser) {
@@ -56,6 +75,11 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
   }
 
   async function handleSave() {
+    if (isEditing) {
+      await handleSaveEdit();
+      return;
+    }
+
     if (!selectedImage) {
       setStatus('Choose an image before saving.');
       return;
@@ -73,12 +97,18 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
       const item = await createGarment({
         category: selectedCategory,
         destination: destination === 'Closet' ? 'closet' : 'wishlist',
+        fit,
         image: selectedImage,
+        name: itemName,
+        notes,
+        price,
+        primaryColor,
+        source,
         userId: currentUser.id,
       });
 
       addItem(item);
-      setSelectedImage(null);
+      resetForm();
       setStatus(`${item.name} saved to ${destination}.`);
       onNavigate(destination === 'Closet' ? 'closet' : 'wishlist');
     } catch (error) {
@@ -88,23 +118,111 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
     }
   }
 
+  async function handleSaveEdit() {
+    if (!editTarget) {
+      return;
+    }
+
+    if (!currentUser) {
+      setStatus('Sign in to edit your items.');
+      onNavigate('account');
+      return;
+    }
+
+    if (!itemName.trim()) {
+      setStatus('Give the item a name before saving.');
+      return;
+    }
+
+    const nextDestination = destination === 'Closet' ? 'closet' : 'wishlist';
+
+    try {
+      setIsSaving(true);
+      setStatus('Saving changes...');
+
+      if (isServerItemId(editTarget.id)) {
+        const item = await updateGarment(
+          editTarget.id,
+          {
+            category: selectedCategory,
+            destination: nextDestination,
+            fit,
+            name: itemName,
+            notes,
+            price,
+            primaryColor,
+            source,
+          },
+          currentUser.id
+        );
+
+        updateItem(item);
+      } else {
+        // Items that only exist client-side are edited locally.
+        updateItem({
+          ...editTarget,
+          category: selectedCategory,
+          destination: nextDestination,
+          fit: fit || undefined,
+          name: itemName.trim(),
+          notes: notes.trim() || undefined,
+          price: price.trim() || undefined,
+          primaryColor: primaryColor.trim() || undefined,
+          source: source.trim() || undefined,
+        });
+      }
+
+      setEditingItem(null);
+      setStatus(`${itemName.trim()} updated.`);
+      onNavigate(nextDestination);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not save these changes.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function handleCancelEdit() {
+    setEditingItem(null);
+    onNavigate(editTarget?.destination === 'wishlist' ? 'wishlist' : 'closet');
+  }
+
+  function resetForm() {
+    setSelectedImage(null);
+    setItemName('');
+    setPrimaryColor('');
+    setPrice('');
+    setSource('');
+    setFit('');
+    setNotes('');
+  }
+
   return (
-    <AppScreen activeTab="add" onNavigate={onNavigate} title="Add new">
+    <AppScreen activeTab="add" onNavigate={onNavigate} title={isEditing ? 'Edit item' : 'Add new'}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.sectionLabel}>Add a piece</Text>
-        <OptionCard
-          icon="◉"
-          title="Take a photo"
-          detail="Snap an item you own"
-          onPress={() => pickImage('camera')}
-        />
-        <OptionCard
-          icon="▧"
-          title="Upload a picture"
-          detail="Import from your gallery"
-          onPress={() => pickImage('library')}
-        />
-        {selectedImage && <Image source={{ uri: selectedImage.uri }} style={styles.preview} resizeMode="contain" />}
+        {!isEditing && (
+          <>
+            <Text style={styles.sectionLabel}>Add a piece</Text>
+            <OptionCard
+              icon="◉"
+              title="Take a photo"
+              detail="Snap an item you own"
+              onPress={() => pickImage('camera')}
+            />
+            <OptionCard
+              icon="▧"
+              title="Upload a picture"
+              detail="Import from your gallery"
+              onPress={() => pickImage('library')}
+            />
+          </>
+        )}
+        {!isEditing && selectedImage && (
+          <Image source={{ uri: selectedImage.uri }} style={styles.preview} resizeMode="contain" />
+        )}
+        {isEditing && editTarget?.imageUrl && (
+          <Image source={{ uri: editTarget.imageUrl }} style={styles.preview} resizeMode="contain" />
+        )}
         <Text style={styles.statusText}>{status}</Text>
 
         <Text style={styles.sectionLabel}>Category (required)</Text>
@@ -119,7 +237,51 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
           ))}
         </ScrollView>
 
-        <Text style={styles.sectionLabel}>Add to</Text>
+        <Text style={styles.sectionLabel}>Details (optional)</Text>
+        <View style={styles.detailFields}>
+          <DetailField label="Name" placeholder="e.g. Linen camp shirt" value={itemName} onChangeText={setItemName} />
+          <View style={styles.detailRow}>
+            <DetailField compact label="Color" placeholder="e.g. Navy" value={primaryColor} onChangeText={setPrimaryColor} />
+            <DetailField
+              compact
+              inputMode="decimal"
+              label="Price"
+              placeholder="e.g. $48"
+              value={price}
+              onChangeText={setPrice}
+            />
+          </View>
+          <DetailField label="Store / brand" placeholder="e.g. Uniqlo" value={source} onChangeText={setSource} />
+
+          <View style={styles.fitField}>
+            <Text style={[styles.detailLabel, styles.fitLabel]}>Fit</Text>
+            <View style={styles.fitChips}>
+              {wardrobeFitOptions.map((option) => {
+                const selected = fit === option.id;
+
+                return (
+                  <Pressable
+                    key={option.id}
+                    accessibilityLabel={selected ? `Clear ${option.label} fit` : `Set fit to ${option.label}`}
+                    onPress={() => setFit(selected ? '' : option.id)}
+                    style={({ pressed }) => [styles.chip, styles.fitChip, selected && styles.chipSelected, pressed && styles.chipPressed]}>
+                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <DetailField
+            label="Notes"
+            multiline
+            placeholder="Anything else — occasion, styling ideas, sizing..."
+            value={notes}
+            onChangeText={setNotes}
+          />
+        </View>
+
+        <Text style={styles.sectionLabel}>{isEditing ? 'Keep in' : 'Add to'}</Text>
         <View style={styles.addTo}>
           {(['Closet', 'Wishlist'] as const).map((option) => (
             <Pressable
@@ -135,11 +297,53 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
           disabled={isSaving}
           style={({ pressed }) => [styles.saveButton, pressed && styles.saveButtonPressed, isSaving && styles.saveButtonDisabled]}
           onPress={handleSave}>
-          {isSaving ? <ActivityIndicator color={closetTheme.cream} /> : <LineIcon name="+" color={closetTheme.cream} />}
-          <Text style={styles.saveText}>{isSaving ? 'Saving' : 'Save item'}</Text>
+          {isSaving ? <ActivityIndicator color={closetTheme.cream} /> : <LineIcon name={isEditing ? '✓' : '+'} color={closetTheme.cream} />}
+          <Text style={styles.saveText}>{isSaving ? 'Saving' : isEditing ? 'Save changes' : 'Save item'}</Text>
         </Pressable>
+
+        {isEditing && (
+          <Pressable
+            disabled={isSaving}
+            style={({ pressed }) => [styles.cancelButton, pressed && styles.saveButtonPressed, isSaving && styles.saveButtonDisabled]}
+            onPress={handleCancelEdit}>
+            <Text style={styles.cancelText}>Cancel</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </AppScreen>
+  );
+}
+
+function DetailField({
+  compact = false,
+  inputMode,
+  label,
+  multiline = false,
+  onChangeText,
+  placeholder,
+  value,
+}: {
+  compact?: boolean;
+  inputMode?: 'decimal' | 'text';
+  label: string;
+  multiline?: boolean;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <View style={[styles.detailField, compact && styles.detailFieldCompact]}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <TextInput
+        inputMode={inputMode}
+        multiline={multiline}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={closetTheme.muted}
+        style={[styles.detailInput, multiline && styles.detailInputMultiline]}
+        value={value}
+      />
+    </View>
   );
 }
 
@@ -261,6 +465,65 @@ const styles = StyleSheet.create({
   chipTextSelected: {
     color: closetTheme.cream,
   },
+  chipPressed: {
+    opacity: 0.74,
+    transform: [{ scale: 0.96 }],
+  },
+  detailFields: {
+    gap: 10,
+    paddingHorizontal: 22,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  detailField: {
+    backgroundColor: closetTheme.cream,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  detailFieldCompact: {
+    flex: 1,
+  },
+  detailLabel: {
+    color: closetTheme.camelDeep,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  detailInput: {
+    color: closetTheme.ink,
+    fontSize: 15,
+    fontWeight: '800',
+    minHeight: 30,
+    padding: 0,
+  },
+  detailInputMultiline: {
+    minHeight: 66,
+    textAlignVertical: 'top',
+  },
+  fitField: {
+    gap: 8,
+  },
+  fitLabel: {
+    // Optically aligns with the labels inside the bordered fields.
+    marginHorizontal: 12,
+  },
+  fitChips: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  fitChip: {
+    alignItems: 'center',
+    flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
   addTo: {
     flexDirection: 'row',
     gap: 10,
@@ -308,6 +571,23 @@ const styles = StyleSheet.create({
   },
   saveText: {
     color: closetTheme.cream,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  cancelButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 18,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginHorizontal: 22,
+    marginTop: 10,
+    minHeight: 48,
+  },
+  cancelText: {
+    color: closetTheme.ink,
     fontSize: 13,
     fontWeight: '900',
   },

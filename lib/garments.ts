@@ -4,7 +4,16 @@ const crypto = require('node:crypto');
 // rejected at the API boundary and cannot reach storage or IDM-VTON.
 const GARMENT_CATEGORIES = ['shirt', 'dress', 'shorts', 'pants'] as const;
 
+// Optional fit attribute. Mirrors the wishlist fit filter in the mobile app
+// (mobile/src/models/closet.ts).
+const GARMENT_FITS = ['fitted', 'relaxed', 'structured'] as const;
+
 type GarmentCategory = (typeof GARMENT_CATEGORIES)[number];
+type GarmentFit = (typeof GARMENT_FITS)[number];
+
+function isGarmentFit(value: unknown): value is GarmentFit {
+  return typeof value === 'string' && (GARMENT_FITS as readonly string[]).includes(value);
+}
 
 function isGarmentCategory(value: unknown): value is GarmentCategory {
   return typeof value === 'string' && (GARMENT_CATEGORIES as readonly string[]).includes(value);
@@ -59,6 +68,8 @@ function resultKey(userId: string, id: string): string {
 
 module.exports = {
   GARMENT_CATEGORIES,
+  GARMENT_FITS,
+  isGarmentFit,
   isGarmentCategory,
   assertGarmentCategory,
   buildGarmentDescription,

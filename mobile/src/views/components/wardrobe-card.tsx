@@ -7,15 +7,17 @@ import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 export function WardrobeCard({
   isWorn = false,
   item,
+  onOpenActions,
   onPress,
   showHeart = false,
 }: {
   isWorn?: boolean;
   item: WardrobeItem;
+  onOpenActions?: () => void;
   onPress?: () => void;
   showHeart?: boolean;
 }) {
-  const detail = item.price && item.source ? `${item.price} · ${item.source}` : labelFromCategory(item.category);
+  const detail = [item.price, item.source].filter(Boolean).join(' · ') || labelFromCategory(item.category);
   const color = item.color ?? '#C2B49E';
   const accent = item.accent ?? closetTheme.camel;
 
@@ -36,6 +38,15 @@ export function WardrobeCard({
           <View style={[styles.heart, isWorn && styles.heartWorn]}>
             <LineIcon name={isWorn ? "✓" : "♡"} color={isWorn ? closetTheme.cream : closetTheme.camelDeep} />
           </View>
+        )}
+        {onOpenActions && (
+          <Pressable
+            accessibilityLabel={`Options for ${item.name}`}
+            hitSlop={8}
+            style={({ pressed }) => [styles.actionsButton, pressed && styles.actionsButtonPressed]}
+            onPress={onOpenActions}>
+            <Text style={styles.actionsGlyph}>⋯</Text>
+          </Pressable>
         )}
       </View>
       <View style={styles.meta}>
@@ -129,6 +140,27 @@ const styles = StyleSheet.create({
     right: 8,
     top: 8,
     width: 28,
+  },
+  actionsButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,253,249,0.94)',
+    borderRadius: 14,
+    height: 28,
+    justifyContent: 'center',
+    left: 8,
+    position: 'absolute',
+    top: 8,
+    width: 28,
+  },
+  actionsButtonPressed: {
+    opacity: 0.74,
+    transform: [{ scale: 0.96 }],
+  },
+  actionsGlyph: {
+    color: closetTheme.camelDeep,
+    fontSize: 16,
+    fontWeight: '900',
+    lineHeight: 18,
   },
   heartWorn: {
     backgroundColor: closetTheme.camelDeep,

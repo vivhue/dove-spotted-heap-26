@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CategoryId, WardrobeItem, categoryFilters, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
-import { LineIcon } from '@/views/components/closet-icons';
+import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
 // Maps the plural display labels in categoryFilters to garment categories.
@@ -35,7 +35,11 @@ export function WardrobeScreen({
   const [colorFilter, setColorFilter] = useState('All colors');
   const [fitFilter, setFitFilter] = useState<FitFilter>('All fits');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const { closetItems, isLoadingItems, itemsError, selectedOutfit, toggleWornItem, wishlistItems } = useClosetStore();
+  const [activeItem, setActiveItem] = useState<WardrobeItem | null>(null);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const { closetItems, isLoadingItems, itemsError, removeItem, selectedOutfit, setEditingItem, toggleWornItem, wishlistItems } = useClosetStore();
   const items = mode === 'closet' ? closetItems : wishlistItems;
   const wishlistColors = useMemo(() => {
     const colors = items
@@ -56,6 +60,47 @@ export function WardrobeScreen({
 
     return nextItems;
   }, [activeFilter, colorFilter, fitFilter, items, mode, priceRange]);
+
+  function openItemActions(item: WardrobeItem) {
+    setActiveItem(item);
+    setIsConfirmingDelete(false);
+    setDeleteError('');
+  }
+
+  function closeItemActions() {
+    if (isDeleting) {
+      return;
+    }
+
+    setActiveItem(null);
+    setIsConfirmingDelete(false);
+    setDeleteError('');
+  }
+
+  function startEditingItem(item: WardrobeItem) {
+    setActiveItem(null);
+    setIsConfirmingDelete(false);
+    setEditingItem(item);
+    onNavigate('add');
+  }
+
+  async function confirmDelete() {
+    if (!activeItem) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      setDeleteError('');
+      await removeItem(activeItem.id);
+      setActiveItem(null);
+      setIsConfirmingDelete(false);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Could not delete this item.');
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   return (
     <AppScreen activeTab={mode} onNavigate={onNavigate} showStatus={false}>
@@ -132,20 +177,35 @@ export function WardrobeScreen({
                 <Text style={styles.emptyText}>Loading your saved items...</Text>
               </View>
             )}
-            {!isLoadingItems && itemsError !== '' && filteredItems.length === 0 && <Text style={styles.emptyText}>{itemsError}</Text>}
+            {!isLoadingItems && itemsError !== '' && <Text style={styles.emptyText}>{itemsError}</Text>}
             {filteredItems.map((item) => (
               <View key={item.id} style={styles.cardWrap}>
                 <WardrobeCard
                   isWorn={mode === 'closet' && selectedOutfit[item.category] === item.id}
                   item={item}
-                  onPress={mode === 'closet' ? () => toggleWornItem(item) : undefined}
+                  onOpenActions={() => openItemActions(item)}
+                  onPress={mode === 'closet' ? () => toggleWornItem(item) : () => openItemActions(item)}
                   showHeart={mode === 'closet'}
                 />
               </View>
             ))}
-            {!isLoadingItems && !itemsError && filteredItems.length === 0 && (
+            {!isLoadingItems && !itemsError && filteredItems.length === 0 && items.length > 0 && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No items in digital closet. Tap + to upload one.</Text>
+                <Text style={styles.emptyText}>Nothing matches these filters.</Text>
+                <Pressable
+                  style={({ pressed }) => [styles.clearFiltersButton, pressed && styles.buttonPressed]}
+                  onPress={clearFilters}>
+                  <Text style={styles.clearFiltersText}>Clear filters</Text>
+                </Pressable>
+              </View>
+            )}
+            {!isLoadingItems && !itemsError && items.length === 0 && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  {mode === 'closet'
+                    ? 'No items in digital closet. Tap + to upload one.'
+                    : 'Your wishlist is empty. Tap + to save something you want.'}
+                </Text>
               </View>
             )}
           </ScrollView>
@@ -153,13 +213,158 @@ export function WardrobeScreen({
           <Pressable
             accessibilityLabel="Upload clothing item"
             style={({ pressed }) => [styles.addFab, pressed && styles.buttonPressed]}
-            onPress={() => onNavigate('add')}>
+            onPress={() => {
+              // A fresh add must never inherit a stale edit target.
+              setEditingItem(null);
+              onNavigate('add');
+            }}>
             <LineIcon name="+" color={closetTheme.cream} />
           </Pressable>
+
+          {activeItem && (
+            <ItemActionsOverlay
+              deleteError={deleteError}
+              isConfirmingDelete={isConfirmingDelete}
+              isDeleting={isDeleting}
+              item={activeItem}
+              mode={mode}
+              onClose={closeItemActions}
+              onConfirmDelete={confirmDelete}
+              onEdit={() => startEditingItem(activeItem)}
+              onRequestDelete={() => setIsConfirmingDelete(true)}
+            />
+          )}
         </View>
       </View>
     </AppScreen>
   );
+
+  function clearFilters() {
+    setActiveFilter('All');
+    setPriceRange('All prices');
+    setColorFilter('All colors');
+    setFitFilter('All fits');
+  }
+}
+
+function ItemActionsOverlay({
+  deleteError,
+  isConfirmingDelete,
+  isDeleting,
+  item,
+  mode,
+  onClose,
+  onConfirmDelete,
+  onEdit,
+  onRequestDelete,
+}: {
+  deleteError: string;
+  isConfirmingDelete: boolean;
+  isDeleting: boolean;
+  item: WardrobeItem;
+  mode: 'closet' | 'wishlist';
+  onClose: () => void;
+  onConfirmDelete: () => void;
+  onEdit: () => void;
+  onRequestDelete: () => void;
+}) {
+  const [appear] = useState(() => new Animated.Value(0));
+  const listName = mode === 'closet' ? 'Closet' : 'Wishlist';
+  const detail = item.price && item.source ? `${item.price} · ${item.source}` : undefined;
+
+  useEffect(() => {
+    Animated.timing(appear, {
+      duration: 200,
+      easing: Easing.out(Easing.quad),
+      isInteraction: false,
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [appear]);
+
+  const sheetTranslate = appear.interpolate({ inputRange: [0, 1], outputRange: [28, 0] });
+
+  return (
+    <View style={styles.overlay}>
+      <Animated.View style={[styles.overlayBackdrop, { opacity: appear }]}>
+        <Pressable accessibilityLabel="Close item options" style={styles.overlayBackdropPress} onPress={onClose} />
+      </Animated.View>
+      <Animated.View style={[styles.sheet, { opacity: appear, transform: [{ translateY: sheetTranslate }] }]}>
+        {!isConfirmingDelete ? (
+          <>
+            <View style={styles.sheetHeader}>
+              <View style={styles.sheetThumb}>
+                {item.imageUrl ? (
+                  <Image source={{ uri: item.imageUrl }} style={styles.sheetThumbImage} resizeMode="contain" />
+                ) : (
+                  <ClosetIcon category={item.category} color={item.color ?? '#C2B49E'} accent={item.accent ?? closetTheme.camel} size={34} />
+                )}
+              </View>
+              <View style={styles.sheetHeaderText}>
+                <Text numberOfLines={2} style={styles.sheetTitle}>{item.name}</Text>
+                <Text numberOfLines={1} style={styles.sheetMeta}>
+                  {categoryLabel(item.category)}
+                  {detail ? ` · ${detail}` : ''}
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              accessibilityLabel={`Edit ${item.name}`}
+              style={({ pressed }) => [styles.sheetEdit, pressed && styles.buttonPressed]}
+              onPress={onEdit}>
+              <Text style={styles.sheetEditText}>Edit details</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel={`Delete ${item.name}`}
+              style={({ pressed }) => [styles.sheetAction, pressed && styles.sheetActionPressed]}
+              onPress={onRequestDelete}>
+              <Text style={styles.sheetActionDangerText}>Delete from {listName}</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.sheetCancel, pressed && styles.buttonPressed]}
+              onPress={onClose}>
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Text style={styles.confirmTitle}>Delete “{item.name}”?</Text>
+            <Text style={styles.confirmBody}>
+              It will be removed from your {listName.toLowerCase()} everywhere, including saved outfits. This can&apos;t be undone.
+            </Text>
+            {deleteError !== '' && <Text style={styles.confirmError}>{deleteError}</Text>}
+            <View style={styles.confirmButtons}>
+              <Pressable
+                disabled={isDeleting}
+                style={({ pressed }) => [styles.confirmCancel, pressed && styles.buttonPressed, isDeleting && styles.buttonDisabled]}
+                onPress={onClose}>
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel={`Confirm deleting ${item.name}`}
+                disabled={isDeleting}
+                style={({ pressed }) => [styles.confirmDelete, pressed && styles.buttonPressed, isDeleting && styles.buttonDisabled]}
+                onPress={onConfirmDelete}>
+                {isDeleting && <ActivityIndicator color={closetTheme.cream} size="small" />}
+                <Text style={styles.confirmDeleteText}>{isDeleting ? 'Deleting' : 'Delete'}</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+      </Animated.View>
+    </View>
+  );
+}
+
+function categoryLabel(category: CategoryId) {
+  const labels: Record<CategoryId, string> = {
+    shirt: 'Shirt',
+    dress: 'Dress',
+    shorts: 'Shorts',
+    pants: 'Pants',
+  };
+
+  return labels[category];
 }
 
 function FilterChipRow({
@@ -239,6 +444,12 @@ function parsePrice(price?: string) {
 }
 
 function inferFit(item: WardrobeItem) {
+  // An explicit fit chosen on the add/edit form always wins; keyword
+  // inference remains the fallback for older items.
+  if (item.fit) {
+    return item.fit;
+  }
+
   const text = [
     item.name,
     item.subcategory,
@@ -408,6 +619,9 @@ const styles = StyleSheet.create({
   },
   chipScroller: {
     flexGrow: 0,
+    // Never let the row shrink when the filter panel is open — shrinking
+    // clips the chips mid-height instead of giving the grid less room.
+    flexShrink: 0,
     height: 50,
     marginTop: 8,
   },
@@ -477,5 +691,187 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.74,
     transform: [{ scale: 0.96 }],
+  },
+  buttonDisabled: {
+    opacity: 0.55,
+  },
+  clearFiltersButton: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 16,
+    borderWidth: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  clearFiltersText: {
+    color: closetTheme.camelDeep,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  overlay: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    zIndex: 200,
+  },
+  overlayBackdrop: {
+    backgroundColor: 'rgba(16,35,59,0.4)',
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  overlayBackdropPress: {
+    flex: 1,
+  },
+  sheet: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 22,
+    borderWidth: 1,
+    bottom: 118,
+    elevation: 16,
+    left: 22,
+    padding: 16,
+    position: 'absolute',
+    right: 22,
+    shadowColor: closetTheme.ink,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
+  },
+  sheetHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
+  },
+  sheetThumb: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.creamDeep,
+    borderColor: closetTheme.line,
+    borderRadius: 13,
+    borderWidth: 1,
+    height: 52,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 52,
+  },
+  sheetThumbImage: {
+    height: 44,
+    width: 44,
+  },
+  sheetHeaderText: {
+    flex: 1,
+  },
+  sheetTitle: {
+    color: closetTheme.ink,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  sheetMeta: {
+    color: closetTheme.muted,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  sheetEdit: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.ink,
+    borderRadius: 16,
+    justifyContent: 'center',
+    marginBottom: 8,
+    minHeight: 44,
+  },
+  sheetEditText: {
+    color: closetTheme.cream,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  sheetAction: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.danger,
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  sheetActionPressed: {
+    backgroundColor: 'rgba(210,69,49,0.08)',
+    opacity: 0.9,
+  },
+  sheetActionDangerText: {
+    color: closetTheme.danger,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  sheetCancel: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    minHeight: 44,
+  },
+  sheetCancelText: {
+    color: closetTheme.muted,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  confirmTitle: {
+    color: closetTheme.ink,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  confirmBody: {
+    color: closetTheme.muted,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
+    marginTop: 8,
+  },
+  confirmError: {
+    color: closetTheme.danger,
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 17,
+    marginTop: 10,
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  confirmCancel: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  confirmCancelText: {
+    color: closetTheme.ink,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  confirmDelete: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.danger,
+    borderRadius: 16,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  confirmDeleteText: {
+    color: closetTheme.cream,
+    fontSize: 13,
+    fontWeight: '900',
   },
 });

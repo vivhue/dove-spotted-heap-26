@@ -218,6 +218,43 @@ test('garment upload runs background removal, validates, stores both files', asy
   assert.equal(d.value.db.calls.insertGarment, 1);
 });
 
+test('garment upload persists optional attributes and returns them', async () => {
+  const d = deps();
+  const attributes = {
+    primaryColor: 'Navy',
+    price: '$48',
+    fit: 'relaxed',
+    source: 'Uniqlo',
+    notes: 'Good for summer trips.',
+  };
+  const item = await processGarmentUpload(
+    { userId: 'u1', file: file('garment-with-details'), category: 'shirt', name: 'Camp shirt', attributes },
+    d.value
+  );
+
+  assert.equal(item.primaryColor, 'Navy');
+  assert.equal(item.price, '$48');
+  assert.equal(item.fit, 'relaxed');
+  assert.equal(item.source, 'Uniqlo');
+  assert.equal(item.notes, 'Good for summer trips.');
+
+  const stored = d.value.db.getGarmentBySha('u1', item.id ? [...d.value.db.garments.values()][0].sha256 : '');
+  assert.ok(stored, 'row should be stored');
+  assert.equal((stored as { primaryColor?: string }).primaryColor, 'Navy');
+});
+
+test('garment upload without attributes returns none', async () => {
+  const d = deps();
+  const item = await processGarmentUpload(
+    { userId: 'u1', file: file('garment-plain'), category: 'pants' },
+    d.value
+  );
+
+  assert.equal(item.primaryColor, undefined);
+  assert.equal(item.fit, undefined);
+  assert.equal(item.notes, undefined);
+});
+
 test('two users can upload the same garment photo', async () => {
   const d = deps();
   const bytes = () => file('same-product-photo');

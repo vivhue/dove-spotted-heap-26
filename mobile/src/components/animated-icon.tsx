@@ -125,7 +125,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   backgroundSolidColor: {
-    ...StyleSheet.absoluteFill,
+    // absoluteFillObject is the spreadable variant; absoluteFill is an opaque
+    // registered style and fails type-checking when spread.
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: '#208AEF',
     zIndex: 1000,
   },

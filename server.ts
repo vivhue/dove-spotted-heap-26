@@ -7,6 +7,9 @@ const sharp = require('sharp');
 const { HttpError } = require('./lib/errors.ts');
 const {
   GARMENT_CATEGORIES,
+  GARMENT_FITS,
+  isGarmentCategory,
+  isGarmentFit,
   garmentCutoutKey,
   resultKey,
 } = require('./lib/garments.ts');
@@ -115,7 +118,7 @@ const staticTypes: Record<string, string> = {
 function send(res: typeof http.ServerResponse.prototype, status: number, body: string | Buffer, type = 'text/plain; charset=utf-8') {
   res.writeHead(status, {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Origin': '*',
     'Cache-Control': 'no-store',
     'Content-Type': type,
@@ -156,6 +159,19 @@ const server = http.createServer(async (req: typeof http.IncomingMessage.prototy
     if (req.method === 'GET' && url.pathname === '/api/garments') {
       const userId = url.searchParams.get('userId')?.trim() || 'demo-user';
       sendJson(res, 200, await handleListGarments(userId));
+      return;
+    }
+
+    if (req.method === 'DELETE' && url.pathname.startsWith('/api/garments/')) {
+      const garmentId = decodeURIComponent(url.pathname.slice('/api/garments/'.length));
+      const userId = url.searchParams.get('userId')?.trim() || 'demo-user';
+      sendJson(res, 200, await handleDeleteGarment(userId, garmentId));
+      return;
+    }
+
+    if (req.method === 'PATCH' && url.pathname.startsWith('/api/garments/')) {
+      const garmentId = decodeURIComponent(url.pathname.slice('/api/garments/'.length));
+      sendJson(res, 200, await handleUpdateGarment(garmentId, req));
       return;
     }
 
@@ -239,6 +255,18 @@ const storage = {
       { expiresIn: presignExpiresSeconds }
     );
   },
+  async delete(key: string): Promise<void> {
+    const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+
+    try {
+      await getS3().send(new DeleteObjectCommand({ Bucket: requireEnv('R2_BUCKET'), Key: key }));
+    } catch (error) {
+      // Deleting an already-gone object is a success for our purposes.
+      if (!isNotFound(error)) {
+        throw error;
+      }
+    }
+  },
 };
 
 function isNotFound(error: unknown): boolean {
@@ -289,6 +317,18 @@ function getRawDb() {
         created_at TEXT NOT NULL
       );
     `);
+
+    // Optional descriptive attributes, added after the initial schema shipped.
+    // ALTER TABLE ADD COLUMN throws if the column already exists, which makes
+    // this an idempotent poor-man's migration.
+    for (const column of ['primary_color TEXT', 'price TEXT', 'fit TEXT', 'source TEXT', 'notes TEXT']) {
+      try {
+        db.exec(`ALTER TABLE garments ADD COLUMN ${column}`);
+      } catch {
+        // Column already exists.
+      }
+    }
+
     dbInstance = db;
   }
 
@@ -310,6 +350,11 @@ function rowToGarment(row: Record<string, unknown>) {
     originalFilename: row.original_filename == null ? '' : String(row.original_filename),
     destination: String(row.destination),
     createdAt: String(row.created_at),
+    primaryColor: row.primary_color == null ? '' : String(row.primary_color),
+    price: row.price == null ? '' : String(row.price),
+    fit: row.fit == null ? '' : String(row.fit),
+    source: row.source == null ? '' : String(row.source),
+    notes: row.notes == null ? '' : String(row.notes),
   };
 }
 
@@ -357,12 +402,18 @@ const db = {
     originalFilename: string;
     destination: string;
     createdAt: string;
+    primaryColor?: string;
+    price?: string;
+    fit?: string;
+    source?: string;
+    notes?: string;
   }) {
     getRawDb()
       .prepare(
         `INSERT INTO garments
-           (id, user_id, sha256, category, name, original_key, cutout_key, bg_removal_model, original_filename, destination, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           (id, user_id, sha256, category, name, original_key, cutout_key, bg_removal_model, original_filename, destination, created_at,
+            primary_color, price, fit, source, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_id, sha256) DO NOTHING`
       )
       .run(
@@ -376,7 +427,12 @@ const db = {
         row.bgRemovalModel,
         row.originalFilename,
         row.destination,
-        row.createdAt
+        row.createdAt,
+        row.primaryColor ?? null,
+        row.price ?? null,
+        row.fit ?? null,
+        row.source ?? null,
+        row.notes ?? null
       );
   },
   listGarments(userId: string) {
@@ -389,6 +445,31 @@ const db = {
     getRawDb()
       .prepare('INSERT INTO tryon_results (id, user_id, garment_id, r2_key, created_at) VALUES (?, ?, ?, ?, ?)')
       .run(record.id, record.userId, record.garmentId, record.r2Key, record.createdAt);
+  },
+  updateGarment(userId: string, garmentId: string, changes: Record<string, string | null>) {
+    const columns = Object.keys(changes);
+
+    if (columns.length === 0) {
+      return;
+    }
+
+    // Column names only ever come from the fixed allow-list in
+    // handleUpdateGarment, never from user input.
+    const setClause = columns.map((column) => `${column} = ?`).join(', ');
+    getRawDb()
+      .prepare(`UPDATE garments SET ${setClause} WHERE user_id = ? AND id = ?`)
+      .run(...Object.values(changes), userId, garmentId);
+  },
+  listResultKeysForGarment(userId: string, garmentId: string) {
+    return (
+      getRawDb()
+        .prepare('SELECT r2_key FROM tryon_results WHERE user_id = ? AND garment_id = ?')
+        .all(userId, garmentId) as Record<string, unknown>[]
+    ).map((row) => String(row.r2_key));
+  },
+  deleteGarment(userId: string, garmentId: string) {
+    getRawDb().prepare('DELETE FROM tryon_results WHERE user_id = ? AND garment_id = ?').run(userId, garmentId);
+    getRawDb().prepare('DELETE FROM garments WHERE user_id = ? AND id = ?').run(userId, garmentId);
   },
 };
 
@@ -593,6 +674,7 @@ async function handleGarmentUpload(req: typeof http.IncomingMessage.prototype) {
         category: fields.category.trim(),
         name: fields.name,
         destination: fields.destination?.trim().toLowerCase(),
+        attributes: readGarmentAttributes(fields),
       },
       pipelineDeps()
     );
@@ -607,19 +689,167 @@ async function handleGarmentUpload(req: typeof http.IncomingMessage.prototype) {
 }
 
 async function handleListGarments(userId: string) {
-  const rows = db.listGarments(userId);
+  return Promise.all(db.listGarments(userId).map((row) => garmentRowToItem(row)));
+}
 
-  return Promise.all(
-    rows.map(async (row) => ({
-      id: row.id,
-      userId: row.userId,
-      name: row.name,
-      category: row.category,
-      imageUrl: await storage.url(row.cutoutKey),
-      destination: row.destination,
-      createdAt: row.createdAt,
-    }))
+async function garmentRowToItem(row: ReturnType<typeof rowToGarment>) {
+  return {
+    id: row.id,
+    userId: row.userId,
+    name: row.name,
+    category: row.category,
+    imageUrl: await storage.url(row.cutoutKey),
+    destination: row.destination,
+    createdAt: row.createdAt,
+    primaryColor: row.primaryColor || undefined,
+    price: row.price || undefined,
+    fit: row.fit || undefined,
+    source: row.source || undefined,
+    notes: row.notes || undefined,
+  };
+}
+
+async function handleUpdateGarment(garmentId: string, req: typeof http.IncomingMessage.prototype) {
+  const body = await readJsonBody<{
+    userId?: string;
+    name?: string;
+    category?: string;
+    destination?: string;
+    primaryColor?: string;
+    price?: string;
+    fit?: string;
+    source?: string;
+    notes?: string;
+  }>(req);
+  const userId = body.userId?.trim() || 'demo-user';
+
+  if (!garmentId) {
+    throw new HttpError(400, 'A garment id is required to edit an item.');
+  }
+
+  if (!db.getGarmentById(userId, garmentId)) {
+    throw new HttpError(404, 'That item could not be found. It may have been deleted on another device.');
+  }
+
+  // Absent field = keep, empty string = clear, value = set.
+  const changes: Record<string, string | null> = {};
+
+  if (body.name !== undefined) {
+    const name = String(body.name).trim().slice(0, 80);
+
+    if (!name) {
+      throw new HttpError(400, 'Give the item a name, or leave the field out to keep the current one.');
+    }
+
+    changes.name = name;
+  }
+
+  if (body.category !== undefined) {
+    if (!isGarmentCategory(body.category)) {
+      throw new HttpError(400, `Invalid garment category. Expected one of: ${GARMENT_CATEGORIES.join(', ')}.`);
+    }
+
+    changes.category = body.category;
+  }
+
+  if (body.destination !== undefined) {
+    if (body.destination !== 'closet' && body.destination !== 'wishlist') {
+      throw new HttpError(400, "Destination must be 'closet' or 'wishlist'.");
+    }
+
+    changes.destination = body.destination;
+  }
+
+  const attributeColumns = [
+    ['primaryColor', 'primary_color', 40],
+    ['price', 'price', 20],
+    ['source', 'source', 80],
+    ['notes', 'notes', 500],
+  ] as const;
+
+  for (const [field, column, maxLength] of attributeColumns) {
+    if (body[field] !== undefined) {
+      const clean = String(body[field]).trim();
+      changes[column] = clean ? clean.slice(0, maxLength) : null;
+    }
+  }
+
+  if (body.fit !== undefined) {
+    const fit = String(body.fit).trim().toLowerCase();
+
+    if (fit && !isGarmentFit(fit)) {
+      throw new HttpError(400, `Invalid fit. Expected one of: ${GARMENT_FITS.join(', ')}.`);
+    }
+
+    changes.fit = fit || null;
+  }
+
+  db.updateGarment(userId, garmentId, changes);
+
+  const updated = db.getGarmentById(userId, garmentId);
+
+  if (!updated) {
+    throw new HttpError(500, 'The item disappeared while saving. Refresh and try again.');
+  }
+
+  return garmentRowToItem(updated);
+}
+
+// Shared by upload and edit: trims, drops empties, enforces the fit
+// allow-list, and caps lengths so a paste cannot balloon a row.
+function readGarmentAttributes(fields: Record<string, string | undefined>) {
+  const attributes: { primaryColor?: string; price?: string; fit?: string; source?: string; notes?: string } = {};
+  const readText = (value: string | undefined, maxLength: number) => {
+    const clean = value?.trim();
+    return clean ? clean.slice(0, maxLength) : undefined;
+  };
+
+  attributes.primaryColor = readText(fields.primaryColor, 40);
+  attributes.price = readText(fields.price, 20);
+  attributes.source = readText(fields.source, 80);
+  attributes.notes = readText(fields.notes, 500);
+
+  const fit = fields.fit?.trim().toLowerCase();
+
+  if (fit) {
+    if (!isGarmentFit(fit)) {
+      throw new HttpError(400, `Invalid fit. Expected one of: ${GARMENT_FITS.join(', ')}.`);
+    }
+
+    attributes.fit = fit;
+  }
+
+  return attributes;
+}
+
+async function handleDeleteGarment(userId: string, garmentId: string): Promise<{ deleted: boolean }> {
+  if (!garmentId) {
+    throw new HttpError(400, 'A garment id is required to delete an item.');
+  }
+
+  const garment = db.getGarmentById(userId, garmentId);
+
+  // Idempotent: deleting something already gone (or an item that only ever
+  // lived client-side) is a success from the caller's point of view.
+  if (!garment) {
+    return { deleted: false };
+  }
+
+  const resultKeys = db.listResultKeysForGarment(userId, garmentId);
+  db.deleteGarment(userId, garmentId);
+
+  // DB row is the source of truth; storage cleanup is best-effort so a
+  // transient R2 error cannot resurrect the item in the UI.
+  const orphanKeys = [garment.originalKey, garment.cutoutKey, ...resultKeys];
+  await Promise.all(
+    orphanKeys.map((key) =>
+      storage.delete(key).catch((error: unknown) => {
+        console.error(`Could not delete R2 object ${key}:`, error);
+      })
+    )
   );
+
+  return { deleted: true };
 }
 
 async function handleTryOn(req: typeof http.IncomingMessage.prototype): Promise<{ resultUrl: string }> {

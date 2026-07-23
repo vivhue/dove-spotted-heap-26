@@ -163,6 +163,12 @@ async function getLocalClosetChatReply({
   styleProfile,
   wishlistItems,
 }: ChatContext): Promise<ClosetChatReply> {
+  // getClosetChatReply already rejects signed-out users, but narrow the type
+  // here too so this stays safe if called directly.
+  if (!currentUser) {
+    return { text: 'Create an account first, then I can answer using your own closet.' };
+  }
+
   const text = message.trim();
   const lower = text.toLowerCase();
 

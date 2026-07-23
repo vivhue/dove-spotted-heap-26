@@ -18,7 +18,7 @@ const plannerBackground = require('../../../assets/images/planner-bg.png');
 const plannerWeatherLocation = 'Singapore';
 
 export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
-  const { closetItems, currentUser, scheduledOutfits, scheduleOutfitForDate, selectedOutfit } = useClosetStore();
+  const { closetItems, currentUser, scheduledOutfits, scheduleOutfitForDate, selectedOutfit, setEditingItem } = useClosetStore();
   const [monthDate, setMonthDate] = useState(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [isOutfitPickerOpen, setIsOutfitPickerOpen] = useState(false);
@@ -73,6 +73,8 @@ export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
     }
 
     if (closetItems.length === 0) {
+      // A fresh add must never inherit a stale edit target.
+      setEditingItem(null);
       onNavigate('add');
       return;
     }

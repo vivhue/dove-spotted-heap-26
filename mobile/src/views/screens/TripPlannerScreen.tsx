@@ -345,7 +345,7 @@ export function TripPlannerScreen({
     return (
       <TripShell onBack={goBack} onClose={closePlanner} stepLabel="II">
         <Text style={styles.title}>Pack your bag</Text>
-        <Text style={styles.subtitle}>Choose what type of luggage you're bringing and Bove will adapt to your space</Text>
+        <Text style={styles.subtitle}>Choose what type of luggage you&apos;re bringing and Bove will adapt to your space</Text>
 
         <View style={styles.optionList}>
           {(['Carry on', 'Checked bag', 'Carry on + Checked bag'] as LuggageType[]).map((option) => {

@@ -51,7 +51,16 @@ type AvatarRecord = {
   createdAt: string;
 };
 
-type GarmentRow = {
+// Optional descriptive attributes matching the mobile app's filters.
+type GarmentAttributes = {
+  primaryColor?: string;
+  price?: string;
+  fit?: string;
+  source?: string;
+  notes?: string;
+};
+
+type GarmentRow = GarmentAttributes & {
   id: string;
   userId: string;
   sha256: string;
@@ -65,7 +74,7 @@ type GarmentRow = {
   createdAt: string;
 };
 
-type WardrobeItem = {
+type WardrobeItem = GarmentAttributes & {
   id: string;
   userId: string;
   name: string;
@@ -110,6 +119,7 @@ async function processGarmentUpload(
     category: string;
     name?: string;
     destination?: string;
+    attributes?: GarmentAttributes;
   },
   deps: PipelineDeps
 ): Promise<WardrobeItem> {
@@ -121,6 +131,7 @@ async function processGarmentUpload(
   const originalKey = garmentOriginalKey(input.userId, sha256);
   const cutoutKey = garmentCutoutKey(input.userId, sha256);
   const name = input.name?.trim() || defaultName(category);
+  const attributes = input.attributes ?? {};
 
   // Dedup: an existing cutout means we already ran background removal for these
   // exact bytes. Skip the expensive work and reuse it.
@@ -143,6 +154,7 @@ async function processGarmentUpload(
       originalFilename: input.file.filename,
       destination,
       createdAt: nowIso(deps),
+      ...attributes,
     };
     deps.db.insertGarment(reused);
 
@@ -172,6 +184,7 @@ async function processGarmentUpload(
     originalFilename: input.file.filename,
     destination,
     createdAt: nowIso(deps),
+    ...attributes,
   };
   deps.db.insertGarment(row);
 
@@ -187,6 +200,11 @@ function toWardrobeItem(row: GarmentRow, imageUrl: string): WardrobeItem {
     imageUrl,
     destination: row.destination,
     createdAt: row.createdAt,
+    primaryColor: row.primaryColor || undefined,
+    price: row.price || undefined,
+    fit: row.fit || undefined,
+    source: row.source || undefined,
+    notes: row.notes || undefined,
   };
 }
 

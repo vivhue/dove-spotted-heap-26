@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-import { CategoryId, WardrobeDestination, WardrobeItem } from '@/models/closet';
+import { CategoryId, WardrobeDestination, WardrobeFit, WardrobeItem } from '@/models/closet';
 
 type ImageAsset = {
   fileName?: string | null;
@@ -9,7 +9,17 @@ type ImageAsset = {
   uri: string;
 };
 
-type CreateGarmentPayload = {
+// Optional descriptive attributes; the server stores them and the wishlist
+// filters match on them.
+export type GarmentAttributes = {
+  fit?: WardrobeFit | '';
+  notes?: string;
+  price?: string;
+  primaryColor?: string;
+  source?: string;
+};
+
+type CreateGarmentPayload = GarmentAttributes & {
   category: CategoryId;
   destination: WardrobeDestination;
   image: ImageAsset;
@@ -91,8 +101,13 @@ const apiBaseUrl = resolveApiBaseUrl();
 export async function createGarment({
   category,
   destination,
+  fit,
   image,
   name,
+  notes,
+  price,
+  primaryColor,
+  source,
   userId = 'demo-user',
 }: CreateGarmentPayload) {
   const formData = new FormData();
@@ -102,6 +117,7 @@ export async function createGarment({
   if (name?.trim()) {
     formData.append('name', name.trim());
   }
+  appendAttributeFields(formData, { fit, notes, price, primaryColor, source });
   await appendImageFile(formData, image);
 
   const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/garments`, {
@@ -118,6 +134,34 @@ export async function getGarments(userId = 'demo-user') {
   });
 
   return readJsonResponse<WardrobeItem[]>(response);
+}
+
+export type UpdateGarmentChanges = GarmentAttributes & {
+  category?: CategoryId;
+  destination?: WardrobeDestination;
+  name?: string;
+};
+
+// Absent field = keep, empty string = clear (for optional attributes).
+export async function updateGarment(garmentId: string, changes: UpdateGarmentChanges, userId = 'demo-user') {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/garments/${encodeURIComponent(garmentId)}`, {
+    body: JSON.stringify({ ...changes, userId }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'PATCH',
+  });
+
+  return readJsonResponse<WardrobeItem>(response);
+}
+
+export async function deleteGarment(garmentId: string, userId = 'demo-user') {
+  const response = await fetchWithBackendMessage(
+    `${apiBaseUrl}/api/garments/${encodeURIComponent(garmentId)}?userId=${encodeURIComponent(userId)}`,
+    { method: 'DELETE' }
+  );
+
+  return readJsonResponse<{ deleted: boolean }>(response);
 }
 
 export async function setupAvatar({ image, userId = 'demo-user' }: SetupAvatarPayload) {
@@ -175,6 +219,16 @@ export async function getClosetChatReplyFromModel(payload: ClosetChatRequest) {
   });
 
   return readJsonResponse<ClosetChatResponse>(response);
+}
+
+function appendAttributeFields(formData: FormData, attributes: GarmentAttributes) {
+  for (const [field, value] of Object.entries(attributes)) {
+    const clean = value?.trim();
+
+    if (clean) {
+      formData.append(field, clean);
+    }
+  }
 }
 
 async function appendImageFile(formData: FormData, image: ImageAsset) {

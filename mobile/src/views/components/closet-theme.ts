@@ -15,6 +15,8 @@ export const closetTheme = {
   white: '#FFFCF5',
   muted: '#6B7C8E',
   night: '#08172A',
+  // Destructive actions (delete, remove). Same red as the notification dot.
+  danger: '#D24531',
 };
 
 export const closetPaperBackground = {
