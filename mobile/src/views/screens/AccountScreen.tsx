@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AvatarChoice, BodyMeasurements, defaultPixelAvatar, pixelAvatarOptions, SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
+import { getTryOnHistory, TryOnResult } from '@/services/closet-api';
 import { AppScreen, initialForUsername, ProfileAvatarMark } from '@/views/components/app-chrome';
 import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
@@ -59,8 +60,30 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
   const [password, setPassword] = useState('');
   const [selectedGender, setSelectedGender] = useState<'female' | 'male' | null>(null);
   const [authMessage, setAuthMessage] = useState('');
+  const [tryOnHistory, setTryOnHistory] = useState<TryOnResult[]>([]);
   const itemCount = closetItems.length + wishlistItems.length;
   const pixelAvatar = { ...defaultPixelAvatar, ...(currentUser?.pixelAvatar ?? {}) };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadHistory() {
+      if (!currentUser) {
+        setTryOnHistory([]);
+        return;
+      }
+
+      try {
+        const history = await getTryOnHistory(currentUser.id);
+        if (isMounted) setTryOnHistory(history);
+      } catch {
+        if (isMounted) setTryOnHistory([]);
+      }
+    }
+
+    loadHistory();
+    return () => { isMounted = false; };
+  }, [currentUser]);
 
   function submitAuth() {
     const result = authMode === 'signup' ? signUp(username, password, selectedGender ?? undefined) : logIn(username, password);
@@ -188,7 +211,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
           <View style={styles.profileMeta}>
             <Text style={styles.name}>{currentUser.username}</Text>
             <View style={styles.stats}>
-              <Stat value="0" label="looks" />
+              <Stat value={String(tryOnHistory.length)} label="looks" />
               <Stat value={String(itemCount)} label="items" />
             </View>
           </View>
@@ -329,9 +352,8 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
 
         {profileTab === 'looks' ? (
           <>
-            <Pressable style={styles.addLook} onPress={() => onNavigate('try-on')}>
-              <LineIcon name="+" color={closetTheme.ink} />
-              <Text style={styles.addLookText}>Add look</Text>
+            <Pressable style={({ pressed }) => [styles.addLook, pressed && styles.pressed]} onPress={() => onNavigate('look-history')}>
+              <Text style={styles.addLookText}>History</Text>
             </Pressable>
 
             <View style={styles.filterRow}>
@@ -1290,6 +1312,131 @@ const styles = StyleSheet.create({
   looksStateMeta: {
     color: closetTheme.muted,
     fontSize: 12,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  historyLoading: {
+    marginVertical: 28,
+  },
+  historyPage: {
+    minHeight: 360,
+    paddingTop: 22,
+  },
+  historyTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  historyBack: {
+    color: closetTheme.ink,
+    fontSize: 34,
+    lineHeight: 36,
+  },
+  historyTitle: {
+    color: closetTheme.ink,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  pressed: {
+    opacity: 0.72,
+  },
+  historyTabs: {
+    backgroundColor: '#F4F3F3',
+    borderRadius: 12,
+    flexDirection: 'row',
+    marginTop: 18,
+    padding: 4,
+  },
+  historyTab: {
+    alignItems: 'center',
+    borderRadius: 9,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 42,
+    paddingHorizontal: 8,
+  },
+  historyTabSelected: {
+    backgroundColor: closetTheme.white,
+    shadowColor: '#000000',
+    shadowOffset: { height: 1, width: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+  },
+  historyTabText: {
+    color: closetTheme.muted,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  historyTabTextSelected: {
+    color: closetTheme.ink,
+  },
+  historyEmptyPanel: {
+    alignItems: 'center',
+    borderColor: closetTheme.line,
+    borderRadius: 14,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginTop: 24,
+    minHeight: 220,
+    padding: 24,
+  },
+  historyEmptyTitle: {
+    color: closetTheme.ink,
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  historyEmpty: {
+    color: closetTheme.muted,
+    fontSize: 13,
+    fontWeight: '800',
+    paddingVertical: 24,
+    textAlign: 'center',
+  },
+  historyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 14,
+  },
+  historyList: {
+    flexDirection: 'column',
+  },
+  historyCard: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
+    width: '48%',
+  },
+  historyCardList: {
+    flexDirection: 'row',
+    width: '100%',
+  },
+  historyImage: {
+    aspectRatio: 0.72,
+    backgroundColor: closetTheme.creamDeep,
+    width: '100%',
+  },
+  historyImageList: {
+    aspectRatio: 0.72,
+    height: 112,
+    width: 80,
+  },
+  historyMeta: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 10,
+  },
+  historyName: {
+    color: closetTheme.ink,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  historyDate: {
+    color: closetTheme.muted,
+    fontSize: 10,
     fontWeight: '800',
     marginTop: 4,
   },

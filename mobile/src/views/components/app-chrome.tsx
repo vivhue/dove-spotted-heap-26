@@ -168,7 +168,6 @@ export function StatusRow() {
   return (
     <View style={styles.status}>
       <Text style={styles.statusText}>{currentTime}</Text>
-      <Text style={styles.statusText}>||||  ^  |||</Text>
     </View>
   );
 }

@@ -6,6 +6,7 @@ export type ScreenId =
   | 'wishlist'
   | 'add'
   | 'try-on'
+  | 'look-history'
   | 'trip-planner'
   | 'account'
   | 'discover'

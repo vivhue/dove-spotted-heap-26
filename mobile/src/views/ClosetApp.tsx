@@ -8,6 +8,7 @@ import { CalendarScreen } from '@/views/screens/CalendarScreen';
 import { DashboardScreen } from '@/views/screens/DashboardScreen';
 import { DiscoverScreen } from '@/views/screens/DiscoverScreen';
 import { HomeScreen } from '@/views/screens/HomeScreen';
+import { LookHistoryScreen } from '@/views/screens/LookHistoryScreen';
 import { SplashScreen } from '@/views/screens/SplashScreen';
 import { TripPlannerScreen } from '@/views/screens/TripPlannerScreen';
 import { TryOnScreen } from '@/views/screens/TryOnScreen';
@@ -56,6 +57,7 @@ export function ClosetApp() {
         {screenId === 'wishlist' && <WardrobeScreen mode="wishlist" onNavigate={goTo} />}
         {screenId === 'add' && <AddItemScreen onNavigate={goTo} />}
         {screenId === 'try-on' && <TryOnScreen onNavigate={goTo} />}
+        {screenId === 'look-history' && <LookHistoryScreen onNavigate={goTo} />}
         {screenId === 'trip-planner' && <TripPlannerScreen onNavigate={goTo} onTripSaved={saveTrip} />}
         {screenId === 'account' && (
           <AccountScreen

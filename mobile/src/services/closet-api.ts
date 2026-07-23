@@ -37,6 +37,16 @@ type TryOnPayload = {
   userId?: string;
 };
 
+export type TryOnResult = {
+  createdAt: string;
+  garmentId: string;
+  garmentName: string;
+  id: string;
+  liked: boolean;
+  resultUrl: string;
+  saved: boolean;
+};
+
 export type WebStyleSource = {
   snippet: string;
   title: string;
@@ -195,6 +205,31 @@ export async function createTryOn({ garmentId, userId = 'demo-user' }: TryOnPayl
   });
 
   return readJsonResponse<{ resultUrl: string }>(response);
+}
+
+export async function getTryOnHistory(userId = 'demo-user') {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/try-on?userId=${encodeURIComponent(userId)}`, {
+    method: 'GET',
+  });
+
+  return readJsonResponse<TryOnResult[]>(response);
+}
+
+export async function updateTryOnResult(resultId: string, changes: { liked?: boolean; saved?: boolean }, userId = 'demo-user') {
+  const response = await fetchWithBackendMessage(`${apiBaseUrl}/api/try-on/${encodeURIComponent(resultId)}`, {
+    body: JSON.stringify({ ...changes, userId }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'PATCH',
+  });
+  return readJsonResponse<{ id: string; liked?: boolean; saved?: boolean }>(response);
+}
+
+export async function deleteTryOnResult(resultId: string, userId = 'demo-user') {
+  const response = await fetchWithBackendMessage(
+    `${apiBaseUrl}/api/try-on/${encodeURIComponent(resultId)}?userId=${encodeURIComponent(userId)}`,
+    { method: 'DELETE' }
+  );
+  return readJsonResponse<{ deleted: boolean }>(response);
 }
 
 export async function getWebOutfitSuggestion(query: string) {

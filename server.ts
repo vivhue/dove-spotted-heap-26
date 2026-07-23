@@ -180,6 +180,25 @@ const server = http.createServer(async (req: typeof http.IncomingMessage.prototy
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/try-on') {
+      const userId = url.searchParams.get('userId')?.trim() || 'demo-user';
+      sendJson(res, 200, await handleListTryOns(userId));
+      return;
+    }
+
+    if (req.method === 'PATCH' && url.pathname.startsWith('/api/try-on/')) {
+      const resultId = decodeURIComponent(url.pathname.slice('/api/try-on/'.length));
+      sendJson(res, 200, await handleUpdateTryOn(resultId, req));
+      return;
+    }
+
+    if (req.method === 'DELETE' && url.pathname.startsWith('/api/try-on/')) {
+      const resultId = decodeURIComponent(url.pathname.slice('/api/try-on/'.length));
+      const userId = url.searchParams.get('userId')?.trim() || 'demo-user';
+      sendJson(res, 200, await handleDeleteTryOn(userId, resultId));
+      return;
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/chat') {
       sendJson(res, 200, await handleChat(req));
       return;
@@ -329,6 +348,14 @@ function getRawDb() {
       }
     }
 
+    for (const column of ['liked INTEGER NOT NULL DEFAULT 0', 'saved INTEGER NOT NULL DEFAULT 0']) {
+      try {
+        db.exec(`ALTER TABLE tryon_results ADD COLUMN ${column}`);
+      } catch {
+        // Column already exists.
+      }
+    }
+
     dbInstance = db;
   }
 
@@ -445,6 +472,35 @@ const db = {
     getRawDb()
       .prepare('INSERT INTO tryon_results (id, user_id, garment_id, r2_key, created_at) VALUES (?, ?, ?, ?, ?)')
       .run(record.id, record.userId, record.garmentId, record.r2Key, record.createdAt);
+  },
+  listResults(userId: string) {
+    return getRawDb()
+      .prepare(
+        `SELECT tryon_results.id, tryon_results.garment_id, tryon_results.r2_key, tryon_results.created_at,
+                tryon_results.liked, tryon_results.saved,
+                garments.name AS garment_name
+         FROM tryon_results
+         LEFT JOIN garments ON garments.id = tryon_results.garment_id AND garments.user_id = tryon_results.user_id
+         WHERE tryon_results.user_id = ?
+         ORDER BY tryon_results.created_at DESC`
+      )
+      .all(userId) as Record<string, unknown>[];
+  },
+  getResult(userId: string, resultId: string) {
+    return getRawDb().prepare('SELECT * FROM tryon_results WHERE user_id = ? AND id = ?').get(userId, resultId) as
+      | Record<string, unknown>
+      | undefined;
+  },
+  updateResult(userId: string, resultId: string, changes: { liked?: boolean; saved?: boolean }) {
+    if (changes.liked !== undefined) {
+      getRawDb().prepare('UPDATE tryon_results SET liked = ? WHERE user_id = ? AND id = ?').run(changes.liked ? 1 : 0, userId, resultId);
+    }
+    if (changes.saved !== undefined) {
+      getRawDb().prepare('UPDATE tryon_results SET saved = ? WHERE user_id = ? AND id = ?').run(changes.saved ? 1 : 0, userId, resultId);
+    }
+  },
+  deleteResult(userId: string, resultId: string) {
+    getRawDb().prepare('DELETE FROM tryon_results WHERE user_id = ? AND id = ?').run(userId, resultId);
   },
   updateGarment(userId: string, garmentId: string, changes: Record<string, string | null>) {
     const columns = Object.keys(changes);
@@ -887,6 +943,40 @@ async function handleTryOn(req: typeof http.IncomingMessage.prototype): Promise<
   db.insertResult({ id, userId, garmentId, r2Key: key, createdAt: new Date().toISOString() });
 
   return { resultUrl: await storage.url(key) };
+}
+
+async function handleListTryOns(userId: string) {
+  return Promise.all(
+    db.listResults(userId).map(async (row) => ({
+      createdAt: String(row.created_at),
+      garmentId: String(row.garment_id),
+      garmentName: row.garment_name ? String(row.garment_name) : 'Try-on look',
+      id: String(row.id),
+      liked: Boolean(row.liked),
+      resultUrl: await storage.url(String(row.r2_key)),
+      saved: Boolean(row.saved),
+    }))
+  );
+}
+
+async function handleUpdateTryOn(resultId: string, req: typeof http.IncomingMessage.prototype) {
+  const body = await readJsonBody<{ userId?: string; liked?: boolean; saved?: boolean }>(req);
+  const userId = body.userId?.trim() || 'demo-user';
+
+  if (!db.getResult(userId, resultId)) throw new HttpError(404, 'That try-on look could not be found.');
+  if (body.liked === undefined && body.saved === undefined) throw new HttpError(400, 'Provide liked or saved to update this look.');
+
+  db.updateResult(userId, resultId, { liked: body.liked, saved: body.saved });
+  return { id: resultId, liked: body.liked, saved: body.saved };
+}
+
+async function handleDeleteTryOn(userId: string, resultId: string) {
+  const result = db.getResult(userId, resultId);
+  if (!result) throw new HttpError(404, 'That try-on look could not be found.');
+
+  db.deleteResult(userId, resultId);
+  await storage.delete(String(result.r2_key)).catch((error: unknown) => console.error('Could not delete try-on image:', error));
+  return { deleted: true };
 }
 
 function pipelineDeps() {
