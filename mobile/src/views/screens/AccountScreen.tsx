@@ -46,7 +46,6 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
   const { closetItems, currentUser, logIn, logOut, signUp, updateAccountAvatar, updatePixelAvatar, wishlistItems } = useClosetStore();
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [hasLookbook, setHasLookbook] = useState(false);
   const [expandedTripIds, setExpandedTripIds] = useState<string[]>([]);
   const [isLooksSearchOpen, setIsLooksSearchOpen] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -407,13 +406,6 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
             )}
 
             <View style={styles.pills}>
-              <Pressable
-                style={[styles.pill, hasLookbook && styles.pillSelected]}
-                onPress={() => setHasLookbook((hasCreated) => !hasCreated)}>
-                <Text numberOfLines={1} style={[styles.pillText, hasLookbook && styles.pillTextSelected]}>
-                  {hasLookbook ? 'Lookbook Added' : '+ Add Lookbook'}
-                </Text>
-              </Pressable>
               <Pressable
                 style={[styles.pill, isWornLooksOnly && styles.pillSelected]}
                 onPress={() => setIsWornLooksOnly((isOnly) => !isOnly)}>

@@ -318,7 +318,6 @@ function SelectionCard({
 }) {
   const title = `Outfit for ${formatShortDate(date)}`;
   const category = uniqueLabels(items.map((item) => titleCase(item.category))).join(' + ');
-  const detail = uniqueLabels(items.map((item) => item.name || titleCase(item.category))).join(', ');
   const temperatureLabel = weather ? `${weather.temperatureC}°C` : '--°';
 
   return (
@@ -338,7 +337,7 @@ function SelectionCard({
       </View>
       <View style={styles.selectionCopy}>
         <Text style={styles.selectionTitle}>{title}</Text>
-        <Text style={styles.selectionMeta}>{category} • {detail}</Text>
+        <Text style={styles.selectionMeta}>{category}</Text>
         <View style={styles.tags}>
           <Text style={styles.darkTag}>{formatItemCount(items.length).toUpperCase()}</Text>
           <Text style={styles.lightTag}>{temperatureLabel}</Text>
