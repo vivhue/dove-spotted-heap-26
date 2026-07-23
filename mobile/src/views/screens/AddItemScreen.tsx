@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 import { browseCategories, CategoryId, ScreenId, WardrobeFit, wardrobeFitOptions } from '@/models/closet';
@@ -8,6 +8,10 @@ import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
+
+const addItemCategories = browseCategories
+  .filter((category) => category.id !== 'dress')
+  .map((category) => category.id === 'shirt' ? { ...category, label: 'Tops', shortLabel: 'Tops' } : category);
 
 // Server-managed garment ids are sha256 hashes; client-local items (e.g. saved
 // from the stylist chat) use readable prefixed ids and are edited locally.
@@ -200,9 +204,14 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
   }
 
   return (
-    <AppScreen activeTab="add" onNavigate={onNavigate} title={isEditing ? 'Edit item' : 'Add new'}>
+    <AppScreen
+      activeTab="add"
+      onNavigate={onNavigate}
+      showStylist={false}
+      title={isEditing ? 'Edit item' : 'Add new'}
+      titleOffsetY={-48}>
       <ScrollView contentContainerStyle={styles.content}>
-        {!isEditing && (
+        {!isEditing && !selectedImage && (
           <>
             <Text style={styles.sectionLabel}>Add a piece</Text>
             <OptionCard
@@ -220,16 +229,27 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
           </>
         )}
         {!isEditing && selectedImage && (
-          <Image source={{ uri: selectedImage.uri }} style={styles.preview} resizeMode="contain" />
+          <View style={styles.previewWrap}>
+            <Image source={{ uri: selectedImage.uri }} style={styles.preview} resizeMode="contain" />
+            <Pressable
+              accessibilityLabel="Remove selected image"
+              style={({ pressed }) => [styles.removeImageButton, pressed && styles.optionPressed]}
+              onPress={() => {
+                setSelectedImage(null);
+                setStatus('Choose how to add your item.');
+              }}>
+              <Text style={styles.removeImageText}>×</Text>
+            </Pressable>
+          </View>
         )}
         {isEditing && editTarget?.imageUrl && (
-          <Image source={{ uri: editTarget.imageUrl }} style={styles.preview} resizeMode="contain" />
+          <Image source={{ uri: editTarget.imageUrl }} style={[styles.preview, styles.editPreview]} resizeMode="contain" />
         )}
         <Text style={styles.statusText}>{status}</Text>
 
         <Text style={styles.sectionLabel}>Category (required)</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {browseCategories.map((category) => (
+          {addItemCategories.map((category) => (
             <Pressable
               key={category.id}
               onPress={() => setSelectedCategory(category.id)}
@@ -412,15 +432,44 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   preview: {
-    alignSelf: 'center',
     backgroundColor: closetTheme.creamDeep,
     borderColor: closetTheme.line,
     borderRadius: 18,
     borderWidth: 1,
     height: 156,
+    width: 156,
+  },
+  previewWrap: {
+    alignSelf: 'center',
     marginBottom: 8,
     marginTop: 4,
-    width: 156,
+    position: 'relative',
+  },
+  editPreview: {
+    alignSelf: 'center',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  removeImageButton: {
+    alignItems: 'center',
+    backgroundColor: '#FFF3D7',
+    borderColor: '#7A4328',
+    borderRadius: 14,
+    borderWidth: 2,
+    height: 28,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: -8,
+    top: -8,
+    width: 28,
+    zIndex: 3,
+  },
+  removeImageText: {
+    color: '#7A4328',
+    fontFamily: Platform.select({ android: 'sans-serif', ios: 'System', web: 'Arial' }),
+    fontSize: 21,
+    fontWeight: '700',
+    lineHeight: 22,
   },
   optionIcon: {
     alignItems: 'center',

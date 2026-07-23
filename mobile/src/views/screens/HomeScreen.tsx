@@ -7,11 +7,14 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 
 import { CategoryId, ScreenId } from '@/models/closet';
+import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
+import { closetTypography } from '@/views/components/closet-theme';
 
 type Props = {
   activeCategory: CategoryId;
@@ -26,6 +29,7 @@ const homeRoomImages: ImageSourcePropType[] = [
 ];
 
 export function HomeScreen({ onNavigate }: Props) {
+  const { guidedMode } = useClosetStore();
   const [roomIndex, setRoomIndex] = useState(0);
   const roomOpacity = useRef(new Animated.Value(1)).current;
   const roomSlideX = useRef(new Animated.Value(0)).current;
@@ -89,6 +93,35 @@ export function HomeScreen({ onNavigate }: Props) {
             style={styles.calendarHotspot}
             onPress={() => onNavigate('calendar')}
           />
+        )}
+        {guidedMode && (roomIndex === 0 || roomIndex === 1 || roomIndex === 2) && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.tryOnPrompt,
+              roomIndex === 0 && styles.closetPromptPosition,
+              roomIndex === 0 && styles.closetPromptFlipped,
+              roomIndex === 1 && styles.fittingPromptPosition,
+              roomIndex === 2 && styles.calendarPromptPosition,
+              roomIndex === 2 && styles.tryOnPromptFlipped,
+            ]}>
+            <View style={styles.tryOnPromptBubble}>
+              <Text
+                style={[
+                  styles.tryOnPromptText,
+                  roomIndex === 0 && styles.closetPromptTextReadable,
+                  roomIndex === 2 && styles.tryOnPromptTextFlipped,
+                ]}>
+                {roomIndex === 0
+                  ? 'Click to add clothes'
+                  : roomIndex === 1
+                    ? 'Click to try on virtually'
+                    : 'Click to\nplan your look'}
+              </Text>
+            </View>
+            <View style={styles.tryOnPromptTailBorder} />
+            <View style={styles.tryOnPromptTailFill} />
+          </View>
         )}
         <Pressable accessibilityLabel="Previous home scene" style={[styles.arrowButton, styles.arrowLeft]} onPress={showPreviousRoom}>
           <PixelArrow direction="left" />
@@ -215,6 +248,82 @@ const styles = StyleSheet.create({
     top: '22%',
     width: '44%',
     zIndex: 45,
+  },
+  tryOnPrompt: {
+    alignItems: 'center',
+    bottom: 372,
+    left: 68,
+    position: 'absolute',
+    right: 68,
+    zIndex: 46,
+  },
+  tryOnPromptFlipped: {
+    transform: [{ scaleX: -1 }],
+  },
+  closetPromptPosition: {
+    bottom: 385,
+  },
+  closetPromptFlipped: {
+    transform: [{ scaleY: -1 }],
+  },
+  closetPromptTextReadable: {
+    transform: [{ scaleY: -1 }],
+  },
+  fittingPromptPosition: {
+    left: 88,
+    right: 88,
+  },
+  calendarPromptPosition: {
+    bottom: 492,
+    left: 118,
+    right: 58,
+  },
+  tryOnPromptBubble: {
+    alignItems: 'center',
+    backgroundColor: '#FFF4DF',
+    borderColor: '#2B2928',
+    borderRadius: 32,
+    borderWidth: 4,
+    minHeight: 60,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    width: '100%',
+  },
+  tryOnPromptText: {
+    color: '#2B2928',
+    fontFamily: closetTypography.boldFont,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  tryOnPromptTextFlipped: {
+    transform: [{ scaleX: -1 }],
+  },
+  tryOnPromptTailBorder: {
+    borderLeftColor: 'transparent',
+    borderLeftWidth: 15,
+    borderRightColor: '#2B2928',
+    borderRightWidth: 15,
+    borderTopColor: '#2B2928',
+    borderTopWidth: 22,
+    height: 0,
+    marginLeft: 78,
+    marginTop: -4,
+    width: 0,
+  },
+  tryOnPromptTailFill: {
+    borderLeftColor: 'transparent',
+    borderLeftWidth: 9,
+    borderRightColor: '#FFF4DF',
+    borderRightWidth: 9,
+    borderTopColor: '#FFF4DF',
+    borderTopWidth: 14,
+    height: 0,
+    marginLeft: 75,
+    marginTop: -22,
+    width: 0,
   },
   pixelArrow: {
     height: 35,

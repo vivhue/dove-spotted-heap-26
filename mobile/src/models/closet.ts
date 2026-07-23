@@ -68,6 +68,7 @@ export const pixelAvatarOptions = {
 
 export type ClosetAccount = {
   avatar?: AvatarChoice;
+  guidedMode?: boolean;
   id: string;
   username: string;
   password: string;
@@ -234,7 +235,7 @@ export const calendarLooks = [
   { day: 28, selected: true },
 ];
 
-export const categoryFilters = ['All', 'Shirts', 'Dresses', 'Shorts', 'Pants'];
+export const categoryFilters = ['All', 'Tops', 'Shorts', 'Pants'];
 
 // Starts empty; real items load from the backend via the closet store. (The
 // legacy local inventory in use-closet-app.ts is seeded from this.)

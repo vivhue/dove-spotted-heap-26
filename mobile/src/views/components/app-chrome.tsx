@@ -16,6 +16,7 @@ type ScreenProps = {
   children: ReactNode;
   notifications?: AppNotification[];
   title?: string;
+  titleOffsetY?: number;
   onNavigate: (screen: ScreenId) => void;
   activeTab?: ScreenId;
   bottomNavOverlay?: boolean;
@@ -44,6 +45,7 @@ export function AppScreen({
   showStatus = true,
   showStylist = true,
   title,
+  titleOffsetY = 0,
 }: ScreenProps) {
   const { closetItems, currentUser, scheduledOutfits } = useClosetStore();
   const userInitial = initialForUsername(currentUser?.username);
@@ -105,7 +107,7 @@ export function AppScreen({
           )}
         </View>
         {title && (
-          <View style={styles.pageHead}>
+          <View style={[styles.pageHead, titleOffsetY !== 0 && { paddingTop: Math.max(0, 78 + titleOffsetY) }]}>
             <Text style={styles.pageTitle}>{title}</Text>
           </View>
         )}
@@ -120,7 +122,7 @@ export function AppScreen({
 const avatarTrackTripDurationMs = 22000;
 
 function BottomAvatarTrack({ bottomOffset, isMoving, onPress }: { bottomOffset: number; isMoving: boolean; onPress: () => void }) {
-  const { currentUser } = useClosetStore();
+  const { currentUser, guidedMode } = useClosetStore();
   const [walkProgress] = useState(() => new Animated.Value(0));
   const [trackWidth, setTrackWidth] = useState(0);
   const [showHelpBubble, setShowHelpBubble] = useState(false);
@@ -188,7 +190,7 @@ function BottomAvatarTrack({ bottomOffset, isMoving, onPress }: { bottomOffset: 
     <View pointerEvents="box-none" style={[styles.avatarTrack, { bottom: bottomOffset }]} onLayout={rememberTrackWidth}>
       <View pointerEvents="none" style={styles.avatarTrackLine} />
       <Animated.View style={[styles.walkingAvatar, { transform: [{ translateX: isMoving ? walkingTranslateX : 0 }] }]}>
-        {showHelpBubble && (
+        {guidedMode && showHelpBubble && (
           <View pointerEvents="none" style={styles.avatarHelpBubble}>
             <Text style={styles.avatarHelpText}>Tap here for help</Text>
             <View style={styles.avatarHelpTailBorder} />

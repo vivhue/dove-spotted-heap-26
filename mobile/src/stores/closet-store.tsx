@@ -19,6 +19,7 @@ type ClosetStoreValue = {
   // Item the add screen should edit instead of creating. Navigation cannot
   // carry params (screens are switched by id), so the store carries it.
   editingItem: WardrobeItem | null;
+  guidedMode: boolean;
   setEditingItem: (item: WardrobeItem | null) => void;
   isLoadingItems: boolean;
   itemsError: string;
@@ -34,6 +35,7 @@ type ClosetStoreValue = {
   setSelfieImageUrl: (url: string) => void;
   signUp: (username: string, password: string, gender: ClosetAccount['gender']) => AuthResult;
   updateAccountAvatar: (avatar: AvatarChoice) => void;
+  updateGuidedMode: (enabled: boolean) => void;
   updatePixelAvatar: (updates: Partial<PixelAvatarConfig>) => void;
   toggleWornItem: (item: WardrobeItem) => void;
   wishlistItems: WardrobeItem[];
@@ -251,6 +253,7 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
       closetItems,
       currentUser,
       editingItem,
+      guidedMode: currentUser?.guidedMode ?? true,
       setEditingItem,
       isLoadingItems,
       itemsError,
@@ -403,6 +406,17 @@ export function ClosetStoreProvider({ children }: { children: ReactNode }) {
         setAccounts((currentAccounts) =>
           currentAccounts.map((account) =>
             account.id === currentUserId ? { ...account, avatar } : account
+          )
+        );
+      },
+      updateGuidedMode: (enabled) => {
+        if (!currentUserId) {
+          return;
+        }
+
+        setAccounts((currentAccounts) =>
+          currentAccounts.map((account) =>
+            account.id === currentUserId ? { ...account, guidedMode: enabled } : account
           )
         );
       },
