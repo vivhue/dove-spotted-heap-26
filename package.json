@@ -19,5 +19,8 @@
     "start": "node --env-file=.env --experimental-strip-types server.ts",
     "check": "node --experimental-strip-types -e \"require('./server.ts')\"",
     "test": "node --experimental-strip-types --test"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.4"
   }
 }

@@ -5,5 +5,7 @@
 node_modules/
 mobile/node_modules/
 
+.expo
+
 # Runtime data: SQLite db, model cache, generated files.
 data/
