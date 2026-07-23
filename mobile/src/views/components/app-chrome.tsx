@@ -13,6 +13,7 @@ type ScreenProps = {
   children: ReactNode;
   notifications?: AppNotification[];
   title?: string;
+  titleOffsetY?: number;
   onNavigate: (screen: ScreenId) => void;
   activeTab?: ScreenId;
   bottomNavOverlay?: boolean;
@@ -41,6 +42,7 @@ export function AppScreen({
   showStatus = true,
   showStylist = true,
   title,
+  titleOffsetY = 0,
 }: ScreenProps) {
   const { closetItems, currentUser } = useClosetStore();
   const userInitial = initialForUsername(currentUser?.username);
@@ -98,7 +100,7 @@ export function AppScreen({
         )}
       </View>
       {title && (
-        <View style={styles.pageHead}>
+        <View style={[styles.pageHead, titleOffsetY !== 0 && { paddingTop: Math.max(0, 78 + titleOffsetY) }]}>
           <Text style={styles.pageTitle}>{title}</Text>
         </View>
       )}

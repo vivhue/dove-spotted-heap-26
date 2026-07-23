@@ -4,14 +4,14 @@ import { ActivityIndicator, Animated, Easing, Image, Pressable, ScrollView, Styl
 import { CategoryId, WardrobeItem, categoryFilters, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
 // Maps the plural display labels in categoryFilters to garment categories.
 // Any label not listed here (e.g. "All") shows everything.
 const filterToCategory: Record<string, CategoryId> = {
-  Shirts: 'shirt',
+  Tops: 'shirt',
   Dresses: 'dress',
   Shorts: 'shorts',
   Pants: 'pants',
@@ -52,11 +52,9 @@ export function WardrobeScreen({
     const category = filterToCategory[activeFilter];
     let nextItems = category ? items.filter((item) => item.category === category) : items;
 
-    if (mode === 'wishlist') {
-      nextItems = nextItems.filter((item) => matchesPriceRange(item, priceRange));
-      nextItems = nextItems.filter((item) => matchesColor(item, colorFilter));
-      nextItems = nextItems.filter((item) => matchesFit(item, fitFilter));
-    }
+    nextItems = nextItems.filter((item) => matchesPriceRange(item, priceRange));
+    nextItems = nextItems.filter((item) => matchesColor(item, colorFilter));
+    nextItems = nextItems.filter((item) => matchesFit(item, fitFilter));
 
     return nextItems;
   }, [activeFilter, colorFilter, fitFilter, items, mode, priceRange]);
@@ -109,35 +107,29 @@ export function WardrobeScreen({
         <View style={styles.scrim}>
           <Text style={styles.screenTitle}>My wardrobe</Text>
 
-          <View style={styles.toggle}>
-            <Pressable
-              onPress={() => onNavigate('closet')}
-              style={[styles.toggleButton, mode === 'closet' && styles.toggleButtonSelected]}>
-              <Text style={[styles.toggleText, mode === 'closet' && styles.toggleTextSelected]}>Closet</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => onNavigate('wishlist')}
-              style={[styles.toggleButton, mode === 'wishlist' && styles.toggleButtonSelected]}>
-              <Text style={[styles.toggleText, mode === 'wishlist' && styles.toggleTextSelected]}>Wishlist</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.actionRow}>
-            <Pressable style={styles.tryOnButton} onPress={() => onNavigate('try-on')}>
-              <LineIcon name="✦" color={closetTheme.camelDeep} />
-              <Text style={styles.tryOnText}>Try it on</Text>
-            </Pressable>
-
-            {mode === 'wishlist' && (
-              <Pressable style={[styles.filterButton, isFilterOpen && styles.filterButtonOpen]} onPress={() => setIsFilterOpen((isOpen) => !isOpen)}>
-                <LineIcon name="⌄" color={closetTheme.camelDeep} />
-                <Text style={styles.tryOnText}>Filter</Text>
+          <View style={[styles.topControls, styles.raisedContent]}>
+            <View style={styles.toggle}>
+              <Pressable
+                onPress={() => onNavigate('closet')}
+                style={[styles.toggleButton, mode === 'closet' && styles.toggleButtonSelected]}>
+                <Text style={[styles.toggleText, mode === 'closet' && styles.toggleTextSelected]}>Closet</Text>
               </Pressable>
-            )}
+              <Pressable
+                onPress={() => onNavigate('wishlist')}
+                style={[styles.toggleButton, mode === 'wishlist' && styles.toggleButtonSelected]}>
+                <Text style={[styles.toggleText, mode === 'wishlist' && styles.toggleTextSelected]}>Wishlist</Text>
+              </Pressable>
+            </View>
+            <Pressable
+              accessibilityLabel="Filter wardrobe"
+              style={[styles.filterButton, isFilterOpen && styles.filterButtonOpen]}
+              onPress={() => setIsFilterOpen((isOpen) => !isOpen)}>
+              <PixelFilterIcon />
+            </Pressable>
           </View>
 
-          {mode === 'wishlist' && isFilterOpen && (
-            <View style={styles.wishlistFilters}>
+          {isFilterOpen && (
+            <View style={[styles.wishlistFilters, styles.raisedContent]}>
               <FilterChipRow
                 label="Price"
                 options={priceRanges}
@@ -159,7 +151,7 @@ export function WardrobeScreen({
             </View>
           )}
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroller} contentContainerStyle={styles.chips}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.chipScroller, styles.raisedContent]} contentContainerStyle={styles.chips}>
             {categoryFilters.map((filter) => (
               <Pressable
                 key={filter}
@@ -170,7 +162,7 @@ export function WardrobeScreen({
             ))}
           </ScrollView>
 
-          <ScrollView contentContainerStyle={styles.grid}>
+          <ScrollView style={styles.raisedContent} contentContainerStyle={styles.grid}>
             {isLoadingItems && (
               <View style={styles.emptyState}>
                 <ActivityIndicator color={closetTheme.camelDeep} />
@@ -218,7 +210,22 @@ export function WardrobeScreen({
               setEditingItem(null);
               onNavigate('add');
             }}>
-            <LineIcon name="+" color={closetTheme.cream} />
+            <View pointerEvents="none" style={styles.addFabHighlight} />
+            <View pointerEvents="none" style={styles.addFabLeftHighlight} />
+            <View pointerEvents="none" style={styles.addFabBottomShade} />
+            <View pointerEvents="none" style={styles.addFabRightShade} />
+            <View pointerEvents="none" style={styles.addPlus}>
+              <View style={styles.addPlusOutlineHorizontal} />
+              <View style={styles.addPlusOutlineVertical} />
+            </View>
+          </Pressable>
+
+          <Pressable
+            accessibilityLabel="Try clothes on virtually"
+            style={({ pressed }) => [styles.tryOnButton, styles.floatingTryOnButton, pressed && styles.buttonPressed]}
+            onPress={() => onNavigate('try-on')}>
+            <LineIcon name="✦" color="#7A4328" />
+            <Text style={[styles.tryOnText, styles.floatingTryOnText]}>Try it on</Text>
           </Pressable>
 
           {activeItem && (
@@ -483,6 +490,19 @@ function titleCase(value: string) {
   return value.trim().replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
 }
 
+function PixelFilterIcon() {
+  return (
+    <View style={styles.pixelFilterIcon}>
+      <View style={[styles.pixelFilterLine, styles.pixelFilterLineTop]} />
+      <View style={[styles.pixelFilterLine, styles.pixelFilterLineMiddle]} />
+      <View style={[styles.pixelFilterLine, styles.pixelFilterLineBottom]} />
+      <View style={[styles.pixelFilterKnob, styles.pixelFilterKnobTop]} />
+      <View style={[styles.pixelFilterKnob, styles.pixelFilterKnobMiddle]} />
+      <View style={[styles.pixelFilterKnob, styles.pixelFilterKnobBottom]} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   background: {
     backgroundColor: '#D8AA70',
@@ -509,22 +529,34 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginHorizontal: 22,
     marginTop: 112,
+    transform: [{ translateY: -48 }],
+  },
+  raisedContent: {
+    transform: [{ translateY: -50 }],
   },
   toggle: {
-    backgroundColor: closetTheme.blueWash,
+    backgroundColor: '#F6E4B7',
+    borderColor: '#7A4328',
     borderRadius: 18,
+    borderWidth: 2,
+    flex: 1,
     flexDirection: 'row',
+    padding: 3,
+  },
+  topControls: {
+    alignItems: 'stretch',
+    flexDirection: 'row',
+    gap: 8,
     marginHorizontal: 22,
     marginTop: 16,
-    padding: 4,
   },
   tryOnButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
+    backgroundColor: '#FFF3D7',
+    borderColor: '#7A4328',
     borderRadius: 16,
-    borderWidth: 1,
+    borderWidth: 2,
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 14,
@@ -537,23 +569,73 @@ const styles = StyleSheet.create({
     marginHorizontal: 22,
     marginTop: 12,
   },
+  floatingTryOnButton: {
+    bottom: 34,
+    position: 'absolute',
+    right: 24,
+    zIndex: 80,
+  },
+  floatingTryOnText: {
+    fontFamily: closetTypography.regularFont,
+    fontWeight: '400',
+  },
   filterButton: {
     alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
+    backgroundColor: '#FFF3D7',
+    borderColor: '#7A4328',
     borderRadius: 16,
-    borderWidth: 1,
+    borderWidth: 2,
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 14,
+    justifyContent: 'center',
+    paddingHorizontal: 0,
     paddingVertical: 9,
+    width: 48,
   },
   filterButtonOpen: {
-    backgroundColor: closetTheme.blueWash,
-    borderColor: closetTheme.camelDeep,
+    backgroundColor: '#F6E4B7',
+    borderColor: '#7A4328',
+  },
+  pixelFilterIcon: {
+    height: 24,
+    position: 'relative',
+    width: 26,
+  },
+  pixelFilterLine: {
+    backgroundColor: '#7A4328',
+    height: 3,
+    left: 1,
+    position: 'absolute',
+    width: 24,
+  },
+  pixelFilterLineTop: {
+    top: 3,
+  },
+  pixelFilterLineMiddle: {
+    top: 11,
+  },
+  pixelFilterLineBottom: {
+    top: 19,
+  },
+  pixelFilterKnob: {
+    backgroundColor: '#7A4328',
+    height: 7,
+    position: 'absolute',
+    width: 7,
+  },
+  pixelFilterKnobTop: {
+    left: 14,
+    top: 1,
+  },
+  pixelFilterKnobMiddle: {
+    left: 5,
+    top: 9,
+  },
+  pixelFilterKnobBottom: {
+    left: 17,
+    top: 17,
   },
   tryOnText: {
-    color: closetTheme.ink,
+    color: '#7A4328',
     fontSize: 12,
     fontWeight: '900',
   },
@@ -566,7 +648,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterLabel: {
-    color: closetTheme.muted,
+    color: '#7A4328',
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -575,24 +657,24 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterChip: {
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
+    backgroundColor: '#FFF3D7',
+    borderColor: '#7A4328',
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 11,
     paddingVertical: 6,
   },
   filterChipSelected: {
-    backgroundColor: closetTheme.blueWash,
-    borderColor: closetTheme.camelDeep,
+    backgroundColor: '#7A4328',
+    borderColor: '#7A4328',
   },
   filterChipText: {
-    color: closetTheme.muted,
+    color: '#7A4328',
     fontSize: 11,
     fontWeight: '900',
   },
   filterChipTextSelected: {
-    color: closetTheme.ink,
+    color: '#FFF3D7',
   },
   toggleButton: {
     alignItems: 'center',
@@ -601,15 +683,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   toggleButtonSelected: {
-    backgroundColor: closetTheme.white,
+    backgroundColor: '#7A4328',
   },
   toggleText: {
-    color: closetTheme.muted,
+    color: '#7A4328',
+    fontFamily: closetTypography.regularFont,
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '400',
   },
   toggleTextSelected: {
-    color: closetTheme.ink,
+    color: '#FFF3D7',
   },
   chips: {
     alignItems: 'center',
@@ -627,8 +710,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   chip: {
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
+    backgroundColor: '#FFF3D7',
+    borderColor: '#7A4328',
     borderRadius: 16,
     borderWidth: 1,
     height: 34,
@@ -636,16 +719,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   chipSelected: {
-    backgroundColor: closetTheme.navy,
-    borderColor: closetTheme.navy,
+    backgroundColor: '#7A4328',
+    borderColor: '#7A4328',
   },
   chipText: {
-    color: closetTheme.muted,
+    color: '#7A4328',
+    fontFamily: closetTypography.regularFont,
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '400',
   },
   chipTextSelected: {
-    color: closetTheme.cream,
+    color: '#FFF3D7',
   },
   grid: {
     flexDirection: 'row',
@@ -674,20 +758,75 @@ const styles = StyleSheet.create({
   },
   addFab: {
     alignItems: 'center',
-    backgroundColor: closetTheme.ink,
-    borderRadius: 28,
-    bottom: 82,
+    backgroundColor: '#F6E4B7',
+    borderColor: '#774530',
+    borderRadius: 0,
+    borderWidth: 4,
+    bottom: 92,
     elevation: 8,
-    height: 56,
+    height: 46,
     justifyContent: 'center',
     position: 'absolute',
     right: 24,
-    shadowColor: closetTheme.ink,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 12,
-    width: 56,
+    shadowColor: '#774530',
+    shadowOffset: { width: 5, height: 5 },
+    shadowOpacity: 0.48,
+    shadowRadius: 0,
+    width: 46,
     zIndex: 80,
+  },
+  addFabHighlight: {
+    backgroundColor: '#FFFCED',
+    height: 4,
+    left: 8,
+    position: 'absolute',
+    right: 12,
+    top: 8,
+  },
+  addFabLeftHighlight: {
+    backgroundColor: '#FFFCED',
+    bottom: 16,
+    left: 8,
+    position: 'absolute',
+    top: 8,
+    width: 4,
+  },
+  addFabBottomShade: {
+    backgroundColor: 'rgba(119,69,48,0.28)',
+    bottom: 4,
+    height: 4,
+    left: 8,
+    position: 'absolute',
+    right: 4,
+  },
+  addFabRightShade: {
+    backgroundColor: 'rgba(119,69,48,0.28)',
+    bottom: 4,
+    position: 'absolute',
+    right: 4,
+    top: 8,
+    width: 4,
+  },
+  addPlus: {
+    height: 20,
+    position: 'relative',
+    width: 20,
+  },
+  addPlusOutlineHorizontal: {
+    backgroundColor: '#4B2A1E',
+    height: 6,
+    left: 0,
+    position: 'absolute',
+    top: 7,
+    width: 20,
+  },
+  addPlusOutlineVertical: {
+    backgroundColor: '#4B2A1E',
+    height: 20,
+    left: 7,
+    position: 'absolute',
+    top: 0,
+    width: 6,
   },
   buttonPressed: {
     opacity: 0.74,

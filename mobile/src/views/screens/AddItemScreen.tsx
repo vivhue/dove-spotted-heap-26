@@ -9,6 +9,10 @@ import { AppScreen } from '@/views/components/app-chrome';
 import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 
+const addItemCategories = browseCategories
+  .filter((category) => category.id !== 'dress')
+  .map((category) => category.id === 'shirt' ? { ...category, label: 'Tops', shortLabel: 'Tops' } : category);
+
 // Server-managed garment ids are sha256 hashes; client-local items (e.g. saved
 // from the stylist chat) use readable prefixed ids and are edited locally.
 function isServerItemId(id: string) {
@@ -227,7 +231,7 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
 
         <Text style={styles.sectionLabel}>Category (required)</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {browseCategories.map((category) => (
+          {addItemCategories.map((category) => (
             <Pressable
               key={category.id}
               onPress={() => setSelectedCategory(category.id)}

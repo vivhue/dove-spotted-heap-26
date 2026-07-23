@@ -201,7 +201,8 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
         { label: 'Log out', onPress: logOut },
       ]}
       onNavigate={onNavigate}
-      title="Profile">
+      title="Profile"
+      titleOffsetY={-48}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.settingsRow}>
           <View style={styles.spacer} />
@@ -844,9 +845,8 @@ const styles = StyleSheet.create({
   },
   guidedModeLabel: {
     color: closetTheme.ink,
-    fontFamily: closetTypography.boldFont,
+    fontFamily: closetTypography.regularFont,
     fontSize: 14,
-    textTransform: 'uppercase',
   },
   guidedModeState: {
     alignItems: 'center',

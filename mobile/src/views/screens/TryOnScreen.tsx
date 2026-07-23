@@ -597,6 +597,7 @@ const styles = StyleSheet.create({
   },
   centeredActionRow: {
     justifyContent: 'center',
+    transform: [{ translateY: -15 }],
   },
   centeredMirrorButton: {
     backgroundColor: '#FFF3D7',
