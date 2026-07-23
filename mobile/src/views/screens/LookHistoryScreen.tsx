@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenId } from '@/models/closet';
 import { deleteTryOnResult, getTryOnHistory, TryOnResult, updateTryOnResult } from '@/services/closet-api';
 import { useClosetStore } from '@/stores/closet-store';
-import { AppScreen } from '@/views/components/app-chrome';
-import { closetTheme } from '@/views/components/closet-theme';
+import { AppScreen, StatusRow } from '@/views/components/app-chrome';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 
 type HistoryFilter = 'all' | 'liked' | 'saved';
+
+const historyBackground = require('../../../assets/images/try-on-history-bg.png');
 
 export function LookHistoryScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
   const { currentUser } = useClosetStore();
@@ -70,70 +72,76 @@ export function LookHistoryScreen({ onNavigate }: { onNavigate: (screen: ScreenI
   }, [currentUser]);
 
   return (
-    <AppScreen activeTab="account" onNavigate={onNavigate} showBottomNav={false} title="Try On History">
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.tabs}>
-          {(['all', 'liked', 'saved'] as HistoryFilter[]).map((tab) => (
-            <Pressable
-              key={tab}
-              style={[styles.tab, filter === tab && styles.tabSelected]}
-              onPress={() => setFilter(tab)}>
-              <Text style={[styles.tabText, filter === tab && styles.tabTextSelected]}>
-                {tab === 'all' ? 'All' : tab === 'liked' ? '♡ Liked' : 'Saved'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {isLoading ? (
-          <ActivityIndicator color={closetTheme.camelDeep} style={styles.loading} />
-        ) : message ? (
-          <Text style={styles.message}>{message}</Text>
-        ) : visibleHistory.length === 0 ? (
-          <View style={styles.emptyPanel}>
-            <Text style={styles.emptyTitle}>No {filter === 'all' ? 'looks' : `${filter} looks`} yet</Text>
-            <Text style={styles.message}>
-              Your {filter === 'all' ? 'generated try-on looks' : `${filter} looks`} will appear here.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.grid}>
-            {visibleHistory.map((look) => (
-              <View key={look.id} style={styles.card}>
-                <Pressable accessibilityLabel={`Expand ${look.garmentName}`} onPress={() => setSelectedLook(look)}>
-                  <Image source={{ uri: look.resultUrl }} style={styles.image} resizeMode="cover" />
+    <AppScreen activeTab="account" onNavigate={onNavigate} showBottomNav={false} showStatus={false}>
+      <ImageBackground source={historyBackground} resizeMode="stretch" style={styles.background} imageStyle={styles.backgroundImage}>
+        <View style={styles.scrim}>
+          <StatusRow />
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <Text style={styles.screenTitle}>Try On History</Text>
+            <View style={styles.tabs}>
+              {(['all', 'liked', 'saved'] as HistoryFilter[]).map((tab) => (
+                <Pressable
+                  key={tab}
+                  style={[styles.tab, filter === tab && styles.tabSelected]}
+                  onPress={() => setFilter(tab)}>
+                  <Text style={[styles.tabText, filter === tab && styles.tabTextSelected]}>
+                    {tab === 'all' ? 'All' : tab === 'liked' ? '♡ Liked' : 'Saved'}
+                  </Text>
                 </Pressable>
-                <View style={styles.meta}>
-                  <Text numberOfLines={1} style={styles.name}>{look.garmentName}</Text>
-                  <Text style={styles.date}>{new Date(look.createdAt).toLocaleDateString()}</Text>
-                  <View style={styles.actions}>
-                    <Pressable
-                      accessibilityLabel={look.liked ? 'Unlike look' : 'Like look'}
-                      style={[styles.action, look.liked && styles.actionSelected]}
-                      onPress={() => toggleLook(look, 'liked')}>
-                      <Text style={[styles.actionText, look.liked && styles.actionTextSelected]}>{look.liked ? '♥' : '♡'}</Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityLabel={look.saved ? 'Unsave look' : 'Save look'}
-                      style={[styles.action, look.saved && styles.actionSelected]}
-                      onPress={() => toggleLook(look, 'saved')}>
-                      <Text style={[styles.actionText, look.saved && styles.actionTextSelected]}>Save</Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityLabel={pendingDeleteId === look.id ? 'Confirm deleting look' : 'Delete look'}
-                      style={[styles.action, styles.deleteAction, pendingDeleteId === look.id && styles.confirmDeleteAction]}
-                      onPress={() => pendingDeleteId === look.id ? deleteLook(look) : setPendingDeleteId(look.id)}>
-                      <Text style={[styles.deleteText, pendingDeleteId === look.id && styles.confirmDeleteText]}>
-                        {pendingDeleteId === look.id ? 'Confirm' : 'Delete'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
+              ))}
+            </View>
+
+            {isLoading ? (
+              <ActivityIndicator color={closetTheme.camelDeep} style={styles.loading} />
+            ) : message ? (
+              <Text style={styles.message}>{message}</Text>
+            ) : visibleHistory.length === 0 ? (
+              <View style={styles.emptyPanel}>
+                <Text style={styles.emptyTitle}>No {filter === 'all' ? 'looks' : `${filter} looks`} yet</Text>
+                <Text style={styles.message}>
+                  Your {filter === 'all' ? 'generated try-on looks' : `${filter} looks`} will appear here.
+                </Text>
               </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+            ) : (
+              <View style={styles.grid}>
+                {visibleHistory.map((look) => (
+                  <View key={look.id} style={styles.card}>
+                    <Pressable accessibilityLabel={`Expand ${look.garmentName}`} onPress={() => setSelectedLook(look)}>
+                      <Image source={{ uri: look.resultUrl }} style={styles.image} resizeMode="cover" />
+                    </Pressable>
+                    <View style={styles.meta}>
+                      <Text numberOfLines={1} style={styles.name}>{look.garmentName}</Text>
+                      <Text style={styles.date}>{new Date(look.createdAt).toLocaleDateString()}</Text>
+                      <View style={styles.actions}>
+                        <Pressable
+                          accessibilityLabel={look.liked ? 'Unlike look' : 'Like look'}
+                          style={[styles.action, look.liked && styles.actionSelected]}
+                          onPress={() => toggleLook(look, 'liked')}>
+                          <Text style={[styles.actionText, look.liked && styles.actionTextSelected]}>{look.liked ? '♥' : '♡'}</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityLabel={look.saved ? 'Unsave look' : 'Save look'}
+                          style={[styles.action, look.saved && styles.actionSelected]}
+                          onPress={() => toggleLook(look, 'saved')}>
+                          <Text style={[styles.actionText, look.saved && styles.actionTextSelected]}>Save</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityLabel={pendingDeleteId === look.id ? 'Confirm deleting look' : 'Delete look'}
+                          style={[styles.action, styles.deleteAction, pendingDeleteId === look.id && styles.confirmDeleteAction]}
+                          onPress={() => pendingDeleteId === look.id ? deleteLook(look) : setPendingDeleteId(look.id)}>
+                          <Text style={[styles.deleteText, pendingDeleteId === look.id && styles.confirmDeleteText]}>
+                            {pendingDeleteId === look.id ? 'Confirm' : 'Delete'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </ImageBackground>
 
       {selectedLook && (
         <View style={styles.previewBackdrop}>
@@ -149,14 +157,18 @@ export function LookHistoryScreen({ onNavigate }: { onNavigate: (screen: ScreenI
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: 40, paddingHorizontal: 18 },
-  tabs: { backgroundColor: '#F4F3F3', borderRadius: 12, flexDirection: 'row', marginTop: 24, padding: 4 },
+  background: { backgroundColor: '#E6B875', flex: 1 },
+  backgroundImage: { opacity: 1 },
+  scrim: { backgroundColor: 'rgba(255, 246, 232, 0.28)', flex: 1 },
+  content: { paddingBottom: 72, paddingHorizontal: 18, paddingTop: 86 },
+  screenTitle: { color: closetTheme.ink, ...closetTypography.text, fontSize: 28, fontWeight: '700', marginBottom: 24 },
+  tabs: { backgroundColor: 'rgba(244, 243, 243, 0.9)', borderRadius: 12, flexDirection: 'row', padding: 4 },
   tab: { alignItems: 'center', borderRadius: 9, flex: 1, justifyContent: 'center', minHeight: 42 },
   tabSelected: { backgroundColor: closetTheme.white, elevation: 2, shadowColor: '#000', shadowOffset: { height: 1, width: 0 }, shadowOpacity: 0.12, shadowRadius: 3 },
   tabText: { color: closetTheme.muted, fontSize: 15, fontWeight: '800' },
   tabTextSelected: { color: closetTheme.ink },
   loading: { marginVertical: 40 },
-  emptyPanel: { alignItems: 'center', borderColor: closetTheme.line, borderRadius: 14, borderStyle: 'dashed', borderWidth: 1, justifyContent: 'center', marginTop: 24, minHeight: 250, padding: 24 },
+  emptyPanel: { alignItems: 'center', backgroundColor: 'rgba(255, 252, 245, 0.58)', borderColor: 'rgba(130, 151, 174, 0.52)', borderRadius: 14, borderStyle: 'dashed', borderWidth: 1, justifyContent: 'center', marginTop: 24, minHeight: 250, padding: 24 },
   emptyTitle: { color: closetTheme.ink, fontSize: 17, fontWeight: '900' },
   message: { color: closetTheme.muted, fontSize: 13, fontWeight: '800', marginTop: 8, textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 20 },
