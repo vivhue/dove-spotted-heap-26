@@ -9,6 +9,13 @@ const isWindows = process.platform === "win32";
 const npmCommand = isWindows ? "npm.cmd" : "npm";
 
 function runStep(label, command, args, cwd = root) {
+  // Node (post CVE-2024-27980) refuses to spawn .cmd files directly on
+  // Windows, so route npm.cmd through cmd.exe like dev-all.mjs does.
+  if (isWindows && command.endsWith(".cmd")) {
+    args = ["/d", "/c", command, ...args];
+    command = "cmd.exe";
+  }
+
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
