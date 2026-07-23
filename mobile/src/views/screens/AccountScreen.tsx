@@ -203,6 +203,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
       ]}
       onNavigate={onNavigate}
       title="Profile"
+      titleColor={closetTheme.brown}
       titleOffsetY={-48}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.settingsRow}>
@@ -241,6 +242,11 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
               {guidedMode ? 'On' : 'Off'}
             </Text>
           </View>
+        </Pressable>
+
+        <Pressable style={({ pressed }) => [styles.tryOnHistoryButton, pressed && styles.pressed]} onPress={() => onNavigate('look-history')}>
+          <Text style={styles.tryOnHistoryButtonText}>Try On History</Text>
+          <LineIcon name="→" color={closetTheme.ink} />
         </Pressable>
 
         {isEditingProfile && (
@@ -376,13 +382,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
           </Pressable>
         </View>
 
-        {profileTab === 'looks' ? (
-          <>
-            <Pressable style={({ pressed }) => [styles.addLook, pressed && styles.pressed]} onPress={() => onNavigate('look-history')}>
-              <Text style={styles.addLookText}>History</Text>
-            </Pressable>
-          </>
-        ) : (
+        {profileTab === 'trips' && (
           <View style={styles.tripsPanel}>
             <Pressable style={styles.addTrip} onPress={() => onNavigate('trip-planner')}>
               <LineIcon name="+" color={closetTheme.ink} />
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
   guidedModeButton: {
     alignItems: 'center',
     backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
+    borderColor: closetTheme.brown,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
   guidedModeState: {
     alignItems: 'center',
     backgroundColor: closetTheme.cream,
-    borderColor: closetTheme.line,
+    borderColor: closetTheme.brown,
     borderRadius: 6,
     borderWidth: 2,
     justifyContent: 'center',
@@ -805,8 +805,8 @@ const styles = StyleSheet.create({
     minWidth: 54,
   },
   guidedModeStateEnabled: {
-    backgroundColor: closetTheme.ink,
-    borderColor: closetTheme.ink,
+    backgroundColor: closetTheme.brown,
+    borderColor: closetTheme.brown,
   },
   guidedModeStateText: {
     color: closetTheme.muted,
@@ -817,8 +817,25 @@ const styles = StyleSheet.create({
   guidedModeStateTextEnabled: {
     color: closetTheme.cream,
   },
-  name: {
+  tryOnHistoryButton: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.brown,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    minHeight: 54,
+    paddingHorizontal: 14,
+  },
+  tryOnHistoryButtonText: {
     color: closetTheme.ink,
+    fontFamily: closetTypography.regularFont,
+    fontSize: 14,
+  },
+  name: {
+    color: '#000000',
     fontFamily: closetTypography.regularFont,
     fontSize: 25,
     fontWeight: '400',
@@ -831,13 +848,13 @@ const styles = StyleSheet.create({
     minWidth: 54,
   },
   statValue: {
-    color: closetTheme.ink,
+    color: '#000000',
     fontFamily: closetTypography.regularFont,
     fontSize: 24,
     fontWeight: '400',
   },
   statLabel: {
-    color: closetTheme.ink,
+    color: '#000000',
     fontFamily: closetTypography.regularFont,
     fontSize: 14,
     marginTop: 2,

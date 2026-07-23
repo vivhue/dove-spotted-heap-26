@@ -9,6 +9,8 @@ export const closetTheme = {
   camel: '#D6B17E',
   camelDeep: '#2F5F8F',
   navy: '#1E4B73',
+  brown: '#7A4328',
+  brownDark: '#4B2A1E',
   blush: '#C89583',
   sage: '#7FA8BA',
   line: '#C9D4DE',

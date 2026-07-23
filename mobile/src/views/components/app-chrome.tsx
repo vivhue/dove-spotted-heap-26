@@ -16,6 +16,7 @@ type ScreenProps = {
   children: ReactNode;
   notifications?: AppNotification[];
   title?: string;
+  titleColor?: string;
   titleOffsetY?: number;
   onNavigate: (screen: ScreenId) => void;
   activeTab?: ScreenId;
@@ -45,6 +46,7 @@ export function AppScreen({
   showStatus = true,
   showStylist = true,
   title,
+  titleColor,
   titleOffsetY = 0,
 }: ScreenProps) {
   const { closetItems, currentUser, scheduledOutfits } = useClosetStore();
@@ -108,7 +110,7 @@ export function AppScreen({
         </View>
         {title && (
           <View style={[styles.pageHead, titleOffsetY !== 0 && { paddingTop: Math.max(0, 78 + titleOffsetY) }]}>
-            <Text style={styles.pageTitle}>{title}</Text>
+            <Text style={[styles.pageTitle, titleColor && { color: titleColor }]}>{title}</Text>
           </View>
         )}
         <View style={styles.body}>{children}</View>
@@ -316,7 +318,7 @@ export function BottomNav({
       id: 'account',
       label: 'Profile',
       matches: ['account'],
-      icon: (selected) => <ProfileNavIcon color={selected ? closetTheme.camelDeep : closetTheme.muted} />,
+      icon: (selected) => <ProfileNavIcon color={selected ? closetTheme.brown : closetTheme.muted} />,
     },
   ];
 
@@ -331,7 +333,9 @@ export function BottomNav({
             onPress={() => onNavigate(tab.id)}
             style={[styles.navButton, selected && styles.navButtonActive]}>
             <View style={styles.navIconFrame}>{tab.icon(selected)}</View>
-            <Text style={[styles.navLabel, selected && styles.navLabelActive]}>{tab.label}</Text>
+            <Text style={[styles.navLabel, selected && styles.navLabelActive, tab.id === 'account' && selected && styles.profileNavLabelActive]}>
+              {tab.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -350,7 +354,7 @@ export function NotificationMenu({ notifications }: { notifications: AppNotifica
         notifications.map((notification) => (
           <View key={notification.id} style={styles.notificationMenuItem}>
             <Text style={styles.notificationTitle}>{notification.title}</Text>
-            <Text style={styles.notificationText}>{notification.text}</Text>
+            {notification.text ? <Text style={styles.notificationText}>{notification.text}</Text> : null}
           </View>
         ))
       ) : (
@@ -378,14 +382,11 @@ function buildNotifications(previousSeenAt: string, closetItemCount: number, sch
     });
   }
 
-  if (closetItemCount > 0) {
+  if (closetItemCount > 0 && todaySchedule.length === 0) {
     notifications.push({
       id: `daily-outfit-${todayKey}`,
-      text:
-        todaySchedule.length > 0
-          ? 'You already planned an outfit for today. Open the calendar if you want to review it before heading out.'
-          : 'You have not planned today\'s outfit yet. Open the calendar to pick a look before the day gets busy.',
-      title: todaySchedule.length > 0 ? 'You planned this outfit for today' : 'Today\'s outfit is not planned',
+      text: 'Open the calendar to pick a look before the day gets busy.',
+      title: 'Today\'s outfit is not planned',
     });
   }
 
@@ -821,7 +822,7 @@ const styles = StyleSheet.create({
   },
   avatar: {
     alignItems: 'center',
-    backgroundColor: closetTheme.navy,
+    backgroundColor: closetTheme.brown,
     borderRadius: 18,
     height: 36,
     justifyContent: 'center',
@@ -830,7 +831,7 @@ const styles = StyleSheet.create({
   avatarInitial: {
     color: closetTheme.cream,
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: '400',
   },
   profileAvatarInitial: {
     fontWeight: '900',
@@ -1037,6 +1038,9 @@ const styles = StyleSheet.create({
   },
   navLabelActive: {
     color: closetTheme.camelDeep,
+  },
+  profileNavLabelActive: {
+    color: closetTheme.brown,
   },
   pixelShirt: {
     height: 30,

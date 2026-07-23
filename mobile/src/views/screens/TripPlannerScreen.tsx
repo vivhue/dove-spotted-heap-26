@@ -58,6 +58,8 @@ export function TripPlannerScreen({
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreparedToast, setShowPreparedToast] = useState(false);
   const [packingItems, setPackingItems] = useState<WardrobeItem[]>([]);
+  const [isClosetPickerOpen, setIsClosetPickerOpen] = useState(false);
+  const [selectedClosetItemIds, setSelectedClosetItemIds] = useState<string[]>([]);
   const [suggestedItems, setSuggestedItems] = useState<WardrobeItem[]>([]);
   const [looks, setLooks] = useState<TripLook[]>([]);
   const [addedLookIds, setAddedLookIds] = useState<string[]>([]);
@@ -176,6 +178,22 @@ export function TripPlannerScreen({
     setSuggestedItems((currentItems) => [item, ...currentItems.filter((current) => current.id !== item.id)]);
   }
 
+  function openClosetPicker() {
+    setSelectedClosetItemIds(packingItems.map((item) => item.id));
+    setIsClosetPickerOpen(true);
+  }
+
+  function toggleClosetItem(itemId: string) {
+    setSelectedClosetItemIds((currentIds) =>
+      currentIds.includes(itemId) ? currentIds.filter((id) => id !== itemId) : [...currentIds, itemId]
+    );
+  }
+
+  function addSelectedClosetItems() {
+    setPackingItems(closetItems.filter((item) => selectedClosetItemIds.includes(item.id)));
+    setIsClosetPickerOpen(false);
+  }
+
   function toggleLook(look: TripLook) {
     const added = addedLookIds.includes(look.id);
 
@@ -235,15 +253,15 @@ export function TripPlannerScreen({
 
   if (step === 'destination') {
     return (
-      <TripShell onBack={goBack} stepLabel="I">
-        <Text style={styles.title}>Your next trip</Text>
-        <Text style={styles.subtitle}>Pick your destination and set the start and end dates of your journey</Text>
+      <TripShell onBack={goBack}>
+        <Text style={[styles.title, styles.destinationTitle]}>Your next trip</Text>
+        <Text style={[styles.subtitle, styles.destinationSubtitle]}>Pick your destination and set the start and end dates of your journey</Text>
         <Animated.View
           style={[
             styles.planeStage,
             {
               transform: [
-                { translateY: planeFloat.interpolate({ inputRange: [0, 1], outputRange: [0, -16] }) },
+                { translateY: planeFloat.interpolate({ inputRange: [0, 1], outputRange: [-30, -46] }) },
                 { rotate: '-12deg' },
               ],
             },
@@ -289,7 +307,7 @@ export function TripPlannerScreen({
               setDestinationSuggestionsOpen(false);
             }}>
             <Text style={[styles.dateValue, !dateRange && styles.datePlaceholder]}>{dateRange || 'Select date'}</Text>
-            <LineIcon name="□" color={closetTheme.muted} />
+            <LineIcon name="□" color={closetTheme.brown} />
           </Pressable>
         </View>
 
@@ -297,11 +315,11 @@ export function TripPlannerScreen({
           <ScrollView style={styles.calendarCard} nestedScrollEnabled showsVerticalScrollIndicator={false}>
             <View style={styles.calendarHeader}>
               <Pressable style={styles.calendarNavButton} onPress={() => setCalendarMonth(shiftMonth(calendarMonth, -1))}>
-                <LineIcon name="‹" color={closetTheme.ink} />
+                <LineIcon name="‹" color={closetTheme.brown} />
               </Pressable>
               <Text style={styles.calendarMonthText}>{formatCalendarMonth(calendarMonth)}</Text>
               <Pressable style={styles.calendarNavButton} onPress={() => setCalendarMonth(shiftMonth(calendarMonth, 1))}>
-                <LineIcon name="›" color={closetTheme.ink} />
+                <LineIcon name="›" color={closetTheme.brown} />
               </Pressable>
             </View>
             <View style={styles.calendarGrid}>
@@ -322,7 +340,15 @@ export function TripPlannerScreen({
                       selected && styles.calendarDaySelected,
                     ]}
                     onPress={() => chooseTripDate(day.date)}>
-                    <Text style={[styles.calendarDayText, selected && styles.calendarDayTextSelected]}>{day.date.getDate()}</Text>
+                    <Text
+                      style={[
+                        styles.calendarDayText,
+                        !day.inCurrentMonth && styles.calendarDayTextMuted,
+                        inRange && styles.calendarDayTextSelected,
+                        selected && styles.calendarDayTextSelected,
+                      ]}>
+                      {day.date.getDate()}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -331,11 +357,6 @@ export function TripPlannerScreen({
           </ScrollView>
         )}
 
-        <Pressable style={styles.addDestination}>
-          <LineIcon name="+" color={closetTheme.ink} />
-          <Text style={styles.addDestinationText}>Add another destination</Text>
-        </Pressable>
-
         <FooterButton disabled={!destination.trim()} label="Next" onPress={() => setStep('bag')} />
       </TripShell>
     );
@@ -343,9 +364,9 @@ export function TripPlannerScreen({
 
   if (step === 'bag') {
     return (
-      <TripShell onBack={goBack} onClose={closePlanner} stepLabel="II">
-        <Text style={styles.title}>Pack your bag</Text>
-        <Text style={styles.subtitle}>Choose what type of luggage you&apos;re bringing and Bove will adapt to your space</Text>
+      <TripShell onBack={goBack}>
+        <Text style={[styles.title, styles.bagTitle]}>Pack your bag</Text>
+        <Text style={[styles.subtitle, styles.bagSubtitle]}>Choose what type of luggage you&apos;re bringing and Bove will adapt to your space</Text>
 
         <View style={styles.optionList}>
           {(['Carry on', 'Checked bag', 'Carry on + Checked bag'] as LuggageType[]).map((option) => {
@@ -362,17 +383,54 @@ export function TripPlannerScreen({
           })}
         </View>
 
-        <Text style={styles.sectionTitle}>Packing list</Text>
-        <Text style={styles.subtitle}>Select must-have items for your trip. Bove will suggest the rest.</Text>
+        <Text style={[styles.sectionTitle, styles.packingListTitle]}>Packing list</Text>
+        <Text style={[styles.subtitle, styles.packingListSubtitle]}>Select must-have items for your trip. Bove will suggest the rest.</Text>
         <Pressable
           style={styles.blackPill}
-          onPress={() => {
-            const mustHaves = closetItems.slice(0, 3);
-            setPackingItems(mustHaves);
-          }}>
+          onPress={openClosetPicker}>
           <LineIcon name="+" color={closetTheme.cream} />
           <Text style={styles.blackPillText}>Add from closet</Text>
         </Pressable>
+
+        {isClosetPickerOpen && (
+          <View style={styles.closetPicker}>
+            <Text style={styles.closetPickerTitle}>Choose items from your closet</Text>
+            {closetItems.length > 0 ? (
+              <View style={styles.closetPickerItems}>
+                {closetItems.map((item) => {
+                  const selected = selectedClosetItemIds.includes(item.id);
+
+                  return (
+                    <Pressable
+                      key={item.id}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      style={[styles.closetPickerItem, selected && styles.closetPickerItemSelected]}
+                      onPress={() => toggleClosetItem(item.id)}>
+                      <ClosetIcon category={item.category} color={selected ? closetTheme.cream : closetTheme.ink} size={24} />
+                      <Text numberOfLines={1} style={[styles.closetPickerItemText, selected && styles.closetPickerItemTextSelected]}>
+                        {item.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={styles.closetPickerEmpty}>Add items to your closet first, then return here to include them in your trip.</Text>
+            )}
+            <View style={styles.closetPickerActions}>
+              <Pressable style={styles.closetPickerCancel} onPress={() => setIsClosetPickerOpen(false)}>
+                <Text style={styles.closetPickerCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                disabled={selectedClosetItemIds.length === 0}
+                style={[styles.closetPickerConfirm, selectedClosetItemIds.length === 0 && styles.closetPickerConfirmDisabled]}
+                onPress={addSelectedClosetItems}>
+                <Text style={styles.closetPickerConfirmText}>Add selected</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         <FooterButton label="Next" onPress={() => setStep('activities')} />
       </TripShell>
@@ -539,7 +597,7 @@ function TripShell({
   children: ReactNode;
   onBack: () => void;
   onClose?: () => void;
-  stepLabel: string;
+  stepLabel?: string;
 }) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -548,7 +606,7 @@ function TripShell({
         <Pressable style={styles.circleButton} onPress={onBack}>
           <LineIcon name="‹" color="#000000" />
         </Pressable>
-        <Text style={styles.stepLabel}>{stepLabel}</Text>
+        {stepLabel && <Text style={styles.stepLabel}>{stepLabel}</Text>}
         {onClose ? (
           <Pressable style={styles.circleButton} onPress={onClose}>
             <LineIcon name="×" color="#000000" />
@@ -845,6 +903,7 @@ const styles = StyleSheet.create({
     color: closetTheme.muted,
     fontSize: 24,
     fontWeight: '900',
+    transform: [{ translateY: 8 }],
   },
   shellContent: {
     flex: 1,
@@ -858,13 +917,26 @@ const styles = StyleSheet.create({
     marginTop: 28,
     textAlign: 'center',
   },
+  destinationTitle: {
+    textAlign: 'left',
+  },
   subtitle: {
     color: closetTheme.ink,
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 24,
     marginTop: 18,
     textAlign: 'center',
+  },
+  destinationSubtitle: {
+    marginTop: 8,
+    textAlign: 'left',
+  },
+  bagTitle: {
+    textAlign: 'left',
+  },
+  bagSubtitle: {
+    textAlign: 'left',
   },
   mutedSubtitle: {
     color: '#999999',
@@ -881,7 +953,7 @@ const styles = StyleSheet.create({
   },
   plane: {
     color: closetTheme.camel,
-    fontSize: 82,
+    fontSize: 60,
     opacity: 0.44,
   },
   planeTrail: {
@@ -894,9 +966,10 @@ const styles = StyleSheet.create({
   },
   formBlock: {
     backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
+    borderColor: closetTheme.brown,
     borderRadius: 8,
     borderWidth: 1,
+    marginTop: -50,
     overflow: 'hidden',
   },
   inputRow: {
@@ -906,7 +979,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   inputDivider: {
-    backgroundColor: closetTheme.line,
+    backgroundColor: closetTheme.brown,
     height: 1,
   },
   tripInput: {
@@ -933,10 +1006,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   dateValue: {
-    color: closetTheme.ink,
+    color: '#000000',
     flex: 1,
+    fontFamily: closetTypography.inputFont,
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '400',
   },
   datePlaceholder: {
     color: closetTheme.muted,
@@ -944,7 +1018,7 @@ const styles = StyleSheet.create({
   },
   calendarCard: {
     backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
+    borderColor: closetTheme.brown,
     borderRadius: 8,
     borderWidth: 1,
     marginTop: 10,
@@ -966,7 +1040,7 @@ const styles = StyleSheet.create({
     width: 28,
   },
   calendarMonthText: {
-    color: closetTheme.ink,
+    color: closetTheme.brown,
     fontSize: 14,
     fontWeight: '900',
   },
@@ -975,7 +1049,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   calendarWeekday: {
-    color: closetTheme.muted,
+    color: closetTheme.brown,
     fontSize: 11,
     fontWeight: '900',
     marginBottom: 4,
@@ -984,28 +1058,31 @@ const styles = StyleSheet.create({
   },
   calendarDay: {
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: 0,
     height: 28,
     justifyContent: 'center',
     marginVertical: 1,
     width: '14.285%',
   },
   calendarDayMuted: {
-    opacity: 0.34,
+    opacity: 1,
   },
   calendarDayInRange: {
-    backgroundColor: closetTheme.creamDeep,
+    backgroundColor: closetTheme.brownDark,
   },
   calendarDaySelected: {
-    backgroundColor: closetTheme.ink,
+    backgroundColor: closetTheme.brownDark,
   },
   calendarDayText: {
-    color: closetTheme.ink,
+    color: closetTheme.brown,
     fontSize: 12,
     fontWeight: '800',
   },
   calendarDayTextSelected: {
     color: closetTheme.cream,
+  },
+  calendarDayTextMuted: {
+    color: closetTheme.muted,
   },
   calendarHint: {
     color: closetTheme.muted,
@@ -1028,21 +1105,24 @@ const styles = StyleSheet.create({
   },
   footerButton: {
     alignItems: 'center',
-    backgroundColor: closetTheme.ink,
-    borderRadius: 28,
-    bottom: 18,
-    height: 52,
+    backgroundColor: closetTheme.brownDark,
+    borderRadius: 0,
+    elevation: 10,
+    height: 32,
     justifyContent: 'center',
-    left: 20,
+    minWidth: 76,
+    paddingHorizontal: 10,
     position: 'absolute',
-    right: 20,
+    right: 12,
+    top: -24,
+    zIndex: 10,
   },
   footerButtonDisabled: {
-    backgroundColor: closetTheme.muted,
+    opacity: 1,
   },
   footerButtonText: {
     color: closetTheme.cream,
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '900',
   },
   optionList: {
@@ -1088,6 +1168,12 @@ const styles = StyleSheet.create({
     marginTop: 30,
     textAlign: 'center',
   },
+  packingListTitle: {
+    textAlign: 'left',
+  },
+  packingListSubtitle: {
+    textAlign: 'left',
+  },
   blackPill: {
     alignItems: 'center',
     alignSelf: 'center',
@@ -1102,6 +1188,86 @@ const styles = StyleSheet.create({
   blackPillText: {
     color: closetTheme.cream,
     fontSize: 16,
+    fontWeight: '900',
+  },
+  closetPicker: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.brown,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 14,
+    padding: 14,
+  },
+  closetPickerTitle: {
+    color: closetTheme.ink,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  closetPickerItems: {
+    gap: 8,
+    marginTop: 12,
+  },
+  closetPickerItem: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.cream,
+    borderColor: closetTheme.line,
+    borderRadius: 6,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  closetPickerItemSelected: {
+    backgroundColor: closetTheme.brownDark,
+    borderColor: closetTheme.brownDark,
+  },
+  closetPickerItemText: {
+    color: closetTheme.ink,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  closetPickerItemTextSelected: {
+    color: closetTheme.cream,
+  },
+  closetPickerEmpty: {
+    color: closetTheme.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 12,
+  },
+  closetPickerActions: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'flex-end',
+    marginTop: 14,
+  },
+  closetPickerCancel: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 38,
+    paddingHorizontal: 12,
+  },
+  closetPickerCancelText: {
+    color: closetTheme.brown,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  closetPickerConfirm: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.brownDark,
+    borderRadius: 6,
+    justifyContent: 'center',
+    minHeight: 38,
+    paddingHorizontal: 14,
+  },
+  closetPickerConfirmDisabled: {
+    backgroundColor: closetTheme.muted,
+  },
+  closetPickerConfirmText: {
+    color: closetTheme.cream,
+    fontSize: 13,
     fontWeight: '900',
   },
   optionalText: {
