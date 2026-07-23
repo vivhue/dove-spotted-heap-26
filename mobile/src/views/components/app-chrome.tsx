@@ -111,7 +111,6 @@ export function AppScreen({
             <Text style={styles.pageTitle}>{title}</Text>
           </View>
         )}
-        {shownNotifications.length > 0 && <NotificationStrip notifications={shownNotifications} />}
         <View style={styles.body}>{children}</View>
       </KeyboardAvoidingView>
       {showStylist && <BottomAvatarTrack bottomOffset={18} isMoving={activeTab === 'home'} onPress={() => onNavigate('discover')} />}
@@ -360,27 +359,6 @@ export function NotificationMenu({ notifications }: { notifications: AppNotifica
           <Text style={styles.notificationText}>No reminders right now.</Text>
         </View>
       )}
-    </View>
-  );
-}
-
-function NotificationStrip({ notifications }: { notifications: AppNotification[] }) {
-  const primary = notifications[0];
-
-  if (!primary) {
-    return null;
-  }
-
-  return (
-    <View style={styles.notificationStrip}>
-      <Text style={styles.notificationStripLabel}>Reminder</Text>
-      <View style={styles.notificationStripBody}>
-        <Text style={styles.notificationStripTitle}>{primary.title}</Text>
-        <Text numberOfLines={2} style={styles.notificationStripText}>
-          {primary.text}
-        </Text>
-      </View>
-      {notifications.length > 1 && <Text style={styles.notificationStripCount}>+{notifications.length - 1}</Text>}
     </View>
   );
 }
@@ -756,8 +734,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.22,
     shadowRadius: 16,
-    top: 58,
-    width: 230,
+    top: 94,
+    width: 244,
     zIndex: 1000,
   },
   notificationMenuItem: {
@@ -777,50 +755,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 15,
     marginTop: 3,
-  },
-  notificationStrip: {
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(255, 248, 236, 0.96)',
-    borderBottomColor: closetTheme.line,
-    borderBottomWidth: 1,
-    borderTopColor: closetTheme.line,
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  notificationStripBody: {
-    flex: 1,
-    gap: 2,
-  },
-  notificationStripCount: {
-    alignSelf: 'center',
-    color: closetTheme.camelDeep,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  notificationStripLabel: {
-    backgroundColor: closetTheme.camel,
-    borderRadius: 999,
-    color: closetTheme.white,
-    fontSize: 10,
-    fontWeight: '900',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    textTransform: 'uppercase',
-  },
-  notificationStripText: {
-    color: closetTheme.muted,
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 15,
-  },
-  notificationStripTitle: {
-    color: closetTheme.ink,
-    fontSize: 13,
-    fontWeight: '900',
   },
   bellIcon: {
     alignItems: 'center',
