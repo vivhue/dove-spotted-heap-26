@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CategoryId, WardrobeItem, categoryFilters, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
@@ -18,6 +18,7 @@ const filterToCategory: Record<string, CategoryId> = {
 };
 const priceRanges = ['All prices', 'Under $50', '$50-$100', '$100+'] as const;
 const fitFilters = ['All fits', 'Fitted', 'Relaxed', 'Structured'] as const;
+const wardrobeBackground = require('../../../assets/images/wardrobe-bg.png');
 
 type PriceRange = typeof priceRanges[number];
 type FitFilter = typeof fitFilters[number];
@@ -57,88 +58,95 @@ export function WardrobeScreen({
   }, [activeFilter, colorFilter, fitFilter, items, mode, priceRange]);
 
   return (
-    <AppScreen activeTab={mode} onNavigate={onNavigate} title="My wardrobe">
-      <View style={styles.toggle}>
-        <Pressable
-          onPress={() => onNavigate('closet')}
-          style={[styles.toggleButton, mode === 'closet' && styles.toggleButtonSelected]}>
-          <Text style={[styles.toggleText, mode === 'closet' && styles.toggleTextSelected]}>Closet</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onNavigate('wishlist')}
-          style={[styles.toggleButton, mode === 'wishlist' && styles.toggleButtonSelected]}>
-          <Text style={[styles.toggleText, mode === 'wishlist' && styles.toggleTextSelected]}>Wishlist</Text>
-        </Pressable>
-      </View>
+    <AppScreen activeTab={mode} onNavigate={onNavigate} showStatus={false}>
+      <View style={styles.background}>
+        <Image source={wardrobeBackground} resizeMode="stretch" style={styles.backgroundImage} />
+        <View style={styles.scrim}>
+          <Text style={styles.screenTitle}>My wardrobe</Text>
 
-      <View style={styles.actionRow}>
-        <Pressable style={styles.tryOnButton} onPress={() => onNavigate('try-on')}>
-          <LineIcon name="✦" color={closetTheme.camelDeep} />
-          <Text style={styles.tryOnText}>Try it on</Text>
-        </Pressable>
+          <View style={styles.toggle}>
+            <Pressable
+              onPress={() => onNavigate('closet')}
+              style={[styles.toggleButton, mode === 'closet' && styles.toggleButtonSelected]}>
+              <Text style={[styles.toggleText, mode === 'closet' && styles.toggleTextSelected]}>Closet</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => onNavigate('wishlist')}
+              style={[styles.toggleButton, mode === 'wishlist' && styles.toggleButtonSelected]}>
+              <Text style={[styles.toggleText, mode === 'wishlist' && styles.toggleTextSelected]}>Wishlist</Text>
+            </Pressable>
+          </View>
 
-        {mode === 'wishlist' && (
-          <Pressable style={[styles.filterButton, isFilterOpen && styles.filterButtonOpen]} onPress={() => setIsFilterOpen((isOpen) => !isOpen)}>
-            <LineIcon name="⌄" color={closetTheme.camelDeep} />
-            <Text style={styles.tryOnText}>Filter</Text>
-          </Pressable>
-        )}
-      </View>
+          <View style={styles.actionRow}>
+            <Pressable style={styles.tryOnButton} onPress={() => onNavigate('try-on')}>
+              <LineIcon name="✦" color={closetTheme.camelDeep} />
+              <Text style={styles.tryOnText}>Try it on</Text>
+            </Pressable>
 
-      {mode === 'wishlist' && isFilterOpen && (
-        <View style={styles.wishlistFilters}>
-          <FilterChipRow
-            label="Price"
-            options={priceRanges}
-            selected={priceRange}
-            onSelect={(value) => setPriceRange(value as PriceRange)}
-          />
-          <FilterChipRow
-            label="Color"
-            options={wishlistColors}
-            selected={colorFilter}
-            onSelect={setColorFilter}
-          />
-          <FilterChipRow
-            label="Fit"
-            options={fitFilters}
-            selected={fitFilter}
-            onSelect={(value) => setFitFilter(value as FitFilter)}
-          />
+            {mode === 'wishlist' && (
+              <Pressable style={[styles.filterButton, isFilterOpen && styles.filterButtonOpen]} onPress={() => setIsFilterOpen((isOpen) => !isOpen)}>
+                <LineIcon name="⌄" color={closetTheme.camelDeep} />
+                <Text style={styles.tryOnText}>Filter</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {mode === 'wishlist' && isFilterOpen && (
+            <View style={styles.wishlistFilters}>
+              <FilterChipRow
+                label="Price"
+                options={priceRanges}
+                selected={priceRange}
+                onSelect={(value) => setPriceRange(value as PriceRange)}
+              />
+              <FilterChipRow
+                label="Color"
+                options={wishlistColors}
+                selected={colorFilter}
+                onSelect={setColorFilter}
+              />
+              <FilterChipRow
+                label="Fit"
+                options={fitFilters}
+                selected={fitFilter}
+                onSelect={(value) => setFitFilter(value as FitFilter)}
+              />
+            </View>
+          )}
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroller} contentContainerStyle={styles.chips}>
+            {categoryFilters.map((filter) => (
+              <Pressable
+                key={filter}
+                onPress={() => setActiveFilter(filter)}
+                style={[styles.chip, activeFilter === filter && styles.chipSelected]}>
+                <Text style={[styles.chipText, activeFilter === filter && styles.chipTextSelected]}>{filter}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <ScrollView contentContainerStyle={styles.grid}>
+            {isLoadingItems && (
+              <View style={styles.emptyState}>
+                <ActivityIndicator color={closetTheme.camelDeep} />
+                <Text style={styles.emptyText}>Loading your saved items...</Text>
+              </View>
+            )}
+            {!isLoadingItems && itemsError !== '' && filteredItems.length === 0 && <Text style={styles.emptyText}>{itemsError}</Text>}
+            {filteredItems.map((item) => (
+              <View key={item.id} style={styles.cardWrap}>
+                <WardrobeCard
+                  isWorn={mode === 'closet' && selectedOutfit[item.category] === item.id}
+                  item={item}
+                  onPress={mode === 'closet' ? () => toggleWornItem(item) : undefined}
+                  showHeart={mode === 'closet'}
+                />
+              </View>
+            ))}
+            {!isLoadingItems && !itemsError && filteredItems.length === 0 && <Text style={styles.emptyText}>No items in digital closet. Tap + to upload one.</Text>}
+          </ScrollView>
         </View>
-      )}
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroller} contentContainerStyle={styles.chips}>
-        {categoryFilters.map((filter) => (
-          <Pressable
-            key={filter}
-            onPress={() => setActiveFilter(filter)}
-            style={[styles.chip, activeFilter === filter && styles.chipSelected]}>
-            <Text style={[styles.chipText, activeFilter === filter && styles.chipTextSelected]}>{filter}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      <ScrollView contentContainerStyle={styles.grid}>
-        {isLoadingItems && (
-          <View style={styles.emptyState}>
-            <ActivityIndicator color={closetTheme.camelDeep} />
-            <Text style={styles.emptyText}>Loading your saved items...</Text>
-          </View>
-        )}
-        {!isLoadingItems && itemsError !== '' && filteredItems.length === 0 && <Text style={styles.emptyText}>{itemsError}</Text>}
-        {filteredItems.map((item) => (
-          <View key={item.id} style={styles.cardWrap}>
-            <WardrobeCard
-              isWorn={mode === 'closet' && selectedOutfit[item.category] === item.id}
-              item={item}
-              onPress={mode === 'closet' ? () => toggleWornItem(item) : undefined}
-              showHeart={mode === 'closet'}
-            />
-          </View>
-        ))}
-        {!isLoadingItems && !itemsError && filteredItems.length === 0 && <Text style={styles.emptyText}>No items in digital closet. Tap + to upload one.</Text>}
-      </ScrollView>
+      </View>
     </AppScreen>
   );
 }
@@ -254,6 +262,30 @@ function titleCase(value: string) {
 }
 
 const styles = StyleSheet.create({
+  background: {
+    backgroundColor: '#D8AA70',
+    flex: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  backgroundImage: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  scrim: {
+    backgroundColor: 'rgba(247,239,226,0.48)',
+    flex: 1,
+  },
+  screenTitle: {
+    color: closetTheme.ink,
+    fontSize: 28,
+    fontWeight: '900',
+    marginHorizontal: 22,
+    marginTop: 112,
+  },
   toggle: {
     backgroundColor: closetTheme.blueWash,
     borderRadius: 18,

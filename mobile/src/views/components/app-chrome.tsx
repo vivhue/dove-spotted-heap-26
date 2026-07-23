@@ -1,11 +1,12 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvatarChoice, ScreenId } from '@/models/closet';
 import { useClosetStore } from '@/stores/closet-store';
 import { closetPaperBackground, closetTheme, closetTypography } from '@/views/components/closet-theme';
-import { CalendarIcon, ClosetIcon, LineIcon } from '@/views/components/closet-icons';
+import { CalendarIcon, ClosetIcon } from '@/views/components/closet-icons';
+import { PixelAvatar } from '@/views/components/pixel-avatar';
 
 type ScreenProps = {
   avatarMenuActions?: AvatarMenuAction[];
@@ -31,13 +32,10 @@ export type AppNotification = {
 };
 
 export function AppScreen({
-  activeTab = 'home',
   avatarMenuActions,
-  bottomNavOverlay = false,
   children,
   notifications,
   onNavigate,
-  showBottomNav = true,
   showStatus = true,
   title,
 }: ScreenProps) {
@@ -64,49 +62,97 @@ export function AppScreen({
   return (
     <SafeAreaView style={styles.safe}>
       {showStatus && <StatusRow />}
+      <View pointerEvents="box-none" style={styles.topShortcuts}>
+        <Pressable accessibilityLabel="Go home" style={styles.homeShortcut} onPress={() => onNavigate('home')}>
+          <PixelHomeIcon color={closetTheme.ink} />
+        </Pressable>
+        {isAvatarMenuOpen && <Pressable style={styles.avatarMenuBackdrop} onPress={() => setIsAvatarMenuOpen(false)} />}
+        <View style={styles.topShortcutActions}>
+          <NotificationButton
+            unread={hasUnreadNotification}
+            onPress={() => {
+              setIsNotificationsOpen((isOpen) => !isOpen);
+              setReadNotificationIds(shownNotifications.map((notification) => notification.id));
+            }}
+          />
+          <AvatarButton avatar={userAvatar} initial={userInitial} onPress={pressAvatar} />
+        </View>
+        {isNotificationsOpen && <NotificationMenu notifications={shownNotifications} />}
+        {isAvatarMenuOpen && avatarMenuActions && (
+          <View style={styles.avatarMenu}>
+            {avatarMenuActions.map((action, index) => (
+              <Pressable
+                key={action.label}
+                style={[styles.avatarMenuItem, index === avatarMenuActions.length - 1 && styles.avatarMenuItemLast]}
+                onPress={() => {
+                  setIsAvatarMenuOpen(false);
+                  action.onPress();
+                }}>
+                <Text style={styles.avatarMenuText}>{action.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
       {title && (
         <View style={styles.pageHead}>
           <Text style={styles.pageTitle}>{title}</Text>
-          {isAvatarMenuOpen && <Pressable style={styles.avatarMenuBackdrop} onPress={() => setIsAvatarMenuOpen(false)} />}
-          <View style={styles.pageActions}>
-            <NotificationButton
-              unread={hasUnreadNotification}
-              onPress={() => {
-                setIsNotificationsOpen((isOpen) => !isOpen);
-                setReadNotificationIds(shownNotifications.map((notification) => notification.id));
-              }}
-            />
-            <AvatarButton avatar={userAvatar} initial={userInitial} onPress={pressAvatar} />
-          </View>
-          {isNotificationsOpen && <NotificationMenu notifications={shownNotifications} />}
-          {isAvatarMenuOpen && avatarMenuActions && (
-            <View style={styles.avatarMenu}>
-              {avatarMenuActions.map((action, index) => (
-                <Pressable
-                  key={action.label}
-                  style={[styles.avatarMenuItem, index === avatarMenuActions.length - 1 && styles.avatarMenuItemLast]}
-                  onPress={() => {
-                    setIsAvatarMenuOpen(false);
-                    action.onPress();
-                  }}>
-                  <Text style={styles.avatarMenuText}>{action.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
         </View>
       )}
       <View style={styles.body}>{children}</View>
-      {showBottomNav && (
-        <BottomNav
-          activeTab={activeTab}
-          avatar={userAvatar}
-          initial={userInitial}
-          overlay={bottomNavOverlay}
-          onNavigate={onNavigate}
-        />
-      )}
+      <BottomAvatarTrack bottomOffset={18} onPress={() => onNavigate('discover')} />
     </SafeAreaView>
+  );
+}
+
+const avatarTrackTripDurationMs = 22000;
+const avatarTrackCycleDurationMs = avatarTrackTripDurationMs * 2;
+
+function BottomAvatarTrack({ bottomOffset, onPress }: { bottomOffset: number; onPress: () => void }) {
+  const { currentUser } = useClosetStore();
+  const [walkProgress] = useState(() => new Animated.Value(0));
+  const [trackWidth, setTrackWidth] = useState(0);
+  const avatarWidth = 58;
+  const travelDistance = Math.max(0, trackWidth - avatarWidth);
+  const translateX = walkProgress.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, travelDistance, 0],
+  });
+
+  function rememberTrackWidth(event: LayoutChangeEvent) {
+    setTrackWidth(event.nativeEvent.layout.width);
+  }
+
+  useEffect(() => {
+    walkProgress.setValue(0);
+    const animation = Animated.loop(
+      Animated.timing(walkProgress, {
+        duration: avatarTrackCycleDurationMs,
+        easing: Easing.inOut(Easing.quad),
+        isInteraction: false,
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+      {
+        iterations: -1,
+        resetBeforeIteration: true,
+      }
+    );
+
+    animation.start();
+
+    return () => animation.stop();
+  }, [walkProgress]);
+
+  return (
+    <View pointerEvents="box-none" style={[styles.avatarTrack, { bottom: bottomOffset }]} onLayout={rememberTrackWidth}>
+      <View pointerEvents="none" style={styles.avatarTrackLine} />
+      <Animated.View style={[styles.walkingAvatar, { transform: [{ translateX }] }]}>
+        <Pressable accessibilityLabel="Open Style chat" style={styles.walkingAvatarButton} onPress={onPress}>
+          <PixelAvatar config={currentUser?.pixelAvatar} scale={0.34} />
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -182,7 +228,7 @@ export function BottomNav({
   overlay?: boolean;
   onNavigate: (screen: ScreenId) => void;
 }) {
-  const tabs: Array<{ icon: (selected: boolean) => ReactNode; id: ScreenId; label: string; matches: ScreenId[] }> = [
+  const tabs: { icon: (selected: boolean) => ReactNode; id: ScreenId; label: string; matches: ScreenId[] }[] = [
     {
       id: 'home',
       label: 'Home',
@@ -556,7 +602,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 22,
-    paddingTop: 14,
+    paddingTop: 78,
     zIndex: 20,
   },
   pageTitle: {
@@ -565,7 +611,27 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
   },
-  pageActions: {
+  topShortcuts: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    left: 18,
+    position: 'absolute',
+    right: 18,
+    top: 28,
+    zIndex: 1200,
+  },
+  homeShortcut: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,252,245,0.88)',
+    borderColor: closetTheme.line,
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  topShortcutActions: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
@@ -771,6 +837,34 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+  },
+  avatarTrack: {
+    height: 54,
+    left: 18,
+    position: 'absolute',
+    right: 18,
+    zIndex: 45,
+  },
+  avatarTrackLine: {
+    backgroundColor: 'rgba(16,35,59,0.24)',
+    bottom: 8,
+    height: 2,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
+  walkingAvatar: {
+    bottom: 4,
+    height: 58,
+    justifyContent: 'flex-end',
+    position: 'absolute',
+    width: 58,
+  },
+  walkingAvatarButton: {
+    alignItems: 'center',
+    height: 58,
+    justifyContent: 'flex-end',
+    width: 58,
   },
   navbar: {
     alignItems: 'center',

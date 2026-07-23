@@ -18,6 +18,12 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
   const { addItem, currentUser } = useClosetStore();
 
   async function pickImage(source: 'camera' | 'library') {
+    if (!currentUser) {
+      setStatus('Sign in or create an account to upload clothes.');
+      onNavigate('account');
+      return;
+    }
+
     const permission =
       source === 'camera'
         ? await ImagePicker.requestCameraPermissionsAsync()
@@ -56,7 +62,8 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
     }
 
     if (!currentUser) {
-      setStatus('Create an account before saving clothes.');
+      setStatus('Sign in or create an account to save clothes.');
+      onNavigate('account');
       return;
     }
 

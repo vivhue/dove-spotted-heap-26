@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -10,23 +10,14 @@ import {
   View,
 } from 'react-native';
 
-import { CategoryId, defaultPixelAvatar, ScreenId } from '@/models/closet';
-import { useClosetStore } from '@/stores/closet-store';
+import { CategoryId, ScreenId } from '@/models/closet';
 import { AppScreen } from '@/views/components/app-chrome';
-import { PixelAvatar } from '@/views/components/pixel-avatar';
 
 type Props = {
   activeCategory: CategoryId;
   onCategoryChange: (category: CategoryId) => void;
   onNavigate: (screen: ScreenId) => void;
 };
-
-const stylistSpots = [
-  { left: 74, top: 448, zIndex: 16 },
-  { left: 256, top: 506, zIndex: 16 },
-  { left: 134, top: 340, zIndex: 7 },
-  { left: 286, top: 292, zIndex: 18 },
-];
 
 const homeRoomImages: ImageSourcePropType[] = [
   require('../../../assets/images/home.png'),
@@ -35,27 +26,9 @@ const homeRoomImages: ImageSourcePropType[] = [
 ];
 
 export function HomeScreen({ onNavigate }: Props) {
-  const [avatarPose, setAvatarPose] = useState<'idle' | 'wave'>('idle');
   const [roomIndex, setRoomIndex] = useState(0);
-  const [stylistSpot, setStylistSpot] = useState(0);
   const roomOpacity = useRef(new Animated.Value(1)).current;
   const roomSlideX = useRef(new Animated.Value(0)).current;
-  const { currentUser } = useClosetStore();
-  const pixelAvatar = { ...defaultPixelAvatar, ...(currentUser?.pixelAvatar ?? {}) };
-  const stylistPosition = stylistSpots[stylistSpot % stylistSpots.length];
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setStylistSpot((spot) => (spot + 1) % stylistSpots.length);
-      setAvatarPose((pose) => (pose === 'idle' ? 'wave' : 'idle'));
-    }, 1700);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  function openStylistChat() {
-    onNavigate('discover');
-  }
 
   function openRoomTarget() {
     if (roomIndex === 1) {
@@ -110,17 +83,6 @@ export function HomeScreen({ onNavigate }: Props) {
             <PixelRoom source={homeRoomImages[roomIndex]} />
           </Animated.View>
         </Pressable>
-        <View
-          style={[
-            styles.stylistAvatar,
-            {
-              left: stylistPosition.left,
-              top: stylistPosition.top,
-              zIndex: stylistPosition.zIndex,
-            },
-          ]}>
-          <PixelAvatar config={pixelAvatar} interactive pose={avatarPose} scale={0.42} onPress={openStylistChat} />
-        </View>
         {roomIndex === 2 && (
           <Pressable
             accessibilityLabel="Open planner"
@@ -837,8 +799,5 @@ const styles = StyleSheet.create({
   rightHingeBottom: {
     bottom: 54,
     left: -9,
-  },
-  stylistAvatar: {
-    position: 'absolute',
   },
 });

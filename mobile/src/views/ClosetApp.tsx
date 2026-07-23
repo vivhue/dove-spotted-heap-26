@@ -1,7 +1,6 @@
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { useClosetApp } from '@/controllers/use-closet-app';
-import { useClosetStore } from '@/stores/closet-store';
 import { closetPaperBackground, closetTheme } from '@/views/components/closet-theme';
 import { AccountScreen } from '@/views/screens/AccountScreen';
 import { AddItemScreen } from '@/views/screens/AddItemScreen';
@@ -15,7 +14,6 @@ import { TryOnScreen } from '@/views/screens/TryOnScreen';
 import { WardrobeScreen } from '@/views/screens/WardrobeScreen';
 
 export function ClosetApp() {
-  const { currentUser } = useClosetStore();
   const {
     activeCategory,
     goTo,
@@ -26,12 +24,10 @@ export function ClosetApp() {
     setActiveCategory,
     updateMeasurement,
   } = useClosetApp();
-  const needsAccount = !currentUser && screen !== 'splash';
-  const shownScreen = needsAccount ? 'account' : screen;
+  const shownScreen = screen;
 
   function openAfterLanding() {
-    const nextScreen = currentUser ? 'home' : 'account';
-    goTo(nextScreen);
+    goTo('home');
   }
 
   function openDashboardAfterAuth() {

@@ -10,14 +10,16 @@ import { closetTheme } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 import { WardrobeCard } from '@/views/components/wardrobe-card';
 
-const tryOnMirrorImage = require('../../../assets/images/try-on-mirror.png');
-const defaultPhotoAspectRatio = 0.64;
-const mirrorGlassWidthRatio = 0.752;
-const mirrorGlassLeftRatio = 0.124;
-const mirrorTopRatio = 0.298;
-const mirrorBottomRatio = 0.48;
-const minMirrorGlassHeight = 300;
-const maxMirrorGlassHeight = 560;
+const tryOnMirrorImage = require('../../../assets/images/try-on-mirror-v2.jpg');
+const tryOnBackdrop = '#E79A6C';
+const mirrorArtAspectRatio = 474 / 1024;
+const mirrorGlassWidthRatio = 0.426;
+const mirrorGlassHeightRatio = 0.505;
+const mirrorGlassLeftRatio = 0.312;
+const mirrorGlassTopRatio = 0.259;
+const mirrorPhotoInset = 2;
+const mirrorControlsTopRatio = 0.89;
+const mirrorStageHeightRatio = 1.08;
 
 export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
   const { width: windowWidth } = useWindowDimensions();
@@ -25,7 +27,6 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
   const tryOnItems = [...closetItems, ...wishlistItems];
   const [avatarUrl, setAvatarUrl] = useState('');
   const [displayPhotoUrl, setDisplayPhotoUrl] = useState('');
-  const [displayPhotoAspectRatio, setDisplayPhotoAspectRatio] = useState(defaultPhotoAspectRatio);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedGarmentId, setSelectedGarmentId] = useState<string | null>(null);
   const [status, setStatus] = useState('Checking your photo...');
@@ -36,24 +37,11 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
   const mirrorStageWidth = Math.min(Math.max(windowWidth - 24, 300), 360);
 
   useEffect(() => {
-    if (!displayPhotoUrl) {
-      setDisplayPhotoAspectRatio(defaultPhotoAspectRatio);
-      return;
-    }
-
-    Image.getSize(
-      displayPhotoUrl,
-      (width, height) => rememberPhotoAspect(width, height),
-      () => setDisplayPhotoAspectRatio(defaultPhotoAspectRatio),
-    );
-  }, [displayPhotoUrl]);
-
-  useEffect(() => {
     let isMounted = true;
 
     async function loadAvatar() {
       if (!currentUser) {
-        setStatus('Create an account before setting up your photo.');
+        setStatus('Sign in to upload your full-body photo.');
         setIsCheckingAvatar(false);
         return;
       }
@@ -87,18 +75,10 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
     };
   }, [currentUser]);
 
-  function rememberPhotoAspect(width?: number, height?: number) {
-    if (!width || !height) {
-      setDisplayPhotoAspectRatio(defaultPhotoAspectRatio);
-      return;
-    }
-
-    setDisplayPhotoAspectRatio(width / height);
-  }
-
   async function uploadAvatar() {
     if (!currentUser) {
-      setStatus('Create an account before setting up your photo.');
+      setStatus('Sign in or create an account to upload your photo.');
+      onNavigate('account');
       return;
     }
 
@@ -122,7 +102,6 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
     try {
       setIsSettingUp(true);
       setStatus('Saving your photo...');
-      rememberPhotoAspect(result.assets[0].width, result.assets[0].height);
       setDisplayPhotoUrl(result.assets[0].uri);
       const { avatarUrl: url } = await setupAvatar({ image: result.assets[0], userId: currentUser.id });
 
@@ -144,7 +123,8 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
     }
 
     if (!currentUser) {
-      setStatus('Create an account before trying on clothes.');
+      setStatus('Sign in or create an account before trying on clothes.');
+      onNavigate('account');
       return;
     }
 
@@ -174,66 +154,62 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
 
   return (
     <AppScreen activeTab="try-on" onNavigate={onNavigate} showStatus={false}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
-          <Text style={styles.heroTitle}>Virtual Try-On</Text>
-          <Text style={styles.heroSubtitle}>See how it looks before you wear it</Text>
-        </View>
+      <View style={styles.tryOnRoot}>
+        <ScrollView contentContainerStyle={styles.content}>
+          {step === 1 && (
+            <MirrorStage
+              actionRow={
+                <View style={styles.actionRow}>
+                  <Pressable
+                    disabled={isSettingUp}
+                    style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, isSettingUp && styles.disabled]}
+                    onPress={uploadAvatar}>
+                    {isSettingUp ? <ActivityIndicator color={closetTheme.camelDeep} /> : <LineIcon name="▧" color={closetTheme.camelDeep} />}
+                    <Text style={styles.secondaryText}>{avatarUrl ? 'Retake photo' : 'Upload photo'}</Text>
+                  </Pressable>
 
-        <StepTracker step={step} />
-
-        {step === 1 && (
-          <MirrorStage
-            actionRow={
-              <View style={styles.actionRow}>
-                <Pressable
-                  disabled={isSettingUp}
-                  style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, isSettingUp && styles.disabled]}
-                  onPress={uploadAvatar}>
-                  {isSettingUp ? <ActivityIndicator color={closetTheme.camelDeep} /> : <LineIcon name="▧" color={closetTheme.camelDeep} />}
-                  <Text style={styles.secondaryText}>{avatarUrl ? 'Retake photo' : 'Upload photo'}</Text>
-                </Pressable>
-
-                <Pressable
-                  disabled={!avatarUrl || isSettingUp}
-                  style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, (!avatarUrl || isSettingUp) && styles.disabled]}
-                  onPress={() => setStep(2)}>
-                  <Text style={styles.primaryText}>Continue</Text>
-                  <LineIcon name="›" color={closetTheme.cream} />
-                </Pressable>
-              </View>
-            }
-            photoAspectRatio={displayPhotoAspectRatio}
-            stageWidth={mirrorStageWidth}
-            status={status}>
-            <Pressable
-              disabled={isCheckingAvatar || isSettingUp}
-              style={({ pressed }) => [
-                styles.mirrorPressable,
-                pressed && styles.pressed,
-                (isCheckingAvatar || isSettingUp) && styles.disabled,
-              ]}
-              onPress={uploadAvatar}>
-              {displayPhotoUrl ? (
-                <Image source={{ uri: displayPhotoUrl }} style={styles.userPhoto} resizeMode="contain" />
-              ) : (
-                <View style={styles.emptyPhoto}>
-                  {isCheckingAvatar || isSettingUp ? (
-                    <ActivityIndicator color={closetTheme.ink} />
-                  ) : (
-                    <>
-                      <LineIcon name="▧" color={closetTheme.muted} />
-                      <Text style={styles.emptyTitle}>Upload full-body photo</Text>
-                    </>
-                  )}
+                  <Pressable
+                    disabled={!avatarUrl || isSettingUp}
+                    style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, (!avatarUrl || isSettingUp) && styles.disabled]}
+                    onPress={() => setStep(2)}>
+                    <Text style={styles.primaryText}>Continue</Text>
+                    <LineIcon name="›" color={closetTheme.cream} />
+                  </Pressable>
                 </View>
-              )}
-            </Pressable>
-          </MirrorStage>
-        )}
+              }
+              stageWidth={mirrorStageWidth}
+              step={step}
+              status={status}>
+              <Pressable
+                disabled={isCheckingAvatar || isSettingUp}
+                style={({ pressed }) => [
+                  styles.mirrorPressable,
+                  pressed && styles.pressed,
+                  (isCheckingAvatar || isSettingUp) && styles.disabled,
+                ]}
+                onPress={uploadAvatar}>
+                {displayPhotoUrl ? (
+                  <Image source={{ uri: displayPhotoUrl }} style={styles.userPhoto} resizeMode="cover" />
+                ) : (
+                  <View style={styles.emptyPhoto}>
+                    {isCheckingAvatar || isSettingUp ? (
+                      <ActivityIndicator color={closetTheme.ink} />
+                    ) : (
+                      <>
+                        <LineIcon name="▧" color={closetTheme.muted} />
+                        <Text style={styles.emptyTitle}>Upload full-body photo</Text>
+                      </>
+                    )}
+                  </View>
+                )}
+              </Pressable>
+            </MirrorStage>
+          )}
 
         {step === 2 && (
           <>
+            <TryOnHeader />
+            <StepTracker step={step} />
             <Text style={styles.sectionHeading}>Pick a piece to try on</Text>
             {tryOnItems.length === 0 ? (
               <View style={styles.emptyGarments}>
@@ -293,11 +269,11 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
                 </Pressable>
               </View>
             }
-            photoAspectRatio={displayPhotoAspectRatio}
             stageWidth={mirrorStageWidth}
+            step={step}
             status={status}>
               {displayPhotoUrl ? (
-                <Image source={{ uri: displayPhotoUrl }} style={styles.userPhoto} resizeMode="contain" />
+                <Image source={{ uri: displayPhotoUrl }} style={styles.userPhoto} resizeMode="cover" />
               ) : (
                 <View style={styles.emptyPhoto}>
                   <ActivityIndicator color={closetTheme.camelDeep} />
@@ -306,28 +282,41 @@ export function TryOnScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => 
               )}
           </MirrorStage>
         )}
-      </ScrollView>
+        </ScrollView>
+      </View>
     </AppScreen>
+  );
+}
+
+function TryOnHeader() {
+  return (
+    <View style={styles.hero}>
+      <Text style={styles.heroTitle}>Virtual Try-On</Text>
+      <Text style={styles.heroSubtitle}>See how it looks before you wear it</Text>
+    </View>
   );
 }
 
 function MirrorStage({
   actionRow,
   children,
-  photoAspectRatio,
   stageWidth,
+  step,
   status,
 }: {
   actionRow: React.ReactNode;
   children: React.ReactNode;
-  photoAspectRatio: number;
   stageWidth: number;
+  step: 1 | 2 | 3;
   status: string;
 }) {
+  const baseStageHeight = stageWidth / mirrorArtAspectRatio;
   const glassWidth = stageWidth * mirrorGlassWidthRatio;
-  const glassHeight = Math.min(Math.max(glassWidth / photoAspectRatio, minMirrorGlassHeight), maxMirrorGlassHeight);
-  const topOffset = stageWidth * mirrorTopRatio;
-  const stageHeight = topOffset + glassHeight + stageWidth * mirrorBottomRatio;
+  const glassHeight = baseStageHeight * mirrorGlassHeightRatio;
+  const topOffset = baseStageHeight * mirrorGlassTopRatio;
+  const stageHeight = baseStageHeight * mirrorStageHeightRatio;
+  const controlsTop = baseStageHeight * mirrorControlsTopRatio;
+  const shouldShowStatus = status !== 'Photo ready. Continue to pick a garment.';
 
   return (
     <ImageBackground
@@ -340,6 +329,11 @@ function MirrorStage({
           width: stageWidth,
         },
       ]}>
+      <View style={styles.mirrorHeader}>
+        <Text style={styles.mirrorHeroTitle}>Virtual Try-On</Text>
+        <Text style={styles.mirrorHeroSubtitle}>See how it looks before you wear it</Text>
+        <StepTracker step={step} variant="mirror" />
+      </View>
       <View
         style={[
           styles.mirrorGlass,
@@ -350,19 +344,19 @@ function MirrorStage({
             width: glassWidth,
           },
         ]}>
-        {children}
+        <View style={styles.mirrorPhotoMask}>{children}</View>
       </View>
-      <View style={[styles.mirrorControls, { top: topOffset + glassHeight + 12 }]}>
-        <Text style={styles.statusText}>{status}</Text>
+      <View style={[styles.mirrorControls, { top: controlsTop }]}>
+        {shouldShowStatus && <Text style={styles.statusText}>{status}</Text>}
         {actionRow}
       </View>
     </ImageBackground>
   );
 }
 
-function StepTracker({ step }: { step: 1 | 2 | 3 }) {
+function StepTracker({ step, variant = 'default' }: { step: 1 | 2 | 3; variant?: 'default' | 'mirror' }) {
   return (
-    <View style={styles.stepper}>
+    <View style={[styles.stepper, variant === 'mirror' && styles.stepperMirror]}>
       {[1, 2, 3].map((value, index) => {
         const isComplete = step > value;
         const isActive = step === value;
@@ -381,12 +375,18 @@ function StepTracker({ step }: { step: 1 | 2 | 3 }) {
 }
 
 const styles = StyleSheet.create({
+  tryOnRoot: {
+    backgroundColor: tryOnBackdrop,
+    flex: 1,
+  },
   content: {
-    paddingBottom: 28,
+    backgroundColor: tryOnBackdrop,
+    paddingBottom: 0,
     paddingHorizontal: 12,
+    paddingTop: 48,
   },
   hero: {
-    marginTop: 12,
+    marginTop: 52,
   },
   heroTitle: {
     color: closetTheme.ink,
@@ -404,8 +404,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 18,
-    marginTop: 22,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  stepperMirror: {
+    marginBottom: 0,
+    marginTop: 6,
+    transform: [{ scale: 0.68 }],
   },
   stepSegment: {
     alignItems: 'center',
@@ -453,13 +458,40 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     position: 'relative',
   },
+  mirrorHeader: {
+    left: '5%',
+    position: 'absolute',
+    right: '5%',
+    top: '3.2%',
+    zIndex: 3,
+  },
+  mirrorHeroTitle: {
+    color: closetTheme.ink,
+    fontSize: 24,
+    fontWeight: '900',
+    lineHeight: 28,
+  },
+  mirrorHeroSubtitle: {
+    color: closetTheme.muted,
+    fontSize: 11,
+    fontWeight: '900',
+    marginTop: 2,
+  },
   mirrorGlass: {
     alignItems: 'center',
-    backgroundColor: '#D6D6D6',
+    backgroundColor: '#BFC0BB',
     justifyContent: 'center',
     overflow: 'hidden',
     position: 'absolute',
     zIndex: 2,
+  },
+  mirrorPhotoMask: {
+    bottom: mirrorPhotoInset,
+    left: mirrorPhotoInset,
+    overflow: 'hidden',
+    position: 'absolute',
+    right: mirrorPhotoInset,
+    top: mirrorPhotoInset,
   },
   mirrorControls: {
     left: '8%',

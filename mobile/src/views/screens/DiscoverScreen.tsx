@@ -120,10 +120,28 @@ export function DiscoverScreen({
     return `${prefix}-${messageId.current}`;
   }
 
+  function requireAccount() {
+    if (currentUser) {
+      return true;
+    }
+
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      { id: nextMessageId('bot'), role: 'bot', text: 'Sign in or create an account to use the stylist chat with your closet.' },
+    ]);
+    onNavigate('account');
+
+    return false;
+  }
+
   async function sendMessage(text = draft) {
     const trimmed = text.trim();
 
     if (!trimmed) {
+      return;
+    }
+
+    if (!requireAccount()) {
       return;
     }
 
@@ -184,6 +202,10 @@ export function DiscoverScreen({
   }
 
   async function pickReferenceImage() {
+    if (!requireAccount()) {
+      return;
+    }
+
     setIsModeOpen(false);
     setClosetSheetOpen(false);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -216,12 +238,20 @@ export function DiscoverScreen({
   }
 
   function toggleVoiceInput() {
+    if (!requireAccount()) {
+      return;
+    }
+
     setIsModeOpen(false);
     setClosetSheetOpen(false);
     setIsVoiceActive((isActive) => !isActive);
   }
 
   function openClosetSheet() {
+    if (!requireAccount()) {
+      return;
+    }
+
     setIsModeOpen(false);
     setClosetSheetOpen(true);
   }
@@ -232,6 +262,10 @@ export function DiscoverScreen({
   }
 
   function startQuiz(mode: QuizState['mode']) {
+    if (!requireAccount()) {
+      return;
+    }
+
     const question = mode === 'style' ? styleQuiz[0] : colorQuiz[0];
     setQuiz({ answers: [], index: 0, mode });
     setMessages((currentMessages) => [
@@ -246,6 +280,10 @@ export function DiscoverScreen({
   }
 
   function chooseQuizAnswer(value: string) {
+    if (!requireAccount()) {
+      return;
+    }
+
     if (!quiz) {
       return;
     }
@@ -318,10 +356,6 @@ export function DiscoverScreen({
   return (
     <AppScreen activeTab="discover" onNavigate={onNavigate}>
       <View style={styles.chatScreen}>
-        <Pressable style={styles.closeButton} onPress={() => onNavigate('home')}>
-          <LineIcon name="×" color={closetTheme.ink} />
-        </Pressable>
-
         {!isChatActive && (
           <View style={styles.chatHero}>
             <Text style={styles.heroGreeting}>{greeting}, {displayName}</Text>
@@ -569,25 +603,14 @@ const styles = StyleSheet.create({
   chatScreen: {
     flex: 1,
     paddingHorizontal: 18,
-    paddingTop: 12,
-  },
-  closeButton: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
-    borderRadius: 24,
-    borderWidth: 1,
-    height: 48,
-    justifyContent: 'center',
-    width: 48,
+    paddingTop: 58,
   },
   chatHero: {
     alignItems: 'center',
     flexShrink: 0,
     justifyContent: 'center',
     paddingBottom: 18,
-    paddingTop: 18,
+    paddingTop: 34,
   },
   heroGreeting: {
     color: closetTheme.ink,
