@@ -23,24 +23,36 @@ npm run dev            # installs missing deps, then starts backend + Expo toget
 
 ## Deploy it
 
-To make the app reachable from anywhere, deploy the backend separately and point the mobile app at a public API URL.
+To make the app reachable from anywhere, use this split:
 
-1. Deploy `server.ts` to a Node host such as Render, Railway, or Fly.
-2. Set the same backend env vars on that host that you use locally in `.env`.
-3. Set `EXPO_PUBLIC_API_URL` in the mobile build environment to the public backend URL.
-4. Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for mobile auth.
-5. Use `render.yaml` as a starting point if you want a simple Render deploy.
-6. Build the mobile app with EAS for phone installs, or publish the web build for browser access.
+1. **Backend on Render** for the API.
+2. **Web deploy with Expo** so anyone can open it in a browser.
+3. **EAS dev build** for phones if Expo Go is incompatible.
+4. **Local dev** stays available with `npm run dev`.
 
-Useful Expo commands:
+The commands you will actually use:
 
 ```bash
+npm run dev
+npm --prefix mobile run web
+npm --prefix mobile run web:export
+npm --prefix mobile run deploy:web
+npm --prefix mobile run build:android:dev
 npx eas build -p android --profile development
-npx eas build -p android --profile preview
 npx eas build -p android --profile production
 npx eas build -p ios --profile preview
 npx eas build -p ios --profile production
 ```
+
+What each path is for:
+
+- `npm run dev` keeps your local backend + Expo dev server running.
+- `npm --prefix mobile run web` lets you test the web app locally.
+- `npm --prefix mobile run web:export` exports the web build for hosting.
+- `npm --prefix mobile run deploy:web` deploys the web build through Expo.
+- `npm --prefix mobile run build:android:dev` creates a development build for Android phones.
+
+If Expo Go says the project is incompatible, do **not** keep fighting Expo Go. Use the development build instead.
 
 Backend output is prefixed with `[backend]`; Expo output is prefixed with `[mobile]`.
 To run only the backend:
