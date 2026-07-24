@@ -4,7 +4,7 @@ import appJson from './app.json';
 
 const config = appJson.expo as ExpoConfig;
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? config.extra?.apiUrl ?? 'http://localhost:8080';
+const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? config.extra?.apiUrl ?? 'https://your-backend.example.com';
 
 export default {
   ...config,

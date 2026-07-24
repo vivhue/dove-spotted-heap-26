@@ -94,6 +94,7 @@ type ClosetChatRequest = {
 
 const root = __dirname;
 const port = Number(process.env.PORT || 8080);
+const host = process.env.HOST || '0.0.0.0';
 const maxUploadBytes = Number(process.env.MAX_UPLOAD_MB || 15) * 1024 * 1024;
 const presignExpiresSeconds = Number(process.env.PRESIGN_EXPIRES_SECONDS || 604800);
 const bgRemovalModel = process.env.BG_REMOVAL_MODEL || 'isnet-general-use';
@@ -138,6 +139,11 @@ const server = http.createServer(async (req: typeof http.IncomingMessage.prototy
 
     const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
     console.log(`${req.method} ${url.pathname}${url.search}`);
+
+    if (req.method === 'GET' && url.pathname === '/health') {
+      sendJson(res, 200, { ok: true });
+      return;
+    }
 
     if (req.method === 'POST' && url.pathname === '/api/avatar') {
       sendJson(res, 200, await handleAvatarUpload(req));
@@ -1403,8 +1409,8 @@ function sleep(ms: number) {
 if (require.main === module) {
   getRawDb();
   getBgWorker();
-  server.listen(port, () => {
-    console.log(`BoveCloset try-on API ready at http://localhost:${port}`);
+  server.listen(port, host, () => {
+    console.log(`BoveCloset try-on API ready at http://${host}:${port}`);
     console.log(`Background-removal model: ${bgRemovalModel}`);
     console.log(`IDM-VTON space: ${idmVtonSpace}`);
   });

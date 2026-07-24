@@ -313,7 +313,13 @@ function resolveApiBaseUrl() {
   const configuredUrl =
     process.env.EXPO_PUBLIC_API_URL ??
     (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
-    'http://localhost:8080';
+    '';
+
+  if (!configuredUrl) {
+    throw new Error(
+      'Missing EXPO_PUBLIC_API_URL. Set it to your public backend URL for deployed builds, or to your LAN/backend URL while developing locally.'
+    );
+  }
 
   if (Platform.OS === 'web' || !isLocalhostUrl(configuredUrl)) {
     return configuredUrl;

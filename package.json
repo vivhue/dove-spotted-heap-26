@@ -16,7 +16,7 @@
     "dev:run": "node scripts/dev-all.mjs",
     "dev:server": "node --env-file=.env --experimental-strip-types server.ts",
     "dev:mobile": "npm --prefix mobile run start",
-    "start": "node --env-file=.env --experimental-strip-types server.ts",
+    "start": "node --experimental-strip-types server.ts",
     "check": "node --experimental-strip-types -e \"require('./server.ts')\"",
     "test": "node --experimental-strip-types --test"
   },
