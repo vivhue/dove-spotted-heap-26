@@ -6,12 +6,14 @@ import { browseCategories, CategoryId, ScreenId, WardrobeFit, wardrobeFitOptions
 import { createGarment, updateGarment } from '@/services/closet-api';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { LineIcon } from '@/views/components/closet-icons';
 
 const addItemCategories = browseCategories
   .filter((category) => category.id !== 'dress')
   .map((category) => category.id === 'shirt' ? { ...category, label: 'Tops', shortLabel: 'Tops' } : category);
+const pixelCameraImage = require('../../../assets/images/pixel-camera.png');
+const pixelUploadImage = require('../../../assets/images/pixel-upload.png');
 
 // Server-managed garment ids are sha256 hashes; client-local items (e.g. saved
 // from the stylist chat) use readable prefixed ids and are edited locally.
@@ -29,7 +31,7 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
     editTarget?.destination === 'wishlist' ? 'Wishlist' : 'Closet'
   );
   const [status, setStatus] = useState(
-    editTarget ? `Editing "${editTarget.name}". Adjust the details below.` : 'Choose how to add your item.'
+    editTarget ? `Editing "${editTarget.name}". Adjust the details below.` : ''
   );
   const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -213,15 +215,15 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
       <ScrollView contentContainerStyle={styles.content}>
         {!isEditing && !selectedImage && (
           <>
-            <Text style={styles.sectionLabel}>Add a piece</Text>
+            <Text style={styles.sectionLabel}>Choose how to add your item.</Text>
             <OptionCard
-              icon="◉"
+              icon="camera"
               title="Take a photo"
               detail="Snap an item you own"
               onPress={() => pickImage('camera')}
             />
             <OptionCard
-              icon="▧"
+              icon="upload"
               title="Upload a picture"
               detail="Import from your gallery"
               onPress={() => pickImage('library')}
@@ -236,7 +238,7 @@ export function AddItemScreen({ onNavigate }: { onNavigate: (screen: ScreenId) =
               style={({ pressed }) => [styles.removeImageButton, pressed && styles.optionPressed]}
               onPress={() => {
                 setSelectedImage(null);
-                setStatus('Choose how to add your item.');
+                setStatus('');
               }}>
               <Text style={styles.removeImageText}>×</Text>
             </Pressable>
@@ -361,7 +363,7 @@ function DetailField({
         multiline={multiline}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={closetTheme.muted}
+        placeholderTextColor="#8A8A8A"
         style={[styles.detailInput, multiline && styles.detailInputMultiline]}
         value={value}
       />
@@ -383,7 +385,11 @@ function OptionCard({
   return (
     <Pressable style={({ pressed }) => [styles.option, pressed && styles.optionPressed]} onPress={onPress}>
       <View style={styles.optionIcon}>
-        <LineIcon name={icon} color={closetTheme.camelDeep} />
+        {icon === 'camera'
+          ? <Image source={pixelCameraImage} resizeMode="contain" style={styles.pixelCameraImage} />
+          : icon === 'upload'
+            ? <Image source={pixelUploadImage} resizeMode="contain" style={styles.pixelUploadImage} />
+          : <LineIcon name={icon} color="#000000" />}
       </View>
       <View style={styles.optionTextWrap}>
         <Text style={styles.optionTitle}>{title}</Text>
@@ -399,10 +405,11 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   sectionLabel: {
-    color: closetTheme.muted,
-    fontSize: 11,
+    color: '#7A4328',
+    fontSize: 14,
     fontWeight: '900',
     letterSpacing: 1.1,
+    lineHeight: 20,
     marginBottom: 8,
     marginHorizontal: 22,
     marginTop: 18,
@@ -411,7 +418,7 @@ const styles = StyleSheet.create({
   option: {
     alignItems: 'center',
     backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
+    borderColor: 'rgba(122,67,40,0.38)',
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',
@@ -425,7 +432,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
   },
   statusText: {
-    color: closetTheme.camelDeep,
+    color: '#000000',
     fontSize: 12,
     fontWeight: '800',
     marginHorizontal: 22,
@@ -473,22 +480,28 @@ const styles = StyleSheet.create({
   },
   optionIcon: {
     alignItems: 'center',
-    backgroundColor: closetTheme.creamDeep,
-    borderRadius: 13,
     height: 46,
     justifyContent: 'center',
     width: 46,
+  },
+  pixelCameraImage: {
+    height: 38,
+    width: 42,
+  },
+  pixelUploadImage: {
+    height: 38,
+    width: 42,
   },
   optionTextWrap: {
     flex: 1,
   },
   optionTitle: {
-    color: closetTheme.ink,
-    fontSize: 15,
+    color: '#000000',
+    fontSize: 13,
     fontWeight: '900',
   },
   optionDetail: {
-    color: closetTheme.muted,
+    color: '#7A4328',
     fontSize: 12,
     marginTop: 3,
   },
@@ -509,7 +522,7 @@ const styles = StyleSheet.create({
     borderColor: closetTheme.ink,
   },
   chipText: {
-    color: closetTheme.muted,
+    color: '#7A4328',
     fontSize: 12,
     fontWeight: '900',
   },
@@ -540,15 +553,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailLabel: {
-    color: closetTheme.camelDeep,
+    color: '#000000',
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
   },
   detailInput: {
-    color: closetTheme.ink,
+    color: '#000000',
+    fontFamily: closetTypography.inputFont,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '400',
     minHeight: 30,
     padding: 0,
   },
@@ -594,7 +608,7 @@ const styles = StyleSheet.create({
     borderColor: closetTheme.ink,
   },
   addToText: {
-    color: closetTheme.muted,
+    color: '#7A4328',
     fontSize: 13,
     fontWeight: '900',
   },
@@ -638,7 +652,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   cancelText: {
-    color: closetTheme.ink,
+    color: '#000000',
     fontSize: 13,
     fontWeight: '900',
   },

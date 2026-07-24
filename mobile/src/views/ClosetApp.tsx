@@ -17,12 +17,15 @@ import { WardrobeScreen } from '@/views/screens/WardrobeScreen';
 export function ClosetApp() {
   const {
     activeCategory,
+    editTrip,
+    editingTrip,
     goTo,
     measurements,
     saveTrip,
     screen,
     savedTrips,
     setActiveCategory,
+    startNewTrip,
     updateMeasurement,
   } = useClosetApp();
   const shownScreen = screen;
@@ -58,18 +61,20 @@ export function ClosetApp() {
         {screenId === 'add' && <AddItemScreen onNavigate={goTo} />}
         {screenId === 'try-on' && <TryOnScreen onNavigate={goTo} />}
         {screenId === 'look-history' && <LookHistoryScreen onNavigate={goTo} />}
-        {screenId === 'trip-planner' && <TripPlannerScreen onNavigate={goTo} onTripSaved={saveTrip} />}
+        {screenId === 'trip-planner' && <TripPlannerScreen editingTrip={editingTrip} onNavigate={goTo} onTripSaved={saveTrip} />}
         {screenId === 'account' && (
           <AccountScreen
             measurements={measurements}
             onAuthenticated={openDashboardAfterAuth}
+            onEditTrip={editTrip}
             onMeasurementChange={updateMeasurement}
             onNavigate={goTo}
+            onStartTrip={startNewTrip}
             savedTrips={savedTrips}
           />
         )}
         {screenId === 'discover' && <DiscoverScreen measurements={measurements} onNavigate={goTo} />}
-        {screenId === 'calendar' && <CalendarScreen onNavigate={goTo} />}
+        {screenId === 'calendar' && <CalendarScreen onEditTrip={editTrip} onNavigate={goTo} onStartTrip={startNewTrip} savedTrips={savedTrips} />}
       </>
     );
   }

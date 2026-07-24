@@ -101,6 +101,7 @@ export type WardrobeItem = {
 
 export type SavedTrip = {
   dateRange: string;
+  endDateKey?: string;
   id: string;
   looks: {
     id: string;
@@ -108,6 +109,7 @@ export type SavedTrip = {
     title: string;
   }[];
   packedItems: WardrobeItem[];
+  startDateKey?: string;
   title: string;
 };
 

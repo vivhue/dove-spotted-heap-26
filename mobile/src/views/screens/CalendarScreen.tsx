@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ScreenId, WardrobeItem } from '@/models/closet';
+import { SavedTrip, ScreenId, WardrobeItem } from '@/models/closet';
 import { getCachedWeatherSummary, getCurrentWeather, WeatherSummary } from '@/services/weather-recommendation';
 import { useClosetStore } from '@/stores/closet-store';
 import { AppScreen } from '@/views/components/app-chrome';
@@ -17,11 +17,22 @@ type PlannerDay = {
 const plannerBackground = require('../../../assets/images/planner-bg.png');
 const plannerWeatherLocation = 'Singapore';
 
-export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) => void }) {
+export function CalendarScreen({
+  onEditTrip,
+  onNavigate,
+  onStartTrip,
+  savedTrips,
+}: {
+  onEditTrip: (trip: SavedTrip) => void;
+  onNavigate: (screen: ScreenId) => void;
+  onStartTrip: () => void;
+  savedTrips: SavedTrip[];
+}) {
   const { closetItems, currentUser, scheduledOutfits, scheduleOutfitForDate, selectedOutfit, setEditingItem } = useClosetStore();
   const [monthDate, setMonthDate] = useState(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [isOutfitPickerOpen, setIsOutfitPickerOpen] = useState(false);
+  const [expandedTripIds, setExpandedTripIds] = useState<string[]>([]);
   const [pickerItemIds, setPickerItemIds] = useState<string[]>([]);
   const [weatherSummary, setWeatherSummary] = useState<WeatherSummary | null>(() => getCachedWeatherSummary(plannerWeatherLocation));
   const plannerDays = useMemo(() => buildPlannerDays(monthDate), [monthDate]);
@@ -36,10 +47,20 @@ export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
     [closetItemById, selectedOutfit]
   );
   const pickerItems = useMemo(() => itemsFromIds(pickerItemIds, closetItemById), [closetItemById, pickerItemIds]);
+  const selectedTrips = useMemo(
+    () => savedTrips.filter((trip) => isTripOnDate(trip, selectedDate)),
+    [savedTrips, selectedDate]
+  );
   const calendarHelpText =
     closetItems.length > 0
       ? `Tap + to choose clothes for ${formatShortDate(selectedDate)}.`
       : 'Upload clothes first, then schedule what you will wear.';
+  const selectedDateMessage =
+    selectedScheduledItems.length > 0
+      ? 'Outfit saved for this day.'
+      : selectedTrips.length > 0
+        ? 'Trip planned for this day.'
+        : calendarHelpText;
 
   useEffect(() => {
     let isActive = true;
@@ -102,18 +123,18 @@ export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
   }
 
   return (
-    <AppScreen activeTab="calendar" onNavigate={onNavigate} showStatus={false}>
+    <AppScreen activeTab="calendar" onNavigate={onNavigate} showStatus={false} showStylist={false}>
       <View style={styles.root}>
         <ImageBackground source={plannerBackground} resizeMode="cover" style={styles.background}>
           <View style={styles.scrim}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
               <View style={styles.monthRow}>
                 <Pressable style={styles.monthButton} onPress={() => shiftMonth(-1)}>
-                  <LineIcon name="‹" color={closetTheme.ink} />
+                  <LineIcon name="‹" color={closetTheme.cream} />
                 </Pressable>
                 <Text style={styles.monthTitle}>{formatPlannerMonth(monthDate)}</Text>
                 <Pressable style={styles.monthButton} onPress={() => shiftMonth(1)}>
-                  <LineIcon name="›" color={closetTheme.ink} />
+                  <LineIcon name="›" color={closetTheme.cream} />
                 </Pressable>
               </View>
 
@@ -128,11 +149,13 @@ export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
                 <View style={styles.daysGrid}>
                   {plannerDays.map((date, index) => {
                     const scheduledItemsForDay = itemsFromIds(scheduledOutfits[formatDateKey(date.date)] ?? [], closetItemById);
+                    const hasTripForDay = savedTrips.some((trip) => isTripOnDate(trip, date.date));
 
                     return (
                       <PlannerDayCell
                         key={`${date.day}-${date.inCurrentMonth}-${index}`}
                         date={date}
+                        hasTrip={date.inCurrentMonth && hasTripForDay}
                         item={scheduledItemsForDay[0]}
                         selected={isSameDate(selectedDate, date.date)}
                         showLook={date.inCurrentMonth && scheduledItemsForDay.length > 0}
@@ -146,24 +169,54 @@ export function CalendarScreen({ onNavigate }: { onNavigate: (screen: ScreenId) 
               {selectedScheduledItems.length > 0 && (
                 <>
                   <Text style={styles.sectionLabel}>{isToday(selectedDate) ? "TODAY'S SELECTION" : 'SCHEDULED OUTFIT'}</Text>
-                  <SelectionCard date={selectedDate} items={selectedScheduledItems} weather={weatherSummary} />
-                  <Pressable style={({ pressed }) => [styles.changeOutfitButton, pressed && styles.changeOutfitButtonPressed]} onPress={openOutfitPicker}>
-                    <LineIcon name="↻" color={plannerInk} />
-                    <Text style={styles.changeOutfitText}>Change outfit</Text>
-                  </Pressable>
+                  <SelectionCard date={selectedDate} items={selectedScheduledItems} onChange={openOutfitPicker} weather={weatherSummary} />
+                </>
+              )}
+
+              {selectedTrips.length > 0 && (
+                <>
+                  <Text style={styles.sectionLabel}>TRIP PLAN</Text>
+                  <TripSummaryCard
+                    expanded={expandedTripIds.includes(selectedTrips[0].id)}
+                    onEdit={() => onEditTrip(selectedTrips[0])}
+                    onToggleLooks={() =>
+                      setExpandedTripIds((currentIds) =>
+                        currentIds.includes(selectedTrips[0].id)
+                          ? currentIds.filter((id) => id !== selectedTrips[0].id)
+                          : [...currentIds, selectedTrips[0].id]
+                      )
+                    }
+                    trip={selectedTrips[0]}
+                  />
                 </>
               )}
 
               <View style={styles.emptyWeek}>
-                <LineIcon name="↻" color={closetTheme.muted} />
-                <Text style={styles.emptyWeekText}>
-                  {selectedScheduledItems.length > 0 ? 'Outfit saved for this day.' : calendarHelpText}
+                <Text style={[styles.emptyWeekText, selectedScheduledItems.length > 0 ? styles.savedOutfitMessage : styles.calendarHelpMessage]}>
+                  {selectedDateMessage}
                 </Text>
               </View>
             </ScrollView>
 
-            <Pressable style={styles.addButton} onPress={openOutfitPicker}>
-              <Text style={styles.addButtonText}>+</Text>
+            <Pressable
+              accessibilityLabel="Choose clothes for this date"
+              style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+              onPress={openOutfitPicker}>
+              <View pointerEvents="none" style={styles.addButtonHighlight} />
+              <View pointerEvents="none" style={styles.addButtonLeftHighlight} />
+              <View pointerEvents="none" style={styles.addButtonBottomShade} />
+              <View pointerEvents="none" style={styles.addButtonRightShade} />
+              <View pointerEvents="none" style={styles.addButtonPlus}>
+                <View style={styles.addButtonPlusHorizontal} />
+                <View style={styles.addButtonPlusVertical} />
+              </View>
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel="Add trip"
+              style={({ pressed }) => [styles.addTripButton, pressed && styles.addTripButtonPressed]}
+              onPress={onStartTrip}>
+              <Text style={styles.addTripButtonText}>+ Add trip</Text>
             </Pressable>
 
             {isOutfitPickerOpen && (
@@ -213,7 +266,7 @@ function OutfitPickerSheet({
             <Text style={styles.pickerTitle}>Choose outfit</Text>
           </View>
           <Pressable style={styles.pickerCloseButton} onPress={onClose}>
-            <LineIcon name="×" color={plannerInk} />
+            <Text style={styles.pickerCloseText}>×</Text>
           </Pressable>
         </View>
 
@@ -229,13 +282,14 @@ function OutfitPickerSheet({
               </View>
             ))
           ) : (
-            <Text style={styles.pickerHint}>Tap items below to build this day&apos;s outfit.</Text>
+            <Text style={styles.pickerHint}>Select items below to create this day&apos;s outfit.</Text>
           )}
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.pickerGrid}>
           {items.map((item) => {
             const selected = selectedItemIds.includes(item.id);
+            const detail = [item.price, item.source].filter(Boolean).join(' · ') || titleCase(item.category);
 
             return (
               <Pressable
@@ -253,16 +307,13 @@ function OutfitPickerSheet({
                   </View>
                 </View>
                 <Text numberOfLines={2} style={styles.pickerItemName}>{item.name}</Text>
-                <Text style={styles.pickerItemMeta}>{titleCase(item.category)}</Text>
+                <Text style={styles.pickerItemMeta}>{detail}</Text>
               </Pressable>
             );
           })}
         </ScrollView>
 
         <View style={styles.pickerActions}>
-          <Pressable style={styles.pickerSecondaryButton} onPress={onClose}>
-            <Text style={styles.pickerSecondaryText}>Cancel</Text>
-          </Pressable>
           <Pressable
             disabled={!hasSelection}
             style={[styles.pickerPrimaryButton, !hasSelection && styles.pickerPrimaryButtonDisabled]}
@@ -277,12 +328,14 @@ function OutfitPickerSheet({
 
 function PlannerDayCell({
   date,
+  hasTrip,
   item,
   onPress,
   selected,
   showLook,
 }: {
   date: PlannerDay;
+  hasTrip: boolean;
   item?: WardrobeItem;
   onPress: () => void;
   selected: boolean;
@@ -302,47 +355,162 @@ function PlannerDayCell({
           )}
         </View>
       )}
+      {hasTrip && (
+        <View style={[styles.dayTripMarker, selected && styles.dayTripMarkerSelected]}>
+          <Text style={[styles.dayTripMarkerText, selected && styles.dayTripMarkerTextSelected]}>TRIP</Text>
+        </View>
+      )}
       {selected && <View style={styles.selectedDot} />}
     </Pressable>
+  );
+}
+
+function TripSummaryCard({
+  expanded,
+  onEdit,
+  onToggleLooks,
+  trip,
+}: {
+  expanded: boolean;
+  onEdit: () => void;
+  onToggleLooks: () => void;
+  trip: SavedTrip;
+}) {
+  const lookCount = trip.looks.length;
+  const visibleLooks = (expanded ? trip.looks : trip.looks.slice(0, 1)).map((look) => ({
+    ...look,
+    items: look.itemIds
+        .map((itemId) => trip.packedItems.find((item) => item.id === itemId))
+        .filter((item): item is WardrobeItem => Boolean(item)),
+  }));
+  const fallbackNames = uniqueLabels(trip.packedItems.map((item) => item.name)).join(', ') || 'No clothes added yet';
+  const previewNames = visibleLooks.length > 0
+    ? uniqueLabels(visibleLooks.flatMap((look) => look.items.map((item) => item.name))).join(', ') || 'No clothes added yet'
+    : fallbackNames;
+
+  return (
+    <View style={styles.selectionCard}>
+      <View style={styles.tripSummaryHeader}>
+        <Text style={styles.tripSummaryTitle}>{trip.title}</Text>
+        <Text style={styles.tripSummaryBadge}>TRIP</Text>
+      </View>
+      <Text style={styles.tripSummaryDate}>{trip.dateRange}</Text>
+      {visibleLooks.length > 0 ? (
+        <View style={styles.tripLookStack}>
+          {visibleLooks.map((look, index) => (
+            <View key={look.id} style={index > 0 && styles.tripLookBlockSpacing}>
+              <Text style={styles.tripLookPreviewTitle}>{look.title || `Look ${index + 1}`}</Text>
+              <View style={styles.tripLookImageBox}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectionStack}>
+                  {look.items.length > 0 ? (
+                    look.items.map((item) => (
+                      <View key={`${look.id}-${item.id}`} style={styles.selectionThumb}>
+                        {item.imageUrl ? (
+                          <Image source={{ uri: item.imageUrl }} style={styles.selectionImage} resizeMode="contain" />
+                        ) : (
+                          <ClosetIcon category={item.category} color={item.color ?? closetTheme.ink} accent={closetTheme.blueMist} size={52} />
+                        )}
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.pickerHint}>No clothes added to this look yet.</Text>
+                  )}
+                </ScrollView>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <>
+          <Text style={styles.tripLookPreviewTitle}>Packed clothes</Text>
+          <View style={styles.tripLookImageBox}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectionStack}>
+              {trip.packedItems.length > 0 ? (
+                trip.packedItems.map((item) => (
+                  <View key={item.id} style={styles.selectionThumb}>
+                    {item.imageUrl ? (
+                      <Image source={{ uri: item.imageUrl }} style={styles.selectionImage} resizeMode="contain" />
+                    ) : (
+                      <ClosetIcon category={item.category} color={item.color ?? closetTheme.ink} accent={closetTheme.blueMist} size={52} />
+                    )}
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.pickerHint}>Add looks or packed clothes to this trip.</Text>
+              )}
+            </ScrollView>
+          </View>
+        </>
+      )}
+      <View style={styles.selectionCopy}>
+        <View style={styles.tags}>
+          <Text style={styles.darkTag}>{lookCount} LOOK{lookCount === 1 ? '' : 'S'}</Text>
+          <Text style={styles.lightTag}>{trip.packedItems.length} PACKED</Text>
+        </View>
+        <Text style={styles.selectionMeta}>{previewNames}</Text>
+        {!expanded && trip.looks.length > 1 && (
+          <Pressable onPress={onToggleLooks}>
+            <Text style={styles.tripMoreLooks}>
+              +{trip.looks.length - 1} more look{trip.looks.length - 1 === 1 ? '' : 's'}
+            </Text>
+          </Pressable>
+        )}
+        {expanded && trip.looks.length > 1 && (
+          <Pressable onPress={onToggleLooks}>
+            <Text style={styles.tripMoreLooks}>Show less</Text>
+          </Pressable>
+        )}
+      </View>
+      <Pressable style={({ pressed }) => [styles.changeOutfitButton, pressed && styles.changeOutfitButtonPressed]} onPress={onEdit}>
+        <LineIcon name="✎" color={calendarCream} />
+        <Text style={styles.changeOutfitText}>Edit</Text>
+      </Pressable>
+    </View>
   );
 }
 
 function SelectionCard({
   date,
   items,
+  onChange,
   weather,
 }: {
   date: Date;
   items: WardrobeItem[];
+  onChange: () => void;
   weather: WeatherSummary | null;
 }) {
   const title = `Outfit for ${formatShortDate(date)}`;
-  const category = uniqueLabels(items.map((item) => titleCase(item.category))).join(' + ');
+  const outfitNames = uniqueLabels(items.map((item) => item.name)).join(', ');
   const temperatureLabel = weather ? `${weather.temperatureC}°C` : '--°';
 
   return (
     <View style={styles.selectionCard}>
+      <Text style={styles.selectionTitle}>{title}</Text>
       <View style={styles.selectionImageBox}>
-        <View style={styles.selectionStack}>
-          {items.slice(0, 4).map((item) => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectionStack}>
+          {items.map((item) => (
             <View key={item.id} style={styles.selectionThumb}>
               {item.imageUrl ? (
                 <Image source={{ uri: item.imageUrl }} style={styles.selectionImage} resizeMode="contain" />
               ) : (
-                <ClosetIcon category={item.category} color={item.color ?? closetTheme.ink} accent={closetTheme.blueMist} size={34} />
+                <ClosetIcon category={item.category} color={item.color ?? closetTheme.ink} accent={closetTheme.blueMist} size={52} />
               )}
             </View>
           ))}
-        </View>
+        </ScrollView>
       </View>
       <View style={styles.selectionCopy}>
-        <Text style={styles.selectionTitle}>{title}</Text>
-        <Text style={styles.selectionMeta}>{category}</Text>
         <View style={styles.tags}>
           <Text style={styles.darkTag}>{formatItemCount(items.length).toUpperCase()}</Text>
           <Text style={styles.lightTag}>{temperatureLabel}</Text>
         </View>
+        <Text style={styles.selectionMeta}>{outfitNames}</Text>
       </View>
+      <Pressable style={({ pressed }) => [styles.changeOutfitButton, pressed && styles.changeOutfitButtonPressed]} onPress={onChange}>
+        <LineIcon name="✎" color={calendarCream} />
+        <Text style={styles.changeOutfitText}>Edit</Text>
+      </Pressable>
     </View>
   );
 }
@@ -410,6 +578,16 @@ function formatDateKey(date: Date) {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
+function isTripOnDate(trip: SavedTrip, date: Date) {
+  if (!trip.startDateKey || !trip.endDateKey) {
+    return false;
+  }
+
+  const dateKey = formatDateKey(date);
+
+  return dateKey >= trip.startDateKey && dateKey <= trip.endDateKey;
+}
+
 function formatShortDate(date: Date) {
   return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 }
@@ -446,7 +624,8 @@ function formatItemCount(count: number) {
 }
 
 const plannerInk = '#061D36';
-const plannerPaper = '#F1F7FB';
+const calendarBrown = '#774530';
+const calendarCream = '#FFF3D7';
 
 const styles = StyleSheet.create({
   root: {
@@ -497,44 +676,38 @@ const styles = StyleSheet.create({
   },
   monthButton: {
     alignItems: 'center',
-    backgroundColor: plannerPaper,
-    borderColor: plannerInk,
-    borderRadius: 2,
-    borderWidth: 2,
+    backgroundColor: '#7A4328',
+    borderRadius: 12,
     height: 44,
     justifyContent: 'center',
-    shadowColor: plannerInk,
-    shadowOffset: { height: 3, width: -3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
     width: 38,
   },
   monthTitle: {
-    backgroundColor: 'rgba(241,247,251,0.76)',
     color: plannerInk,
     ...closetTypography.text,
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 28,
+    fontWeight: '400',
     paddingHorizontal: 14,
     paddingVertical: 4,
   },
   calendar: {
-    backgroundColor: plannerPaper,
-    borderColor: plannerInk,
+    backgroundColor: calendarCream,
+    borderColor: calendarBrown,
     borderWidth: 2,
+    elevation: 8,
     marginTop: 22,
-    shadowColor: plannerInk,
-    shadowOffset: { height: 3, width: 3 },
-    shadowOpacity: 1,
+    shadowColor: calendarBrown,
+    shadowOffset: { height: 6, width: 6 },
+    shadowOpacity: 0.55,
     shadowRadius: 0,
   },
   weekHeader: {
-    backgroundColor: plannerInk,
+    backgroundColor: calendarBrown,
     flexDirection: 'row',
     height: 34,
   },
   weekday: {
-    color: plannerPaper,
+    color: calendarCream,
     flex: 1,
     ...closetTypography.text,
     fontSize: 13,
@@ -548,8 +721,8 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     aspectRatio: 1,
-    backgroundColor: plannerPaper,
-    borderColor: '#C8D3DC',
+    backgroundColor: calendarCream,
+    borderColor: '#C9A77E',
     borderRightWidth: 1,
     borderTopWidth: 1,
     overflow: 'hidden',
@@ -558,22 +731,22 @@ const styles = StyleSheet.create({
     width: `${100 / 7}%`,
   },
   dayCellMuted: {
-    backgroundColor: '#E8F0F6',
+    backgroundColor: '#E8D2A7',
   },
   dayCellSelected: {
-    backgroundColor: plannerInk,
+    backgroundColor: calendarBrown,
   },
   dayNumber: {
-    color: plannerInk,
+    color: calendarBrown,
     ...closetTypography.text,
     fontSize: 11,
     fontWeight: '900',
   },
   dayNumberMuted: {
-    color: closetTheme.muted,
+    color: '#9B7358',
   },
   dayNumberSelected: {
-    color: plannerPaper,
+    color: calendarCream,
   },
   dayLook: {
     alignItems: 'center',
@@ -588,11 +761,34 @@ const styles = StyleSheet.create({
     width: 24,
   },
   dayLookSelected: {
-    backgroundColor: plannerPaper,
+    backgroundColor: calendarCream,
   },
   dayLookImage: {
     height: '100%',
     width: '100%',
+  },
+  dayTripMarker: {
+    alignItems: 'center',
+    backgroundColor: '#DCA94C',
+    bottom: 4,
+    left: 4,
+    minHeight: 10,
+    paddingHorizontal: 3,
+    position: 'absolute',
+    right: 4,
+  },
+  dayTripMarkerSelected: {
+    backgroundColor: '#FFF3D7',
+  },
+  dayTripMarkerText: {
+    color: plannerInk,
+    ...closetTypography.text,
+    fontSize: 7,
+    fontWeight: '900',
+    lineHeight: 10,
+  },
+  dayTripMarkerTextSelected: {
+    color: calendarBrown,
   },
   selectedDot: {
     backgroundColor: '#E6B44C',
@@ -605,8 +801,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(241,247,251,0.76)',
-    color: plannerInk,
+    color: '#000000',
     ...closetTypography.text,
     fontSize: 15,
     fontWeight: '900',
@@ -616,54 +811,101 @@ const styles = StyleSheet.create({
   },
   selectionCard: {
     alignItems: 'flex-start',
-    backgroundColor: '#E8F1FA',
-    borderColor: plannerInk,
-    borderRadius: 0,
-    borderWidth: 2,
-    flexDirection: 'row',
+    backgroundColor: '#FFF9EA',
+    borderRadius: 16,
     gap: 18,
     marginTop: 18,
     padding: 18,
-    shadowColor: plannerInk,
-    shadowOffset: { height: 3, width: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
   },
   changeOutfitButton: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: plannerPaper,
-    borderColor: plannerInk,
+    alignSelf: 'flex-end',
+    backgroundColor: calendarBrown,
+    borderColor: calendarBrown,
     borderWidth: 2,
     flexDirection: 'row',
-    gap: 8,
-    height: 42,
+    gap: 5,
+    height: 34,
     justifyContent: 'center',
-    marginTop: 12,
-    paddingHorizontal: 14,
-    shadowColor: plannerInk,
-    shadowOffset: { height: 3, width: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
+    marginTop: -17,
+    paddingHorizontal: 9,
   },
   changeOutfitButtonPressed: {
     opacity: 0.74,
     transform: [{ scale: 0.98 }],
   },
   changeOutfitText: {
-    color: plannerInk,
+    color: calendarCream,
     fontSize: 12,
     fontWeight: '900',
   },
-  selectionImageBox: {
-    alignItems: 'center',
-    backgroundColor: plannerPaper,
-    borderColor: plannerInk,
-    borderRadius: 0,
+  tripSummaryCard: {
+    backgroundColor: '#FFF9EA',
+    borderColor: calendarBrown,
     borderWidth: 2,
-    height: 100,
-    justifyContent: 'center',
-    width: 96,
+    gap: 8,
+    marginTop: 18,
+    padding: 16,
+  },
+  tripSummaryHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  tripSummaryTitle: {
+    color: '#000000',
+    flex: 1,
+    ...closetTypography.text,
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 26,
+  },
+  tripSummaryBadge: {
+    backgroundColor: '#DCA94C',
+    color: plannerInk,
+    ...closetTypography.text,
+    fontSize: 10,
+    fontWeight: '900',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  tripSummaryDate: {
+    color: calendarBrown,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  tripLookPreviewTitle: {
+    color: plannerInk,
+    ...closetTypography.text,
+    fontSize: 13,
+    fontWeight: '900',
+    lineHeight: 18,
+  },
+  tripLookStack: {
+    gap: 14,
+    width: '100%',
+  },
+  tripLookBlockSpacing: {
+    marginTop: 2,
+  },
+  tripLookImageBox: {
+    minHeight: 70,
+    paddingTop: 8,
+    width: '100%',
+  },
+  tripMoreLooks: {
+    color: '#2F5E91',
+    ...closetTypography.text,
+    fontSize: 11,
+    fontWeight: '900',
+    marginTop: 6,
+    textAlign: 'right',
+  },
+  selectionImageBox: {
+    height: 62,
+    transform: [{ translateY: -8 }],
+    width: '100%',
   },
   selectionImage: {
     height: '100%',
@@ -671,35 +913,36 @@ const styles = StyleSheet.create({
   },
   selectionStack: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    justifyContent: 'center',
+    gap: 8,
   },
   selectionThumb: {
     alignItems: 'center',
     backgroundColor: '#EFEDE5',
     borderColor: '#E4DED2',
     borderWidth: 1,
-    height: 36,
+    height: 62,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: 32,
+    width: 58,
   },
   selectionCopy: {
     flex: 1,
     minWidth: 0,
+    transform: [{ translateY: -12 }],
   },
   selectionTitle: {
-    color: plannerInk,
+    color: '#000000',
     ...closetTypography.text,
     fontSize: 21,
     fontWeight: '900',
     lineHeight: 27,
+    transform: [{ translateY: -5 }],
   },
   selectionMeta: {
     color: '#2E3B49',
+    fontFamily: closetTypography.inputFont,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 24,
     marginTop: 8,
   },
@@ -707,11 +950,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginTop: 12,
+    marginTop: 0,
   },
   darkTag: {
-    backgroundColor: plannerInk,
-    color: plannerPaper,
+    backgroundColor: '#E8E4D9',
+    color: '#5F5138',
     ...closetTypography.text,
     fontSize: 11,
     fontWeight: '900',
@@ -744,28 +987,123 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     textAlign: 'center',
+    transform: [{ translateY: -30 }],
+  },
+  savedOutfitMessage: {
+    bottom: 100,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    transform: [{ translateY: 0 }],
+  },
+  calendarHelpMessage: {
+    color: '#000000',
+    transform: [{ translateY: -80 }],
   },
   addButton: {
     alignItems: 'center',
-    backgroundColor: plannerInk,
-    borderColor: plannerPaper,
-    borderWidth: 2,
+    backgroundColor: '#F6E4B7',
+    borderColor: '#774530',
+    borderRadius: 0,
+    borderWidth: 4,
     bottom: 68,
-    height: 54,
+    elevation: 8,
+    height: 46,
     justifyContent: 'center',
     position: 'absolute',
     right: 22,
-    shadowColor: plannerInk,
-    shadowOffset: { height: 4, width: 4 },
-    shadowOpacity: 1,
+    shadowColor: '#774530',
+    shadowOffset: { height: 5, width: 5 },
+    shadowOpacity: 0.48,
     shadowRadius: 0,
-    width: 54,
+    width: 46,
+    zIndex: 80,
   },
-  addButtonText: {
-    color: plannerPaper,
-    fontSize: 31,
-    fontWeight: '300',
-    lineHeight: 34,
+  addTripButton: {
+    alignItems: 'center',
+    backgroundColor: '#F6E4B7',
+    borderColor: '#774530',
+    borderWidth: 4,
+    bottom: 14,
+    elevation: 8,
+    height: 42,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    position: 'absolute',
+    right: 22,
+    shadowColor: '#774530',
+    shadowOffset: { height: 5, width: 5 },
+    shadowOpacity: 0.48,
+    shadowRadius: 0,
+    zIndex: 80,
+  },
+  addTripButtonPressed: {
+    opacity: 0.74,
+    transform: [{ scale: 0.96 }],
+  },
+  addTripButtonText: {
+    color: '#4B2A1E',
+    ...closetTypography.text,
+    fontSize: 13,
+    fontWeight: '900',
+    lineHeight: 18,
+  },
+  addButtonPressed: {
+    opacity: 0.74,
+    transform: [{ scale: 0.96 }],
+  },
+  addButtonHighlight: {
+    backgroundColor: '#FFFCED',
+    height: 4,
+    left: 8,
+    position: 'absolute',
+    right: 12,
+    top: 8,
+  },
+  addButtonLeftHighlight: {
+    backgroundColor: '#FFFCED',
+    bottom: 16,
+    left: 8,
+    position: 'absolute',
+    top: 8,
+    width: 4,
+  },
+  addButtonBottomShade: {
+    backgroundColor: 'rgba(119,69,48,0.28)',
+    bottom: 4,
+    height: 4,
+    left: 8,
+    position: 'absolute',
+    right: 4,
+  },
+  addButtonRightShade: {
+    backgroundColor: 'rgba(119,69,48,0.28)',
+    bottom: 4,
+    position: 'absolute',
+    right: 4,
+    top: 8,
+    width: 4,
+  },
+  addButtonPlus: {
+    height: 20,
+    position: 'relative',
+    width: 20,
+  },
+  addButtonPlusHorizontal: {
+    backgroundColor: '#4B2A1E',
+    height: 6,
+    left: 0,
+    position: 'absolute',
+    top: 7,
+    width: 20,
+  },
+  addButtonPlusVertical: {
+    backgroundColor: '#4B2A1E',
+    height: 20,
+    left: 7,
+    position: 'absolute',
+    top: 0,
+    width: 6,
   },
   pickerOverlay: {
     bottom: 0,
@@ -777,7 +1115,7 @@ const styles = StyleSheet.create({
     zIndex: 120,
   },
   pickerBackdrop: {
-    backgroundColor: 'rgba(6,29,54,0.42)',
+    backgroundColor: 'rgba(77,42,30,0.42)',
     bottom: 0,
     left: 0,
     position: 'absolute',
@@ -785,8 +1123,8 @@ const styles = StyleSheet.create({
     top: 0,
   },
   pickerSheet: {
-    backgroundColor: plannerPaper,
-    borderColor: plannerInk,
+    backgroundColor: '#FFF9EA',
+    borderColor: calendarBrown,
     borderTopWidth: 2,
     maxHeight: '82%',
     paddingBottom: 22,
@@ -802,13 +1140,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pickerEyebrow: {
-    color: closetTheme.muted,
+    color: '#8A6A56',
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
   },
   pickerTitle: {
-    color: plannerInk,
+    color: '#000000',
     fontSize: 22,
     fontWeight: '900',
     lineHeight: 28,
@@ -816,17 +1154,25 @@ const styles = StyleSheet.create({
   },
   pickerCloseButton: {
     alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: plannerInk,
+    backgroundColor: calendarBrown,
+    borderColor: calendarBrown,
+    borderRadius: 20,
     borderWidth: 2,
     height: 40,
     justifyContent: 'center',
     width: 40,
   },
+  pickerCloseText: {
+    color: calendarCream,
+    fontFamily: closetTypography.inputFont,
+    fontSize: 24,
+    fontWeight: '400',
+    lineHeight: 26,
+  },
   pickerSummary: {
     alignItems: 'center',
-    backgroundColor: '#E8F1FA',
-    borderColor: '#D5DDE5',
+    backgroundColor: calendarCream,
+    borderColor: '#D8BE98',
     borderWidth: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -836,15 +1182,16 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   pickerHint: {
-    color: closetTheme.muted,
+    color: '#8A6A56',
+    fontFamily: closetTypography.regularFont,
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '400',
     lineHeight: 18,
   },
   selectedMini: {
     alignItems: 'center',
-    backgroundColor: plannerPaper,
-    borderColor: plannerInk,
+    backgroundColor: '#FFF9EA',
+    borderColor: calendarBrown,
     borderWidth: 1,
     height: 38,
     justifyContent: 'center',
@@ -862,14 +1209,14 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   pickerItem: {
-    backgroundColor: closetTheme.white,
-    borderColor: '#D5DDE5',
+    backgroundColor: '#FFF9EA',
+    borderColor: '#D8BE98',
     borderWidth: 1,
     overflow: 'hidden',
     width: '47.8%',
   },
   pickerItemSelected: {
-    borderColor: plannerInk,
+    borderColor: calendarBrown,
     borderWidth: 2,
   },
   pickerItemPressed: {
@@ -878,7 +1225,7 @@ const styles = StyleSheet.create({
   },
   pickerThumb: {
     alignItems: 'center',
-    backgroundColor: '#E8F1FA',
+    backgroundColor: '#FFFCF5',
     height: 118,
     justifyContent: 'center',
     position: 'relative',
@@ -889,8 +1236,8 @@ const styles = StyleSheet.create({
   },
   pickerCheck: {
     alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: plannerInk,
+    backgroundColor: '#FFF9EA',
+    borderColor: calendarBrown,
     borderWidth: 1,
     height: 28,
     justifyContent: 'center',
@@ -900,19 +1247,19 @@ const styles = StyleSheet.create({
     width: 28,
   },
   pickerCheckSelected: {
-    backgroundColor: plannerInk,
+    backgroundColor: calendarBrown,
   },
   pickerCheckText: {
-    color: plannerInk,
+    color: calendarBrown,
     fontSize: 14,
     fontWeight: '900',
     lineHeight: 18,
   },
   pickerCheckTextSelected: {
-    color: plannerPaper,
+    color: calendarCream,
   },
   pickerItemName: {
-    color: plannerInk,
+    color: '#000000',
     fontSize: 12,
     fontWeight: '900',
     lineHeight: 17,
@@ -921,9 +1268,10 @@ const styles = StyleSheet.create({
     paddingTop: 9,
   },
   pickerItemMeta: {
-    color: closetTheme.muted,
+    color: '#8A6A56',
+    fontFamily: closetTypography.inputFont,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '400',
     paddingBottom: 10,
     paddingHorizontal: 10,
   },
@@ -932,23 +1280,9 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 6,
   },
-  pickerSecondaryButton: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.white,
-    borderColor: plannerInk,
-    borderWidth: 2,
-    flex: 1,
-    height: 48,
-    justifyContent: 'center',
-  },
-  pickerSecondaryText: {
-    color: plannerInk,
-    fontSize: 12,
-    fontWeight: '900',
-  },
   pickerPrimaryButton: {
     alignItems: 'center',
-    backgroundColor: plannerInk,
+    backgroundColor: calendarBrown,
     flex: 1,
     height: 48,
     justifyContent: 'center',
@@ -957,7 +1291,7 @@ const styles = StyleSheet.create({
     opacity: 0.48,
   },
   pickerPrimaryText: {
-    color: plannerPaper,
+    color: calendarCream,
     fontSize: 12,
     fontWeight: '900',
   },

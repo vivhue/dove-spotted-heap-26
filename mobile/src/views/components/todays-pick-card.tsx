@@ -11,7 +11,7 @@ import {
   WeatherSummary,
 } from '@/services/weather-recommendation';
 import { useClosetStore } from '@/stores/closet-store';
-import { closetTheme } from '@/views/components/closet-theme';
+import { closetTheme, closetTypography } from '@/views/components/closet-theme';
 import { ClosetIcon, LineIcon } from '@/views/components/closet-icons';
 
 type Props = {
@@ -147,7 +147,7 @@ export function TodaysPickCard({ onCategoryChange, onNavigate }: Props) {
           <TextInput
             autoCapitalize="words"
             placeholder="Location"
-            placeholderTextColor={closetTheme.muted}
+            placeholderTextColor="#8A8A8A"
             returnKeyType="go"
             style={styles.weatherLocationInput}
             value={weatherLocation}
@@ -313,9 +313,10 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   weatherLocationInput: {
+    fontFamily: closetTypography.inputFont,
     color: closetTheme.muted,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '400',
     minWidth: 80,
     padding: 0,
     textAlign: 'right',

@@ -32,15 +32,17 @@ const avatarOptions: { label: string; value: AvatarChoice }[] = [
 type Props = {
   measurements: BodyMeasurements;
   onAuthenticated?: () => void;
+  onEditTrip: (trip: SavedTrip) => void;
   onMeasurementChange: (field: keyof BodyMeasurements, value: string) => void;
   onNavigate: (screen: ScreenId) => void;
+  onStartTrip: () => void;
   savedTrips: SavedTrip[];
 };
 
 type AuthMode = 'login' | 'signup';
 type ProfileTab = 'looks' | 'trips';
 
-export function AccountScreen({ measurements, onAuthenticated, onMeasurementChange, onNavigate, savedTrips }: Props) {
+export function AccountScreen({ measurements, onAuthenticated, onEditTrip, onMeasurementChange, onNavigate, onStartTrip, savedTrips }: Props) {
   const {
     closetItems,
     currentUser,
@@ -129,7 +131,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
                   autoCorrect={false}
                   onChangeText={setUsername}
                   placeholder="choose a username"
-                  placeholderTextColor={closetTheme.muted}
+                  placeholderTextColor="#8A8A8A"
                   style={styles.authInput}
                   value={username}
                 />
@@ -141,7 +143,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
                   autoCorrect={false}
                   onChangeText={setPassword}
                   placeholder="at least 6 characters"
-                  placeholderTextColor={closetTheme.muted}
+                  placeholderTextColor="#8A8A8A"
                   secureTextEntry
                   style={styles.authInput}
                   value={password}
@@ -203,6 +205,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
       ]}
       onNavigate={onNavigate}
       title="Profile"
+      titleColor={closetTheme.brown}
       titleOffsetY={-48}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.settingsRow}>
@@ -241,6 +244,11 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
               {guidedMode ? 'On' : 'Off'}
             </Text>
           </View>
+        </Pressable>
+
+        <Pressable style={({ pressed }) => [styles.tryOnHistoryButton, pressed && styles.pressed]} onPress={() => onNavigate('look-history')}>
+          <Text style={styles.tryOnHistoryButtonText}>Try On History</Text>
+          <LineIcon name="→" color={closetTheme.ink} />
         </Pressable>
 
         {isEditingProfile && (
@@ -352,7 +360,7 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
                       maxLength={5}
                       onChangeText={(value) => onMeasurementChange(field, value)}
                       placeholder="0"
-                      placeholderTextColor={closetTheme.muted}
+                      placeholderTextColor="#8A8A8A"
                       selectTextOnFocus
                       style={styles.measurementInput}
                       value={measurements[field]}
@@ -376,15 +384,9 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
           </Pressable>
         </View>
 
-        {profileTab === 'looks' ? (
-          <>
-            <Pressable style={({ pressed }) => [styles.addLook, pressed && styles.pressed]} onPress={() => onNavigate('look-history')}>
-              <Text style={styles.addLookText}>History</Text>
-            </Pressable>
-          </>
-        ) : (
+        {profileTab === 'trips' && (
           <View style={styles.tripsPanel}>
-            <Pressable style={styles.addTrip} onPress={() => onNavigate('trip-planner')}>
+            <Pressable accessibilityLabel="Add trip" style={styles.addTrip} onPress={onStartTrip}>
               <LineIcon name="+" color={closetTheme.ink} />
               <Text style={styles.addLookText}>Add trip</Text>
             </Pressable>
@@ -393,7 +395,8 @@ export function AccountScreen({ measurements, onAuthenticated, onMeasurementChan
                 <SavedTripCard
                   key={trip.id}
                   expanded={expandedTripIds.includes(trip.id)}
-                  onToggle={() =>
+                  onEdit={() => onEditTrip(trip)}
+                  onToggleLooks={() =>
                     setExpandedTripIds((currentIds) =>
                       currentIds.includes(trip.id)
                         ? currentIds.filter((id) => id !== trip.id)
@@ -497,11 +500,13 @@ function labelOption(value: string) {
 
 function SavedTripCard({
   expanded,
-  onToggle,
+  onEdit,
+  onToggleLooks,
   trip,
 }: {
   expanded: boolean;
-  onToggle: () => void;
+  onEdit: () => void;
+  onToggleLooks: () => void;
   trip: SavedTrip;
 }) {
   const previewItems = trip.packedItems.slice(0, 3);
@@ -523,9 +528,6 @@ function SavedTripCard({
             {lookCount} look{lookCount === 1 ? '' : 's'} · {trip.packedItems.length} packed
           </Text>
         </View>
-        <Pressable accessibilityLabel={expanded ? 'Hide trip outfits' : 'Show trip outfits'} style={styles.savedTripOpen} onPress={onToggle}>
-          <LineIcon name={expanded ? '↖' : '↗'} color={closetTheme.ink} />
-        </Pressable>
       </View>
 
       {visibleLooks.length > 0 ? (
@@ -557,12 +559,23 @@ function SavedTripCard({
       )}
 
       {trip.looks.length > visibleLooks.length && (
-        <Pressable onPress={onToggle}>
+        <Pressable onPress={onToggleLooks}>
           <Text style={styles.savedTripMore}>
             +{trip.looks.length - visibleLooks.length} more look{trip.looks.length - visibleLooks.length === 1 ? '' : 's'}
           </Text>
         </Pressable>
       )}
+
+      {expanded && trip.looks.length > 1 && (
+        <Pressable onPress={onToggleLooks}>
+          <Text style={styles.savedTripMore}>Show less</Text>
+        </Pressable>
+      )}
+
+      <Pressable accessibilityLabel={`Edit ${trip.title} trip`} style={styles.savedTripEditButton} onPress={onEdit}>
+        <LineIcon name="✎" color={closetTheme.cream} />
+        <Text style={styles.savedTripEditText}>Edit</Text>
+      </Pressable>
     </View>
   );
 }
@@ -666,8 +679,9 @@ const styles = StyleSheet.create({
   },
   authInput: {
     color: closetTheme.ink,
+    fontFamily: closetTypography.inputFont,
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '400',
     minHeight: 34,
     padding: 0,
   },
@@ -779,7 +793,7 @@ const styles = StyleSheet.create({
   guidedModeButton: {
     alignItems: 'center',
     backgroundColor: closetTheme.white,
-    borderColor: closetTheme.line,
+    borderColor: closetTheme.brown,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
@@ -796,7 +810,7 @@ const styles = StyleSheet.create({
   guidedModeState: {
     alignItems: 'center',
     backgroundColor: closetTheme.cream,
-    borderColor: closetTheme.line,
+    borderColor: closetTheme.brown,
     borderRadius: 6,
     borderWidth: 2,
     justifyContent: 'center',
@@ -804,8 +818,8 @@ const styles = StyleSheet.create({
     minWidth: 54,
   },
   guidedModeStateEnabled: {
-    backgroundColor: closetTheme.ink,
-    borderColor: closetTheme.ink,
+    backgroundColor: closetTheme.brown,
+    borderColor: closetTheme.brown,
   },
   guidedModeStateText: {
     color: closetTheme.muted,
@@ -816,10 +830,28 @@ const styles = StyleSheet.create({
   guidedModeStateTextEnabled: {
     color: closetTheme.cream,
   },
-  name: {
+  tryOnHistoryButton: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.brown,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    minHeight: 54,
+    paddingHorizontal: 14,
+  },
+  tryOnHistoryButtonText: {
     color: closetTheme.ink,
+    fontFamily: closetTypography.regularFont,
+    fontSize: 14,
+  },
+  name: {
+    color: '#000000',
+    fontFamily: closetTypography.regularFont,
     fontSize: 25,
-    fontWeight: '900',
+    fontWeight: '400',
   },
   stats: {
     flexDirection: 'row',
@@ -829,12 +861,14 @@ const styles = StyleSheet.create({
     minWidth: 54,
   },
   statValue: {
-    color: closetTheme.ink,
+    color: '#000000',
+    fontFamily: closetTypography.regularFont,
     fontSize: 24,
-    fontWeight: '900',
+    fontWeight: '400',
   },
   statLabel: {
-    color: closetTheme.ink,
+    color: '#000000',
+    fontFamily: closetTypography.regularFont,
     fontSize: 14,
     marginTop: 2,
   },
@@ -1021,8 +1055,9 @@ const styles = StyleSheet.create({
   },
   measurementInput: {
     color: closetTheme.ink,
+    fontFamily: closetTypography.inputFont,
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: '400',
     minHeight: 26,
     padding: 0,
   },
@@ -1038,12 +1073,15 @@ const styles = StyleSheet.create({
   },
   addTrip: {
     alignItems: 'center',
+    alignSelf: 'center',
     backgroundColor: closetTheme.creamDeep,
-    borderRadius: 24,
+    borderRadius: 26,
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
+    height: 52,
     justifyContent: 'center',
-    paddingVertical: 15,
+    minWidth: 150,
+    paddingHorizontal: 22,
   },
   addLookText: {
     color: closetTheme.ink,
@@ -1103,14 +1141,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: 4,
   },
-  savedTripOpen: {
-    alignItems: 'center',
-    backgroundColor: closetTheme.creamDeep,
-    borderRadius: 20,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
   savedTripPreview: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1143,6 +1173,22 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: 'right',
   },
+  savedTripEditButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    backgroundColor: closetTheme.camelDeep,
+    flexDirection: 'row',
+    gap: 6,
+    height: 34,
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingHorizontal: 12,
+  },
+  savedTripEditText: {
+    color: closetTheme.cream,
+    fontSize: 12,
+    fontWeight: '900',
+  },
   packedPreviewItem: {
     alignItems: 'center',
     backgroundColor: closetTheme.white,
@@ -1166,6 +1212,158 @@ const styles = StyleSheet.create({
     marginTop: 5,
     maxWidth: 72,
     textAlign: 'center',
+  },
+  filterRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    position: 'relative',
+    zIndex: 3,
+  },
+  sortWrap: {
+    position: 'relative',
+    width: 132,
+    zIndex: 4,
+  },
+  sortButton: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    height: 34,
+  },
+  sortChevron: {
+    color: closetTheme.ink,
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 18,
+    marginLeft: 2,
+  },
+  filterText: {
+    color: closetTheme.ink,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  sortMenu: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    left: 0,
+    overflow: 'hidden',
+    position: 'absolute',
+    top: 36,
+    width: 132,
+    zIndex: 5,
+  },
+  sortMenuItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  sortMenuItemSelected: {
+    backgroundColor: closetTheme.creamDeep,
+  },
+  sortMenuText: {
+    color: closetTheme.ink,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  sortMenuTextSelected: {
+    color: closetTheme.camelDeep,
+  },
+  filterActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+  },
+  iconControl: {
+    alignItems: 'center',
+    height: 34,
+    justifyContent: 'center',
+    width: 34,
+  },
+  filterIcon: {
+    color: closetTheme.ink,
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  filterIconActive: {
+    color: closetTheme.camelDeep,
+  },
+  selectControl: {
+    alignItems: 'center',
+    height: 34,
+    justifyContent: 'center',
+    minWidth: 58,
+  },
+  selectText: {
+    color: closetTheme.ink,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  selectTextActive: {
+    color: closetTheme.camelDeep,
+  },
+  looksSearchInput: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: closetTheme.ink,
+    fontFamily: closetTypography.inputFont,
+    fontSize: 14,
+    fontWeight: '400',
+    marginTop: 12,
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  pills: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 22,
+  },
+  pill: {
+    alignItems: 'center',
+    backgroundColor: closetTheme.creamDeep,
+    borderRadius: 22,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+  },
+  pillSelected: {
+    backgroundColor: closetTheme.ink,
+  },
+  pillText: {
+    color: closetTheme.ink,
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  pillTextSelected: {
+    color: closetTheme.cream,
+  },
+  looksStatePanel: {
+    backgroundColor: closetTheme.white,
+    borderColor: closetTheme.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 14,
+    padding: 12,
+  },
+  looksStateText: {
+    color: closetTheme.ink,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  looksStateMeta: {
+    color: closetTheme.muted,
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 4,
   },
   historyLoading: {
     marginVertical: 28,

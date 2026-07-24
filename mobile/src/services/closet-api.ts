@@ -311,6 +311,7 @@ async function fetchWithBackendMessage(url: string, init: RequestInit) {
 
 function resolveApiBaseUrl() {
   const configuredUrl =
+    process.env.EXPO_PUBLIC_API_URL ??
     (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
     'http://localhost:8080';
 

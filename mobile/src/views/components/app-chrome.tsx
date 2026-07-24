@@ -16,6 +16,7 @@ type ScreenProps = {
   children: ReactNode;
   notifications?: AppNotification[];
   title?: string;
+  titleColor?: string;
   titleOffsetY?: number;
   onNavigate: (screen: ScreenId) => void;
   activeTab?: ScreenId;
@@ -45,6 +46,7 @@ export function AppScreen({
   showStatus = true,
   showStylist = true,
   title,
+  titleColor,
   titleOffsetY = 0,
 }: ScreenProps) {
   const { closetItems, currentUser, scheduledOutfits } = useClosetStore();
@@ -76,7 +78,7 @@ export function AppScreen({
         {showStatus && <StatusRow />}
         <View pointerEvents="box-none" style={styles.topShortcuts}>
           <Pressable accessibilityLabel="Go home" style={styles.homeShortcut} onPress={() => onNavigate('home')}>
-            <PixelHomeIcon color={closetTheme.ink} />
+            <PixelHomeIcon color="#4B2A1E" />
           </Pressable>
           {isAvatarMenuOpen && <Pressable style={styles.avatarMenuBackdrop} onPress={() => setIsAvatarMenuOpen(false)} />}
           <View style={styles.topShortcutActions}>
@@ -108,7 +110,7 @@ export function AppScreen({
         </View>
         {title && (
           <View style={[styles.pageHead, titleOffsetY !== 0 && { paddingTop: Math.max(0, 78 + titleOffsetY) }]}>
-            <Text style={styles.pageTitle}>{title}</Text>
+            <Text style={[styles.pageTitle, titleColor && { color: titleColor }]}>{title}</Text>
           </View>
         )}
         <View style={styles.body}>{children}</View>
@@ -316,7 +318,7 @@ export function BottomNav({
       id: 'account',
       label: 'Profile',
       matches: ['account'],
-      icon: (selected) => <ProfileNavIcon color={selected ? closetTheme.camelDeep : closetTheme.muted} />,
+      icon: (selected) => <ProfileNavIcon color={selected ? closetTheme.brown : closetTheme.muted} />,
     },
   ];
 
@@ -331,7 +333,9 @@ export function BottomNav({
             onPress={() => onNavigate(tab.id)}
             style={[styles.navButton, selected && styles.navButtonActive]}>
             <View style={styles.navIconFrame}>{tab.icon(selected)}</View>
-            <Text style={[styles.navLabel, selected && styles.navLabelActive]}>{tab.label}</Text>
+            <Text style={[styles.navLabel, selected && styles.navLabelActive, tab.id === 'account' && selected && styles.profileNavLabelActive]}>
+              {tab.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -350,7 +354,7 @@ export function NotificationMenu({ notifications }: { notifications: AppNotifica
         notifications.map((notification) => (
           <View key={notification.id} style={styles.notificationMenuItem}>
             <Text style={styles.notificationTitle}>{notification.title}</Text>
-            <Text style={styles.notificationText}>{notification.text}</Text>
+            {notification.text ? <Text style={styles.notificationText}>{notification.text}</Text> : null}
           </View>
         ))
       ) : (
@@ -378,14 +382,11 @@ function buildNotifications(previousSeenAt: string, closetItemCount: number, sch
     });
   }
 
-  if (closetItemCount > 0) {
+  if (closetItemCount > 0 && todaySchedule.length === 0) {
     notifications.push({
       id: `daily-outfit-${todayKey}`,
-      text:
-        todaySchedule.length > 0
-          ? 'You already planned an outfit for today. Open the calendar if you want to review it before heading out.'
-          : 'You have not planned today\'s outfit yet. Open the calendar to pick a look before the day gets busy.',
-      title: todaySchedule.length > 0 ? 'You planned this outfit for today' : 'Today\'s outfit is not planned',
+      text: 'Open the calendar to pick a look before the day gets busy.',
+      title: 'Today\'s outfit is not planned',
     });
   }
 
@@ -414,7 +415,10 @@ function buildNotifications(previousSeenAt: string, closetItemCount: number, sch
 }
 
 function formatDateKey(date: Date) {
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 function readLastSeenAt(username?: string | null) {
@@ -462,28 +466,26 @@ function PixelHomeIcon({ color }: { color: string }) {
   const blocks = [
     { x: 3, y: 0 },
     { x: 2, y: 1 },
-    { x: 3, y: 1 },
     { x: 4, y: 1 },
     { x: 1, y: 2 },
-    { x: 2, y: 2 },
-    { x: 3, y: 2 },
-    { x: 4, y: 2 },
     { x: 5, y: 2 },
+    { x: 0, y: 3 },
     { x: 1, y: 3 },
-    { x: 2, y: 3 },
-    { accent: true, x: 3, y: 3 },
-    { x: 4, y: 3 },
     { x: 5, y: 3 },
+    { x: 6, y: 3 },
     { x: 1, y: 4 },
     { x: 2, y: 4 },
-    { accent: true, x: 3, y: 4 },
+    { x: 3, y: 4 },
     { x: 4, y: 4 },
     { x: 5, y: 4 },
     { x: 1, y: 5 },
     { x: 2, y: 5 },
-    { x: 3, y: 5 },
     { x: 4, y: 5 },
     { x: 5, y: 5 },
+    { x: 1, y: 6 },
+    { x: 2, y: 6 },
+    { x: 4, y: 6 },
+    { x: 5, y: 6 },
   ];
 
   return (
@@ -493,8 +495,9 @@ function PixelHomeIcon({ color }: { color: string }) {
           key={`${block.x}-${block.y}`}
           style={[
             styles.pixelShirtBlock,
+            styles.pixelHomeGlow,
             {
-              backgroundColor: block.accent ? closetTheme.camel : color,
+              backgroundColor: color,
               left: block.x * 4,
               top: block.y * 4,
             },
@@ -588,6 +591,9 @@ function BellIcon() {
     <View style={styles.bellIcon}>
       <View style={styles.bellCap} />
       <View style={styles.bellDome} />
+      <View style={styles.bellFill} />
+      <View style={styles.bellHighlight} />
+      <View style={styles.bellGoldRim} />
       <View style={styles.bellBase} />
       <View style={styles.bellClapper} />
     </View>
@@ -687,10 +693,6 @@ const styles = StyleSheet.create({
   },
   homeShortcut: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,252,245,0.88)',
-    borderColor: closetTheme.line,
-    borderRadius: 18,
-    borderWidth: 1,
     height: 36,
     justifyContent: 'center',
     width: 36,
@@ -702,10 +704,6 @@ const styles = StyleSheet.create({
   },
   notificationButton: {
     alignItems: 'center',
-    backgroundColor: closetTheme.blueWash,
-    borderColor: closetTheme.line,
-    borderRadius: 18,
-    borderWidth: 1,
     height: 36,
     justifyContent: 'center',
     position: 'relative',
@@ -764,49 +762,70 @@ const styles = StyleSheet.create({
     width: 24,
   },
   bellCap: {
-    borderColor: closetTheme.ink,
-    borderTopLeftRadius: 7,
-    borderTopRightRadius: 7,
-    borderWidth: 3,
-    borderBottomWidth: 0,
-    height: 8,
+    backgroundColor: '#2B1C32',
+    height: 3,
+    left: 8,
     position: 'absolute',
-    top: 2,
-    width: 12,
+    top: 0,
+    width: 9,
   },
   bellDome: {
-    borderColor: closetTheme.ink,
-    borderTopLeftRadius: 11,
-    borderTopRightRadius: 11,
-    borderWidth: 3,
-    borderBottomWidth: 0,
-    height: 16,
+    backgroundColor: '#2B1C32',
+    height: 18,
+    left: 3,
+    position: 'absolute',
+    top: 3,
+    width: 18,
+    shadowColor: closetTheme.cream,
+    shadowOffset: { height: 0, width: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+  },
+  bellFill: {
+    backgroundColor: '#B8863E',
+    height: 15,
+    left: 6,
     position: 'absolute',
     top: 6,
-    width: 20,
+    width: 12,
+  },
+  bellHighlight: {
+    backgroundColor: '#DAB56F',
+    height: 12,
+    left: 6,
+    position: 'absolute',
+    top: 6,
+    width: 3,
+  },
+  bellGoldRim: {
+    backgroundColor: '#C99A50',
+    height: 3,
+    left: 3,
+    position: 'absolute',
+    top: 17,
+    width: 18,
   },
   bellBase: {
-    backgroundColor: closetTheme.ink,
-    borderRadius: 3,
+    backgroundColor: '#2B1C32',
     height: 3,
-    position: 'absolute',
-    top: 19,
-    width: 22,
-  },
-  bellClapper: {
-    borderBottomLeftRadius: 7,
-    borderBottomRightRadius: 7,
-    borderColor: closetTheme.ink,
-    borderWidth: 3,
-    borderTopWidth: 0,
-    height: 7,
+    left: 0,
     position: 'absolute',
     top: 20,
-    width: 11,
+    width: 24,
+  },
+  bellClapper: {
+    backgroundColor: '#A76224',
+    borderBottomColor: '#2B1C32',
+    borderBottomWidth: 3,
+    height: 6,
+    left: 9,
+    position: 'absolute',
+    top: 21,
+    width: 6,
   },
   avatar: {
     alignItems: 'center',
-    backgroundColor: closetTheme.navy,
+    backgroundColor: closetTheme.brown,
     borderRadius: 18,
     height: 36,
     justifyContent: 'center',
@@ -815,7 +834,7 @@ const styles = StyleSheet.create({
   avatarInitial: {
     color: closetTheme.cream,
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: '400',
   },
   profileAvatarInitial: {
     fontWeight: '900',
@@ -1023,6 +1042,9 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: closetTheme.camelDeep,
   },
+  profileNavLabelActive: {
+    color: closetTheme.brown,
+  },
   pixelShirt: {
     height: 30,
     position: 'relative',
@@ -1032,6 +1054,12 @@ const styles = StyleSheet.create({
     height: 4,
     position: 'absolute',
     width: 4,
+  },
+  pixelHomeGlow: {
+    shadowColor: closetTheme.cream,
+    shadowOffset: { height: 0, width: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
   },
   tryOnNavIcon: {
     alignItems: 'center',
